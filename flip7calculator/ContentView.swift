@@ -8,14 +8,23 @@
 import SwiftUI
 
 struct ContentView: View {
+    @State private var viewModel = GameViewModel()
+    @AppStorage("appTheme") private var appTheme: String = "system"
+    
+    private var selectedTheme: AppTheme {
+        AppTheme(rawValue: appTheme) ?? .system
+    }
+    
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        Group {
+            if viewModel.game == nil {
+                GameSetupView(viewModel: $viewModel)
+            } else {
+                GameView(viewModel: viewModel)
+            }
         }
-        .padding()
+        .preferredColorScheme(selectedTheme.colorScheme)
+        .tint(selectedTheme.accentColor)
     }
 }
 
