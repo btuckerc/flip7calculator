@@ -212,13 +212,27 @@ struct GameView: View {
                                     handleNumberTap(playerId: selectedId, number: number)
                                 },
                                 onIncrementModifier: { value in
-                                    viewModel.addModifierToPlayer(selectedId, value: value)
+                                    // If deck has only 1 copy and player already has it, remove on tap
+                                    let deckCount = game.deckProfile.addModifierCounts[value] ?? 0
+                                    let playerCount = player.currentRound.hand.addMods[value] ?? 0
+                                    if deckCount == 1 && playerCount > 0 {
+                                        viewModel.removeModifierFromPlayer(selectedId, value: value)
+                                    } else {
+                                        viewModel.addModifierToPlayer(selectedId, value: value)
+                                    }
                                 },
                                 onDecrementModifier: { value in
                                     viewModel.removeModifierFromPlayer(selectedId, value: value)
                                 },
                                 onIncrementX2: {
-                                    viewModel.addX2ToPlayer(selectedId)
+                                    // If deck has only 1 copy and player already has it, remove on tap
+                                    let deckCount = game.deckProfile.x2Count
+                                    let playerCount = player.currentRound.hand.x2Count
+                                    if deckCount == 1 && playerCount > 0 {
+                                        viewModel.removeX2FromPlayer(selectedId)
+                                    } else {
+                                        viewModel.addX2ToPlayer(selectedId)
+                                    }
                                 },
                                 onDecrementX2: {
                                     viewModel.removeX2FromPlayer(selectedId)
