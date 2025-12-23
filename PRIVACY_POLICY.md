@@ -2,7 +2,7 @@
 
 **Effective date:** 2025-12-23  
 **App name:** Flip 7 Calculator  
-**Developer/Contact:** Tucker Craig (`[ADD SUPPORT EMAIL HERE]`)
+**Developer/Contact:** Tucker Craig (`btuckerc.dev@gmail.com`)
 
 ## Summary
 Flip 7 Calculator is a score-tracking utility. **We do not collect, transmit, sell, or share personal data.** The app works offline.
@@ -37,6 +37,6 @@ If we change this privacy policy, we will update the **Effective date** above an
 
 ## Contact
 If you have questions about this policy, contact:
-- Email: **[ADD SUPPORT EMAIL HERE]**
+- Email: **btuckerc.dev@gmail.com**
 
 
