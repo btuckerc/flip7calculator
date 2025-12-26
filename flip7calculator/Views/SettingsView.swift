@@ -55,6 +55,7 @@ struct SettingsView: View {
     @AppStorage("playerPalette") private var playerPaletteRaw: String = PlayerPalette.vibrant.rawValue
     @AppStorage("hapticFeedback") private var hapticFeedbackEnabled: Bool = true
     @AppStorage("showRoundScorePreview") private var showRoundScorePreview: Bool = true
+    @AppStorage("reduceAnimations") private var reduceAnimations: Bool = false
     
     @State private var showingTargetScoreEditor = false
     @State private var tempTargetScore: Int = 200
@@ -124,6 +125,15 @@ struct SettingsView: View {
                     Text("Display")
                 } footer: {
                     Text("Show potential round score on player tiles")
+                }
+                
+                // Accessibility
+                Section {
+                    Toggle("Reduce Animations", isOn: $reduceAnimations)
+                } header: {
+                    Text("Accessibility")
+                } footer: {
+                    Text("Disable state frame animations. iOS Reduce Motion is also respected.")
                 }
                 
                 // Players
