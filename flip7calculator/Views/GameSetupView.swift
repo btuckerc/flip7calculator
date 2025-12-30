@@ -7,120 +7,58 @@
 
 import SwiftUI
 
-struct PlayerNameRow: Identifiable {
-    let id: UUID
-    var name: String
-    
-    init(id: UUID = UUID(), name: String = "") {
-        self.id = id
-        self.name = name
-    }
-}
-
 struct GameSetupView: View {
     @Binding var viewModel: GameViewModel
     @State private var playerRows: [PlayerNameRow] = [PlayerNameRow(), PlayerNameRow()]
     @State private var targetScore: Int = 200
     @StateObject private var focusCoordinator = FocusCoordinator()
     @State private var hasLoadedRoster = false
+    @State private var hasLoadedTargetScore = false
     @State private var showingTargetScoreEditor = false
+    @State private var showingRules = false
+    @State private var showingSettings = false
+    
+    @AppStorage("defaultTargetScore") private var defaultTargetScore: Int = 200
+    @AppStorage("appTheme") private var appTheme: String = "system"
+    
+    private var selectedTheme: AppTheme {
+        AppTheme(rawValue: appTheme) ?? .system
+    }
     
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Title section
-                Text("Flip 7")
-                    .font(.system(size: 42, weight: .bold, design: .rounded))
-                    .foregroundStyle(.primary)
-                    .padding(.top, 32)
-                    .padding(.bottom, 24)
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        focusCoordinator.clearFocus()
-                    }
-                
-                // Main content - scrollable
+                // Main content - scrollable (includes title)
                 ScrollView {
                     VStack(spacing: 16) {
-                        // Players card
-                        VStack(spacing: 0) {
-                            // Header
-                            HStack {
-                                Text("Players")
-                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                    .foregroundStyle(.secondary)
-                                    .textCase(.uppercase)
-                                
-                                Spacer()
-                                
-                                Text("\(playerRows.count)")
-                                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                                    .foregroundStyle(.secondary)
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 8)
+                        // Hero title section
+                        VStack(spacing: 10) {
+                            Flip7TitleView()
                             
-                            // Player rows
-                            VStack(spacing: 0) {
-                                ForEach($playerRows) { $row in
-                                    let index = indexOfRow(row.id)
-                                    
-                                    PlayerInputRow(
-                                        index: index,
-                                        row: $row,
-                                        isLast: index == playerRows.count - 1,
-                                        canDelete: playerRows.count > 2,
-                                        focusCoordinator: focusCoordinator,
-                                        onDelete: { removePlayer(rowId: row.id) }
-                                    )
-                                    
-                                    if index < playerRows.count - 1 {
-                                        Divider()
-                                            .padding(.leading, 52)
-                                    }
+                            // How to Play button
+                            Button(action: { showingRules = true }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "questionmark.circle")
+                                        .font(.system(size: 14, weight: .medium))
+                                    Text("How to Play")
+                                        .font(.system(size: 14, weight: .medium, design: .rounded))
                                 }
-                                .animation(.easeInOut(duration: 0.25), value: playerRows.count)
-                                
-                                // Add player row
-                                if playerRows.count < 8 {
-                                    Divider()
-                                        .padding(.leading, 52)
-                                    
-                                    Button(action: addPlayer) {
-                                        HStack(spacing: 12) {
-                                            ZStack {
-                                                Circle()
-                                                    .fill(Color.blue.opacity(0.1))
-                                                    .frame(width: 32, height: 32)
-                                                
-                                                Image(systemName: "plus")
-                                                    .font(.system(size: 14, weight: .semibold))
-                                                    .foregroundStyle(.blue)
-                                            }
-                                            
-                                            Text("Add Player")
-                                                .font(.system(size: 17, weight: .regular))
-                                                .foregroundStyle(.blue)
-                                            
-                                            Spacer()
-                                        }
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 10)
-                                        .contentShape(Rectangle())
-                                    }
-                                    .buttonStyle(.plain)
-                                }
+                                .foregroundStyle(.blue)
                             }
-                            .background(Color(.systemBackground))
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
                         }
-                        .onChange(of: playerRows.map { $0.id }) { _, newIds in
-                            focusCoordinator.setOrder(newIds)
+                        .padding(.top, 8)
+                        .frame(maxWidth: .infinity)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            focusCoordinator.clearFocus()
                         }
-                        .onAppear {
-                            focusCoordinator.setOrder(playerRows.map { $0.id })
-                        }
+                        
+                        // Players card - using shared component
+                        PlayersEditorCard(
+                            playerRows: $playerRows,
+                            focusCoordinator: focusCoordinator,
+                            onPersist: persistRosterOrder
+                        )
                         
                         // Reset link
                         if playerRows.count > 2 || playerRows.contains(where: { !$0.name.isEmpty }) {
@@ -180,43 +118,15 @@ struct GameSetupView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                         }
                         
-                        // Deck card
-                        let deckCardCount = PersistedDeckProfile.load().deckProfile.totalCardCount
-                        NavigationLink(destination: DeckManagementView(viewModel: viewModel)) {
-                            VStack(spacing: 0) {
-                                HStack {
-                                    Text("Deck")
-                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                        .foregroundStyle(.secondary)
-                                        .textCase(.uppercase)
-                                    
-                                    Spacer()
-                                    
-                                    Text("\(deckCardCount) cards")
-                                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                                        .foregroundStyle(.secondary)
-                                }
-                                .padding(.horizontal, 16)
-                                .padding(.bottom, 8)
-                                
-                                HStack {
-                                    Text("Customize deck composition")
-                                        .font(.system(size: 17, weight: .regular, design: .rounded))
-                                        .foregroundStyle(.primary)
-                                    
-                                    Spacer()
-                                    
-                                    Image(systemName: "chevron.right")
-                                        .font(.system(size: 14, weight: .semibold))
-                                        .foregroundStyle(.tertiary)
-                                }
-                                .padding(.horizontal, 20)
-                                .padding(.vertical, 16)
-                                .background(Color(.systemBackground))
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        // Reset to 200 link
+                        if targetScore != 200 {
+                            Button(action: { targetScore = 200 }) {
+                                Text("Reset to 200")
+                                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                                    .foregroundStyle(.blue)
                             }
+                            .padding(.top, 4)
                         }
-                        .buttonStyle(.plain)
                     }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 100) // Space for start button
@@ -255,15 +165,53 @@ struct GameSetupView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .background(Color(.systemGroupedBackground))
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: { showingSettings = true }) {
+                        Image(systemName: "gearshape")
+                    }
+                }
+            }
             .sheet(isPresented: $showingTargetScoreEditor) {
                 TargetScoreEditorSheet(targetScore: $targetScore) { newScore in
                     targetScore = newScore
                 }
+                .preferredColorScheme(selectedTheme.colorScheme)
+                .tint(selectedTheme.accentColor)
+                .id(appTheme)
+            }
+            .sheet(isPresented: $showingRules) {
+                RulesView()
+                    .preferredColorScheme(selectedTheme.colorScheme)
+                    .tint(selectedTheme.accentColor)
+                    .id(appTheme)
+            }
+            .sheet(isPresented: $showingSettings) {
+                SettingsView(viewModel: viewModel)
+                    .preferredColorScheme(selectedTheme.colorScheme)
+                    .tint(selectedTheme.accentColor)
+                    .id(appTheme)
             }
             .onAppear {
                 if !hasLoadedRoster {
                     loadPersistedRoster()
                     hasLoadedRoster = true
+                }
+                if !hasLoadedTargetScore {
+                    targetScore = defaultTargetScore
+                    hasLoadedTargetScore = true
+                }
+            }
+            .onChange(of: targetScore) { _, newValue in
+                defaultTargetScore = newValue
+            }
+            .onChange(of: showingSettings) { _, isShowing in
+                // Sync state when Settings sheet dismisses
+                if !isShowing {
+                    // Reload players from persisted roster
+                    loadPersistedRoster()
+                    // Sync target score from AppStorage
+                    targetScore = defaultTargetScore
                 }
             }
         }
@@ -273,54 +221,15 @@ struct GameSetupView: View {
         if let roster = PersistedRoster.load(), !roster.names.isEmpty {
             let names = Array(roster.names.prefix(8))
             playerRows = names.map { PlayerNameRow(name: $0) }
-            focusCoordinator.setOrder(playerRows.map { $0.id })
+        } else {
+            // No saved roster or cleared - reset to default
+            playerRows = [PlayerNameRow(), PlayerNameRow()]
         }
+        focusCoordinator.setOrder(playerRows.map { $0.id })
     }
     
     private var canStartGame: Bool {
         return playerRows.count >= 2 && playerRows.count <= 8
-    }
-    
-    private func indexOfRow(_ id: UUID) -> Int {
-        playerRows.firstIndex(where: { $0.id == id }) ?? 0
-    }
-    
-    private func addPlayer() {
-        guard playerRows.count < 8 else { return }
-        HapticFeedback.light()
-        let newRow = PlayerNameRow()
-        playerRows.append(newRow)
-        focusCoordinator.setOrder(playerRows.map { $0.id })
-        focusCoordinator.clearFocus()
-    }
-    
-    private func removePlayer(rowId: UUID) {
-        guard playerRows.count > 2 else { return }
-        HapticFeedback.light()
-        
-        guard let indexToRemove = playerRows.firstIndex(where: { $0.id == rowId }) else { return }
-        
-        let newFocusId: UUID?
-        if focusCoordinator.focusedId == rowId {
-            if indexToRemove > 0 {
-                newFocusId = playerRows[indexToRemove - 1].id
-            } else if playerRows.count > 1 {
-                newFocusId = playerRows[1].id
-            } else {
-                newFocusId = nil
-            }
-        } else {
-            newFocusId = focusCoordinator.focusedId
-        }
-        
-        playerRows.remove(at: indexToRemove)
-        focusCoordinator.setOrder(playerRows.map { $0.id })
-        
-        if let newFocusId = newFocusId {
-            DispatchQueue.main.async {
-                focusCoordinator.focus(newFocusId)
-            }
-        }
     }
     
     private func clearPlayers() {
@@ -342,54 +251,10 @@ struct GameSetupView: View {
         PersistedRoster(names: players).save()
         viewModel.startNewGame(players: players, targetScore: targetScore)
     }
-}
-
-// MARK: - Player Input Row
-
-struct PlayerInputRow: View {
-    let index: Int
-    @Binding var row: PlayerNameRow
-    let isLast: Bool
-    let canDelete: Bool
-    let focusCoordinator: FocusCoordinator
-    let onDelete: () -> Void
     
-    var body: some View {
-        HStack(spacing: 12) {
-            // Player number badge
-            ZStack {
-                Circle()
-                    .fill(Color(.systemGray5))
-                    .frame(width: 32, height: 32)
-                
-                Text("\(index + 1)")
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.secondary)
-            }
-            
-            // Text field
-            FocusableTextFieldRepresentable(
-                id: row.id,
-                placeholder: "Player \(index + 1)",
-                text: $row.name,
-                isLast: isLast,
-                coordinator: focusCoordinator
-            )
-            .frame(height: 44)
-            
-            // Delete button (only when > 2 players)
-            if canDelete {
-                Button(action: onDelete) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 20))
-                        .foregroundStyle(Color(.systemGray3))
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .contentShape(Rectangle())
+    private func persistRosterOrder() {
+        let names = playerRows.map { $0.name.trimmingCharacters(in: .whitespaces) }
+        PersistedRoster(names: names).save()
+        focusCoordinator.setOrder(playerRows.map { $0.id })
     }
 }
-

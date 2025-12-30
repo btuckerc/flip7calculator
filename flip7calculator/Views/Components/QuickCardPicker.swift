@@ -22,6 +22,20 @@ struct QuickCardPicker: View {
     let isModifierEnabled: (Int) -> Bool
     let isX2Enabled: Bool
     
+    // Manual score
+    let isManualScoreEnabled: Bool
+    let onSaveManualScore: (Int) -> Void
+    let onClearManualScore: () -> Void  // Clears only manual override (keeps cards/modifiers)
+    let onClearRound: () -> Void  // Clears entire round (cards + modifiers + manual)
+    
+    // Deck configuration
+    let hasOnlyOneOfEachModifier: Bool  // True when deck has ≤1 of each modifier and ≤1 x2
+    
+    /// Auto score computed from cards (ignoring manual override)
+    private var autoScore: Int {
+        ScoreEngine.calculateAutoScore(hand: player.currentRound.hand, state: player.currentRound.state)
+    }
+    
     var body: some View {
         VStack(spacing: 8) {
             // Bust banner (if applicable)
@@ -42,7 +56,13 @@ struct QuickCardPicker: View {
                 NumberChipGrid(
                     selectedNumbers: player.currentRound.hand.selectedNumbers,
                     onTap: onTapNumber,
-                    isEnabled: isNumberEnabled
+                    isEnabled: isNumberEnabled,
+                    manualScoreOverride: player.currentRound.manualScoreOverride,
+                    autoScore: autoScore,
+                    isManualScoreEnabled: isManualScoreEnabled,
+                    onSaveManualScore: onSaveManualScore,
+                    onClearManualScore: onClearManualScore,
+                    onClearRound: onClearRound
                 )
             }
             
@@ -55,9 +75,12 @@ struct QuickCardPicker: View {
                     
                     Spacer()
                     
-                    Text("Hold to remove")
-                        .font(.system(size: 10, weight: .medium, design: .rounded))
-                        .foregroundStyle(.tertiary)
+                    // Only show "Hold to remove" hint when deck has multiple of at least one modifier
+                    if !hasOnlyOneOfEachModifier {
+                        Text("Hold to remove")
+                            .font(.system(size: 10, weight: .medium, design: .rounded))
+                            .foregroundStyle(.tertiary)
+                    }
                 }
                 
                 ModifierGrid(
@@ -68,7 +91,8 @@ struct QuickCardPicker: View {
                     onTapX2: onIncrementX2,
                     onLongPressX2: onDecrementX2,
                     isModifierEnabled: isModifierEnabled,
-                    isX2Enabled: isX2Enabled
+                    isX2Enabled: isX2Enabled,
+                    showCountBadges: !hasOnlyOneOfEachModifier
                 )
             }
         }

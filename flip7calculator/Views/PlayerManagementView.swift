@@ -13,10 +13,10 @@ struct PlayerManagementView: View {
     @State private var playerRows: [PlayerNameRow] = []
     @StateObject private var focusCoordinator = FocusCoordinator()
     
-    @AppStorage("playerPalette") private var playerPaletteRaw: String = PlayerPalette.vibrant.rawValue
+    @AppStorage("playerPalette") private var playerPaletteRaw: String = PlayerPalette.classic.rawValue
     
     private var selectedPalette: PlayerPalette {
-        PlayerPalette(rawValue: playerPaletteRaw) ?? .vibrant
+        PlayerPalette(rawValue: playerPaletteRaw) ?? PlayerPalette.fromLegacyRawValue(playerPaletteRaw)
     }
     
     private var playerColors: [Color] {
@@ -28,91 +28,63 @@ struct PlayerManagementView: View {
     }
     
     var body: some View {
-        List {
-            // Preview section
-            if !playerRows.isEmpty {
-                Section {
-                    PlayerPreviewGrid(
-                        playerRows: playerRows,
-                        playerColors: playerColors
-                    )
-                    .padding(.vertical, 8)
-                } header: {
-                    Text("Preview")
-                } footer: {
-                    Text("This is how players will appear in the game")
-                }
-            }
-            
-            // Edit section
-            Section {
-                ForEach($playerRows) { $row in
-                    let index = indexOfRow(row.id)
-                    HStack {
-                        TextField("Player \(index + 1)", text: $row.name)
-                            .textFieldStyle(.plain)
-                            .font(.body)
-                            .onChange(of: row.name) { oldValue, newValue in
-                                // Enforce character limit (same as FocusableTextField)
-                                if newValue.count > 20 {
-                                    row.name = String(newValue.prefix(20))
-                                }
-                                saveChanges()
-                            }
+        ScrollView {
+            VStack(spacing: 16) {
+                // Preview section - card style matching main menu
+                if !playerRows.isEmpty {
+                    VStack(spacing: 0) {
+                        // Header
+                        HStack {
+                            Text("Preview")
+                                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                .foregroundStyle(.secondary)
+                                .textCase(.uppercase)
+                            
+                            Spacer()
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 8)
+                        
+                        // Preview grid
+                        PlayerPreviewGrid(
+                            playerRows: playerRows,
+                            playerColors: playerColors
+                        )
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 12)
+                        .background(Color(.systemBackground))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
-                }
-                .onMove { source, destination in
-                    playerRows.move(fromOffsets: source, toOffset: destination)
-                    focusCoordinator.setOrder(playerRows.map { $0.id })
-                    saveChanges()
-                }
-                .onDelete { indexSet in
-                    guard playerRows.count > 2 else { return }
-                    playerRows.remove(atOffsets: indexSet)
-                    focusCoordinator.setOrder(playerRows.map { $0.id })
-                    saveChanges()
                 }
                 
-                if playerRows.count < 8 {
-                    Button(action: addPlayer) {
-                        HStack {
-                            Image(systemName: "plus.circle.fill")
-                                .foregroundStyle(.blue)
-                            Text("Add Player")
-                                .foregroundStyle(.blue)
-                        }
-                    }
-                }
-            } header: {
-                Text("Players")
-            } footer: {
-                Text("Tap and hold to reorder. Minimum 2 players, maximum 8.")
+                // Players editor card - using shared component
+                PlayersEditorCard(
+                    playerRows: $playerRows,
+                    focusCoordinator: focusCoordinator,
+                    onPersist: saveChanges
+                )
             }
-            
-            Section {
-                Button(role: .destructive, action: clearRoster) {
-                    HStack {
-                        Spacer()
-                        Text("Clear Saved Roster")
-                        Spacer()
-                    }
-                }
-            }
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .padding(.bottom, 40)
         }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            focusCoordinator.clearFocus()
+        }
+        .background(Color(.systemGroupedBackground))
         .navigationTitle("Manage Players")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                EditButton()
+                Button("Done") {
+                    dismiss()
+                }
             }
         }
         .onAppear {
             loadRoster()
         }
-    }
-    
-    private func indexOfRow(_ id: UUID) -> Int {
-        playerRows.firstIndex(where: { $0.id == id }) ?? 0
     }
     
     private func loadRoster() {
@@ -129,23 +101,6 @@ struct PlayerManagementView: View {
             playerRows = [PlayerNameRow(), PlayerNameRow()]
         }
         focusCoordinator.setOrder(playerRows.map { $0.id })
-    }
-    
-    private func addPlayer() {
-        guard playerRows.count < 8 else { return }
-        HapticFeedback.light()
-        let newRow = PlayerNameRow()
-        playerRows.append(newRow)
-        focusCoordinator.setOrder(playerRows.map { $0.id })
-        saveChanges()
-    }
-    
-    private func clearRoster() {
-        HapticFeedback.light()
-        playerRows = [PlayerNameRow(), PlayerNameRow()]
-        focusCoordinator.setOrder(playerRows.map { $0.id })
-        PersistedRoster.clear()
-        // If there's an active game, we can't clear it - just clear the roster
     }
     
     private func saveChanges() {
@@ -220,4 +175,3 @@ struct PlayerPreviewTile: View {
         )
     }
 }
-

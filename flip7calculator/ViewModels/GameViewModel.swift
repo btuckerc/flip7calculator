@@ -43,6 +43,25 @@ class GameViewModel {
         saveGame()
     }
     
+    /// Restarts the game with the same players, target score, and deck profile
+    func restartGameKeepingSettings() {
+        guard let currentGame = game else { return }
+        
+        // Preserve current settings
+        let playerNames = currentGame.players.map { $0.name }
+        let targetScore = currentGame.targetScore
+        let deckProfile = currentGame.deckProfile
+        
+        // Create fresh players with the same names
+        let freshPlayers = playerNames.map { Player(name: $0) }
+        
+        // Start new game with preserved settings
+        game = Game(players: freshPlayers, targetScore: targetScore, deckProfile: deckProfile)
+        undoStack.removeAll()
+        redoStack.removeAll()
+        saveGame()
+    }
+    
     // MARK: - Round Management
     
     func startNewRound() {
@@ -180,11 +199,8 @@ class GameViewModel {
         
         saveStateForUndo()
         currentGame.players[playerIndex].currentRound.hand.removeNumber(number)
-        
-        // If player was busted and we remove the duplicate, reset to inRound
-        if currentGame.players[playerIndex].currentRound.state == .busted {
-            currentGame.players[playerIndex].currentRound.state = .inRound
-        }
+        // Note: Busted state is sticky - removing cards does not auto-reset to inRound.
+        // User must explicitly un-bust to continue editing.
         
         game = currentGame
     }
@@ -275,6 +291,71 @@ class GameViewModel {
         saveStateForUndo()
         currentGame.players[playerIndex].clearRound()
         game = currentGame
+    }
+    
+    /// Clears the player's current round hand and manual override, but preserves state
+    /// This is used by the "Clear" button in the calculator
+    func clearPlayerRoundEntry(_ playerId: UUID) {
+        guard var currentGame = game,
+              let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
+            return
+        }
+        
+        let hand = currentGame.players[playerIndex].currentRound.hand
+        let hasOverride = currentGame.players[playerIndex].currentRound.manualScoreOverride != nil
+        
+        // Only save undo state if there's something to clear
+        guard !hand.selectedNumbers.isEmpty || !hand.addMods.isEmpty || hand.x2Count > 0 || hasOverride else {
+            return
+        }
+        
+        saveStateForUndo()
+        
+        // Clear hand (numbers, modifiers, x2) but preserve state
+        currentGame.players[playerIndex].currentRound.hand = RoundHand()
+        currentGame.players[playerIndex].currentRound.manualScoreOverride = nil
+        
+        game = currentGame
+    }
+    
+    // MARK: - Manual Score Override
+    
+    /// Sets a manual score override for the player's current round
+    func setManualScoreOverride(_ playerId: UUID, score: Int) {
+        guard var currentGame = game,
+              let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
+            return
+        }
+        
+        saveStateForUndo()
+        currentGame.players[playerIndex].currentRound.manualScoreOverride = max(0, score)
+        game = currentGame
+    }
+    
+    /// Clears the manual score override for the player's current round
+    func clearManualScoreOverride(_ playerId: UUID) {
+        guard var currentGame = game,
+              let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
+            return
+        }
+        
+        // Only save undo state if there's actually an override to clear
+        guard currentGame.players[playerIndex].currentRound.manualScoreOverride != nil else {
+            return
+        }
+        
+        saveStateForUndo()
+        currentGame.players[playerIndex].currentRound.manualScoreOverride = nil
+        game = currentGame
+    }
+    
+    /// Checks if a player has a manual score override set
+    func hasManualScoreOverride(_ playerId: UUID) -> Bool {
+        guard let currentGame = game,
+              let player = currentGame.players.first(where: { $0.id == playerId }) else {
+            return false
+        }
+        return player.currentRound.manualScoreOverride != nil
     }
     
     // MARK: - Deck Profile Management

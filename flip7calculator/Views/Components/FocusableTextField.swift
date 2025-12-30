@@ -182,13 +182,20 @@ struct FocusableTextFieldRepresentable: UIViewRepresentable {
         
         textField.addTarget(context.coordinator, action: #selector(Coordinator.textFieldDidChange(_:)), for: .editingChanged)
         
-        // Register with coordinator
+        // Update coordinator with current id and text binding
+        context.coordinator.update(id: id, text: $text)
+        
+        // Register with focus coordinator
         coordinator.register(id: id, textField: textField)
         
         return textField
     }
     
     func updateUIView(_ uiView: UITextField, context: Context) {
+        // CRITICAL: Update coordinator with current id and text binding
+        // This ensures the coordinator always points to the correct row after reordering
+        context.coordinator.update(id: id, text: $text)
+        
         if uiView.text != text {
             uiView.text = text
         }
@@ -200,18 +207,22 @@ struct FocusableTextFieldRepresentable: UIViewRepresentable {
     }
     
     func makeCoordinator() -> Coordinator {
-        Coordinator(id: id, text: $text, focusCoordinator: coordinator)
+        Coordinator(text: $text, focusCoordinator: coordinator)
     }
     
     class Coordinator: NSObject, UITextFieldDelegate {
-        let id: UUID
-        @Binding var text: String
+        var id: UUID?
+        var text: Binding<String>
         let focusCoordinator: FocusCoordinator
         
-        init(id: UUID, text: Binding<String>, focusCoordinator: FocusCoordinator) {
-            self.id = id
-            _text = text
+        init(text: Binding<String>, focusCoordinator: FocusCoordinator) {
+            self.text = text
             self.focusCoordinator = focusCoordinator
+        }
+        
+        func update(id: UUID, text: Binding<String>) {
+            self.id = id
+            self.text = text
         }
         
         static let maxNameLength = 20
@@ -223,15 +234,19 @@ struct FocusableTextFieldRepresentable: UIViewRepresentable {
                 newText = String(newText.prefix(Self.maxNameLength))
                 textField.text = newText
             }
-            text = newText
+            text.wrappedValue = newText
         }
         
         func textFieldDidBeginEditing(_ textField: UITextField) {
-            focusCoordinator.focusedId = id
+            if let id = id {
+                focusCoordinator.focusedId = id
+            }
         }
         
         func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-            focusCoordinator.focusNext(after: id)
+            if let id = id {
+                focusCoordinator.focusNext(after: id)
+            }
             return false
         }
     }

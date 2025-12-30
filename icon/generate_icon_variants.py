@@ -25,11 +25,11 @@ TINTED_OUT = os.path.join(OUTPUT_DIR, "AppIcon-1024-tinted.png")
 TARGET_SIZE = 1024
 
 # Crop tuning (for the provided Gemini artwork)
-# - sat threshold isolates the colored gradient tile from the mostly-white outer canvas
-# - inset trims off the faint halo/shadow around the tile so it feels less "bordered"
-CROP_SAT_THRESH = 0.035
+# - Higher sat threshold (0.07) to find actual colored gradient, not off-white background
+# - Minimal inset since saturation-based bounds are already tight to gradient
+CROP_SAT_THRESH = 0.07
 CROP_LUM_THRESH = 220.0
-CROP_INSET_PERCENT = 6.0
+CROP_INSET_PERCENT = 2.0  # Small inset to clean up any edge artifacts
 CROP_DOWNSCALE_MAX = 700
 
 def create_dark_gradient(size):

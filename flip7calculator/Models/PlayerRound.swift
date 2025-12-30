@@ -11,16 +11,20 @@ import Foundation
 struct PlayerRound: Codable, Equatable {
     var state: PlayerRoundState
     var hand: RoundHand
+    /// Optional manual score override; when set, this value is used instead of the computed hand score
+    var manualScoreOverride: Int?
     
-    init(state: PlayerRoundState = .inRound, hand: RoundHand = RoundHand()) {
+    init(state: PlayerRoundState = .inRound, hand: RoundHand = RoundHand(), manualScoreOverride: Int? = nil) {
         self.state = state
         self.hand = hand
+        self.manualScoreOverride = manualScoreOverride
     }
     
     /// Resets the round to initial state
     mutating func reset() {
         state = .inRound
         hand = RoundHand()
+        manualScoreOverride = nil
     }
 }
 

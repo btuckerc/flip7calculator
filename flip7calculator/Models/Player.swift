@@ -23,7 +23,7 @@ struct Player: Identifiable, Codable, Equatable {
     
     /// Banks the current round's points and adds to total score
     mutating func bankRound() {
-        let roundPoints = ScoreEngine.calculateRoundScore(hand: currentRound.hand, state: currentRound.state)
+        let roundPoints = ScoreEngine.calculateRoundScore(round: currentRound)
         totalScore += roundPoints
         currentRound.reset()
     }

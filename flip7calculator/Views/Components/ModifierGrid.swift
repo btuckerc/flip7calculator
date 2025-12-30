@@ -16,6 +16,7 @@ struct ModifierGrid: View {
     let onLongPressX2: () -> Void
     let isModifierEnabled: (Int) -> Bool
     let isX2Enabled: Bool
+    let showCountBadges: Bool  // When false, don't show count badges (for singleton decks)
     
     // 6 columns - all modifiers in a single row
     private let columns = [
@@ -34,19 +35,21 @@ struct ModifierGrid: View {
                 ModifierTile(
                     label: "+\(value)",
                     count: addMods[value] ?? 0,
-                    color: .green,
+                    color: .orange,  // Changed from green to orange to match physical game
                     isEnabled: isModifierEnabled(value),
+                    showCountBadge: showCountBadges,
                     onTap: { onTapModifier(value) },
                     onLongPress: { onLongPressModifier(value) }
                 )
             }
             
-            // x2 multiplier
+            // x2 multiplier (stays purple, distinct from additive modifiers)
             ModifierTile(
                 label: "×2",
                 count: x2Count,
                 color: .purple,
                 isEnabled: isX2Enabled,
+                showCountBadge: showCountBadges,
                 onTap: onTapX2,
                 onLongPress: onLongPressX2
             )
@@ -59,6 +62,7 @@ struct ModifierTile: View {
     let count: Int
     let color: Color
     let isEnabled: Bool
+    let showCountBadge: Bool  // When false, don't show count badge even if count > 0
     let onTap: () -> Void
     let onLongPress: () -> Void
     
@@ -74,7 +78,8 @@ struct ModifierTile: View {
                 .font(.system(size: 14, weight: .bold, design: .rounded))
                 .foregroundStyle(count > 0 ? .white : (isEnabled ? .primary : .secondary))
             
-            if count > 0 {
+            // Only show count badge when showCountBadge is true and count > 0
+            if count > 0 && showCountBadge {
                 Text("\(count)")
                     .font(.system(size: 10, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)

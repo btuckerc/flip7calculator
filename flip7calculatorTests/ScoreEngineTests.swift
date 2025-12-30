@@ -248,6 +248,88 @@ struct ScoreEngineTests {
         hand.addModifier(10)
         #expect(hand.modifierSum == 18) // 2*2 + 4 + 10 = 18
     }
+    
+    // MARK: - Manual Score Override Tests
+    
+    @Test func testManualScoreOverrideTakesPrecedence() {
+        let hand = RoundHand(selectedNumbers: [1, 2, 3, 4, 5])
+        var round = PlayerRound(state: .banked, hand: hand, manualScoreOverride: 100)
+        let score = ScoreEngine.calculateRoundScore(round: round)
+        #expect(score == 100) // Manual override takes precedence over computed 15
+    }
+    
+    @Test func testManualScoreOverrideWithZero() {
+        let hand = RoundHand(selectedNumbers: [1, 2, 3])
+        var round = PlayerRound(state: .banked, hand: hand, manualScoreOverride: 0)
+        let score = ScoreEngine.calculateRoundScore(round: round)
+        #expect(score == 0) // Manual override of 0 is valid
+    }
+    
+    @Test func testBustedAlwaysScoresZeroEvenWithManualOverride() {
+        let hand = RoundHand(selectedNumbers: [1, 2, 3, 4, 5])
+        var round = PlayerRound(state: .busted, hand: hand, manualScoreOverride: 100)
+        let score = ScoreEngine.calculateRoundScore(round: round)
+        #expect(score == 0) // Busted always scores 0, even with manual override
+    }
+    
+    @Test func testNoOverrideUsesComputedScore() {
+        let hand = RoundHand(selectedNumbers: [5, 6, 7])
+        let round = PlayerRound(state: .banked, hand: hand, manualScoreOverride: nil)
+        let score = ScoreEngine.calculateRoundScore(round: round)
+        #expect(score == 18) // Without override, uses computed score
+    }
+    
+    @Test func testNegativeManualScoreClampedToZero() {
+        let hand = RoundHand(selectedNumbers: [1, 2])
+        var round = PlayerRound(state: .banked, hand: hand, manualScoreOverride: -50)
+        let score = ScoreEngine.calculateRoundScore(round: round)
+        #expect(score == 0) // Negative scores are clamped to 0
+    }
+    
+    @Test func testAutoScoreIgnoresManualOverride() {
+        var hand = RoundHand(selectedNumbers: [3, 4, 5])
+        hand.addModifier(10)
+        let autoScore = ScoreEngine.calculateAutoScore(hand: hand, state: .banked)
+        #expect(autoScore == 22) // 3+4+5+10 = 22, regardless of any override
+    }
+    
+    @Test func testManualOverrideWithModifiers() {
+        var hand = RoundHand(selectedNumbers: [1, 2])
+        hand.addModifier(10)
+        hand.addX2()
+        var round = PlayerRound(state: .banked, hand: hand, manualScoreOverride: 50)
+        let score = ScoreEngine.calculateRoundScore(round: round)
+        #expect(score == 50) // Manual override ignores all card calculations
+    }
+    
+    @Test func testManualOverrideWithFlip7() {
+        let hand = RoundHand(selectedNumbers: [1, 2, 3, 4, 5, 6, 7])
+        var round = PlayerRound(state: .banked, hand: hand, manualScoreOverride: 25)
+        let score = ScoreEngine.calculateRoundScore(round: round)
+        #expect(score == 25) // Manual override ignores Flip 7 bonus
+    }
+    
+    @Test func testPlayerRoundResetClearsManualOverride() {
+        var round = PlayerRound(state: .banked, hand: RoundHand(selectedNumbers: [1, 2, 3]), manualScoreOverride: 100)
+        round.reset()
+        #expect(round.manualScoreOverride == nil)
+        #expect(round.state == .inRound)
+        #expect(round.hand.selectedNumbers.isEmpty)
+    }
+    
+    @Test func testFrozenStateWithManualOverride() {
+        let hand = RoundHand(selectedNumbers: [5, 6])
+        var round = PlayerRound(state: .frozen, hand: hand, manualScoreOverride: 75)
+        let score = ScoreEngine.calculateRoundScore(round: round)
+        #expect(score == 75) // Frozen state respects manual override
+    }
+    
+    @Test func testInRoundStateWithManualOverride() {
+        let hand = RoundHand(selectedNumbers: [5, 6])
+        var round = PlayerRound(state: .inRound, hand: hand, manualScoreOverride: 42)
+        let score = ScoreEngine.calculateRoundScore(round: round)
+        #expect(score == 42) // In-round state respects manual override
+    }
 }
 
 
