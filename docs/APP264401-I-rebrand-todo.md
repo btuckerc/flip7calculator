@@ -32,7 +32,7 @@ This is the working checklist for the approved `1.3 (9)` rebrand. It records com
 
 - [x] Confirm the new title/splash implementation compiles in Debug
 - [x] Run `git diff --check`
-- [x] Run the complete unit test target: 133 passed, 0 failed, 0 skipped
+- [x] Run the complete test scheme: 136 passed, 0 failed, 0 skipped
 - [x] Run the complete UI test target: 3 methods / 4 executions passed, 0 failed, 0 skipped
 - [x] Run a clean Release simulator build
 - [x] Smoke-test a clean simulator install and launch
@@ -54,49 +54,47 @@ This is the working checklist for the approved `1.3 (9)` rebrand. It records com
 - [x] Rewrite the privacy policy source
 - [x] Update the private App Review notes
 - [x] Update the transparent Apple/claimant status-email draft
-- [ ] Publish the privacy policy at `https://btuckerc.dev/privacy/flipping-seven-calculator` (the route returns 200 but rendered empty on 2026-07-28)
-- [ ] Verify privacy and support URLs return correct production content
-- [ ] Capture new iPhone screenshots
-- [ ] Capture new iPad screenshots
+- [x] Publish the privacy policy at `https://btuckerc.dev/privacy/flipping-seven-calculator`
+- [x] Verify privacy and support URLs return correct production content
+- [x] Capture and upload seven 6.9-inch iPhone screenshots
+- [x] Capture and upload five 13-inch iPad screenshots
 - [x] Capture stable iPhone and iPad simulator images for visual QA; these are not the production screenshot set
 - [x] Confirm the project currently ships no localized metadata or `.lproj` resources that could retain stale branding
-- [ ] Update name, subtitle, keywords, description, promotional text, and What's New
-- [ ] Set primary category to `Utilities` and secondary to `Games → Card`
-- [ ] Complete content-rights and age-rating questionnaires
+- [x] Update name, subtitle, keywords, description, promotional text, and What's New
+- [x] Set primary category to `Utilities` and secondary to `Games → Card`
+- [x] Verify the content-rights declaration and inherited `4+` age rating
 - [x] Confirm no exact disputed mark appears in proposed public metadata or shipped UI copy
 
 ## Submission and Correspondence
 
-- [ ] Archive and upload `1.3 (9)`
-- [ ] Confirm App Store Connect finishes processing the build
-- [ ] Attach final build and screenshots to the new version
-- [ ] Submit the update for review
+- [x] Archive and upload `1.3 (9)`
+- [x] Confirm App Store Connect finishes processing the build
+- [x] Attach final build and screenshots to the new version
+- [x] Submit the update for review on 2026-07-29
 - [ ] Send the status email with `APP264401-I` in the subject
 - [ ] Copy Molly Wohlin/USAopoly on correspondence to Apple
 - [x] Ensure the status-email draft does not state or imply that USAopoly approved the new name
-- [ ] Preserve dated screenshots/PDFs of the submitted listing and correspondence
+- [x] Preserve the submitted metadata and dated screenshot sources in the repository
+- [ ] Preserve the sent correspondence in the case record
 - [ ] Record any Apple or claimant response verbatim before deciding on another name or metadata change
 
-## Remaining External Blockers
+## Remaining External Operations
 
-The repository cannot complete these without access to external systems or hardware:
+- Wait for Apple to review version `1.3`; it is configured to release automatically after approval.
+- Complete the physical-device icon, VoiceOver, reduced-motion, and layout checks.
+- Send the status email in the existing Apple Legal thread with `APP264401-I` in the subject and Molly Wohlin copied.
+- Preserve any Apple or claimant response before changing the name or listing again.
+- Replace the temporary Admin API key with a least-privilege App Manager key after release operations are complete.
 
-- Publishing the privacy page
-- App Store Connect metadata and localization updates
-- Production screenshot upload
-- Signed archive/upload if signing credentials are unavailable locally
-- Physical-device icon, VoiceOver, and layout verification
-- Sending legal correspondence
-
-## Local Release Credential Audit — 2026-07-28
+## Local Release Credential Audit — 2026-07-29
 
 - Bundle ID: `com.tcraig.flip7calculator.ios`
 - Confirmed Apple team: `7F3KV9WTNW`
 - Project-level and target-level development team settings are aligned
-- One valid Apple Development identity is installed for Briggs Craig and team `7F3KV9WTNW`
-- No Apple Distribution identity was found
-- No local provisioning profiles were found in the audited home-directory locations
-- No App Store Connect `.p8` API key was found in the audited home-directory locations
-- No `asc` upload CLI is installed
+- Apple-managed distribution signing successfully exported the release IPA for team `7F3KV9WTNW`
+- The exported app is signed by `Apple Distribution: Briggs Craig (7F3KV9WTNW)`
+- An App Store Connect API key is stored outside the repository with owner-only filesystem permissions
+- Build `9` was uploaded, processed as `VALID`, attached to version `1.3`, and submitted
+- The release key currently has the broader Admin role and should be rotated to App Manager after release operations
 
-Do not invent credentials, commit secrets, or force automatic provisioning from an unattended build. A signed archive/upload requires the account holder to install or authorize the missing distribution credentials and App Store Connect access.
+Do not commit the private key, key ID, issuer ID, JWTs, profiles, or other release credentials. Keep release secrets outside the repository and use the narrowest App Store Connect role that supports the required operation.
