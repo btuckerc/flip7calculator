@@ -29,7 +29,7 @@ struct RootView: View {
     var body: some View {
         ZStack {
             // Main app content (renders immediately for fast startup)
-            ContentView()
+            ContentView(animateSetupTitle: !showSplash || !showOpeningAnimation)
             
             // Splash overlay
             if showSplash && showOpeningAnimation {

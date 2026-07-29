@@ -75,6 +75,20 @@ Flipping Seven Calculator introduces a complete new identity and an original sev
 
 Do not submit with a blank fallback route or the old Lucky Ledger privacy page merely because either returns HTTP 200. The rendered policy and submitted URL must agree with the new product name.
 
+### Privacy Route Repair
+
+The production route was inspected again on 2026-07-28. It loads the generic portfolio shell, reports `https://btuckerc.dev` as its canonical URL, and renders an empty `<main>` element. The local source for that site is the `btuckerc/site` React/Vite repository, where `src/App.jsx` currently defines only `/`, `/about`, `/projects`, and `/contact` routes.
+
+To publish the policy without changing this app's intended URL:
+
+1. Add a privacy-policy page component containing the text from [PRIVACY_POLICY.md](PRIVACY_POLICY.md).
+2. Give that page a specific document title and canonical URL of `https://btuckerc.dev/privacy/flipping-seven-calculator` using the site's existing `Helmet` pattern.
+3. Lazy-load the page in `src/App.jsx` and register the exact `/privacy/flipping-seven-calculator` route.
+4. Build and deploy the site, then verify the rendered heading and policy text rather than checking status code alone.
+5. Confirm direct navigation and refresh both work in production before entering the URL in App Store Connect.
+
+The site worktree currently contains unrelated uncommitted/generated changes, so this app-repository change intentionally does not edit or deploy it.
+
 ## App Review Notes
 
 Private reviewer notes may identify the previous app title because they are operational correspondence rather than public discovery metadata.

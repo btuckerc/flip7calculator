@@ -54,28 +54,8 @@ enum AppBrandPalette {
     static let emerald = brandBlue
     static let emeraldDeep = brandBlueDeep
 
-    static func screenGradient(colorScheme: ColorScheme?) -> LinearGradient {
-        if colorScheme == .dark {
-            return LinearGradient(
-                colors: [
-                    brandBlueDeep.opacity(0.92),
-                    nightDeep,
-                    night
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        }
-
-        return LinearGradient(
-            colors: [
-                Color.hex("EEF4FC"),
-                parchment,
-                Color.hex("D3DDEA")
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+    static func screenBackground(colorScheme: ColorScheme?) -> Color {
+        colorScheme == .dark ? nightDeep : Color.hex("F2F5F9")
     }
 
     static func panelFill(colorScheme: ColorScheme?) -> Color {

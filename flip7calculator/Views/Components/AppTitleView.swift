@@ -9,6 +9,7 @@ import SwiftUI
 
 struct AppTitleView: View {
     var showTagline: Bool = true
+    var allowsAnimation: Bool = true
 
     @AppStorage("animateMainMenuTitle") private var animateMainMenuTitle: Bool = true
     @AppStorage("reduceAnimations") private var reduceAnimations: Bool = false
@@ -24,9 +25,12 @@ struct AppTitleView: View {
     }
 
     var body: some View {
-        VStack(spacing: 12) {
-            BrandMarkView(animated: shouldAnimate)
-                .frame(height: 104)
+        VStack(spacing: 8) {
+            BrandMarkView(
+                animated: allowsAnimation && shouldAnimate,
+                showsFaceUpWhenStatic: allowsAnimation
+            )
+            .frame(height: 104)
 
             BrandWordmarkView(showDescriptor: true)
 
@@ -40,7 +44,6 @@ struct AppTitleView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(AppBrand.appName)
         .accessibilityValue(showTagline ? AppBrand.tagline : "")
@@ -72,6 +75,7 @@ struct BrandWordmarkView: View {
             .tracking(compact ? 0.6 : 1.0)
             .minimumScaleFactor(0.78)
             .lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .center)
 
             if showDescriptor {
                 Text(AppBrand.wordmarkDescriptor)
@@ -80,8 +84,10 @@ struct BrandWordmarkView: View {
                     .foregroundStyle(
                         DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
                     )
+                    .frame(maxWidth: .infinity, alignment: .center)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .center)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(AppBrand.appName)
     }
@@ -89,23 +95,30 @@ struct BrandWordmarkView: View {
 
 struct BrandMarkView: View {
     let animated: Bool
+    var showsFaceUpWhenStatic: Bool = true
 
-    @State private var dealtCards = Array(repeating: true, count: 7)
-    @State private var faceUpCards = Array(repeating: true, count: 7)
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
+    private let dealtCards = Array(repeating: true, count: 7)
+    @State private var faceUpCards: [Bool]
+
+    private var animationTaskID: Int {
+        (animated ? 2 : 0) + (showsFaceUpWhenStatic ? 1 : 0)
+    }
+
+    init(animated: Bool, showsFaceUpWhenStatic: Bool = true) {
+        self.animated = animated
+        self.showsFaceUpWhenStatic = showsFaceUpWhenStatic
+        _faceUpCards = State(
+            initialValue: Array(repeating: animated ? false : showsFaceUpWhenStatic, count: 7)
+        )
+    }
 
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 28)
                 .fill(
-                    LinearGradient(
-                        colors: [
-                            AppBrandPalette.brandBlueSky.opacity(0.18),
-                            AppBrandPalette.gold.opacity(0.14),
-                            AppBrandPalette.copper.opacity(0.10)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+                    DesignColor.color(.surfaceInteractive, theme: visualTheme, colorScheme: colorScheme)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 28)
@@ -116,34 +129,50 @@ struct BrandMarkView: View {
             SevenCardFanView(
                 dealtCards: dealtCards,
                 faceUpCards: faceUpCards,
-                cardSize: CGSize(width: 46, height: 68),
-                horizontalSpread: 24,
-                arcHeight: 10
+                cardSize: CGSize(width: 52, height: 76),
+                horizontalSpread: 27,
+                arcHeight: 9
             )
+            .offset(y: -5)
             .padding(.horizontal, 18)
         }
         .padding(.horizontal, 16)
-        .task(id: animated) {
+        .task(id: animationTaskID) {
             guard animated else {
-                dealtCards = Array(repeating: true, count: 7)
-                faceUpCards = Array(repeating: true, count: 7)
+                faceUpCards = Array(repeating: showsFaceUpWhenStatic, count: 7)
                 return
             }
 
+            faceUpCards = Array(repeating: false, count: 7)
+            guard await pause(for: .milliseconds(320)) else { return }
+
             while !Task.isCancelled {
-                faceUpCards = Array(repeating: false, count: 7)
-                try? await Task.sleep(for: .milliseconds(450))
-
-                for index in faceUpCards.indices {
-                    guard !Task.isCancelled else { return }
-                    withAnimation(.easeInOut(duration: 0.34)) {
-                        faceUpCards[index] = true
-                    }
-                    try? await Task.sleep(for: .milliseconds(135))
-                }
-
-                try? await Task.sleep(for: .seconds(2.4))
+                guard await flipCards(faceUpCards.indices, faceUp: true) else { return }
+                guard await pause(for: .seconds(2.0)) else { return }
+                guard await flipCards(faceUpCards.indices.reversed(), faceUp: false) else { return }
+                guard await pause(for: .milliseconds(900)) else { return }
             }
+        }
+    }
+
+    @MainActor
+    private func flipCards<S: Sequence>(_ indices: S, faceUp: Bool) async -> Bool where S.Element == Int {
+        for index in indices {
+            guard !Task.isCancelled else { return false }
+            withAnimation(.smooth(duration: 0.38)) {
+                faceUpCards[index] = faceUp
+            }
+            guard await pause(for: .milliseconds(110)) else { return false }
+        }
+        return true
+    }
+
+    private func pause(for duration: Duration) async -> Bool {
+        do {
+            try await Task.sleep(for: duration)
+            return true
+        } catch {
+            return false
         }
     }
 }
@@ -159,16 +188,17 @@ struct SevenCardFanView: View {
         ZStack {
             ForEach(0..<7, id: \.self) { index in
                 let distanceFromCenter = CGFloat(index - 3)
+                let normalizedDistance = distanceFromCenter / 3
 
                 BrandPlayingCard(
                     number: index + 1,
                     isFaceUp: value(in: faceUpCards, at: index, fallback: true),
                     size: cardSize
                 )
-                .rotationEffect(.degrees(Double(distanceFromCenter) * 3.8))
+                .rotationEffect(.degrees(Double(distanceFromCenter) * 3.2 - 1.2))
                 .offset(
                     x: distanceFromCenter * horizontalSpread,
-                    y: abs(distanceFromCenter) * arcHeight / 3
+                    y: normalizedDistance * normalizedDistance * arcHeight
                 )
                 .opacity(value(in: dealtCards, at: index, fallback: true) ? 1 : 0)
                 .offset(y: value(in: dealtCards, at: index, fallback: true) ? 0 : -cardSize.height * 1.8)
@@ -198,33 +228,19 @@ struct BrandPlayingCard: View {
     }
 
     var body: some View {
-        ZStack {
-            cardBack
-                .opacity(isFaceUp ? 0 : 1)
-
-            cardFront
-                .rotation3DEffect(.degrees(180), axis: (x: 0, y: 1, z: 0))
-                .opacity(isFaceUp ? 1 : 0)
-        }
-        .frame(width: size.width, height: size.height)
-        .rotation3DEffect(
-            .degrees(isFaceUp ? 180 : 0),
-            axis: (x: 0, y: 1, z: 0),
-            perspective: 0.58
+        FlippingCardFace(
+            angle: isFaceUp ? 180 : 0,
+            front: cardFront,
+            back: cardBack
         )
+        .frame(width: size.width, height: size.height)
         .shadow(color: AppBrandPalette.ink.opacity(0.16), radius: 5, y: 3)
         .accessibilityHidden(true)
     }
 
     private var cardBack: some View {
         RoundedRectangle(cornerRadius: cornerRadius)
-            .fill(
-                LinearGradient(
-                    colors: [AppBrandPalette.brandBlue, AppBrandPalette.brandBlueDeep],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
+            .fill(AppBrandPalette.brandBlue)
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius - 2)
                     .stroke(AppBrandPalette.card.opacity(0.88), lineWidth: max(1.5, size.width * 0.045))
@@ -241,13 +257,7 @@ struct BrandPlayingCard: View {
 
     private var cardFront: some View {
         RoundedRectangle(cornerRadius: cornerRadius)
-            .fill(
-                LinearGradient(
-                    colors: [AppBrandPalette.card, Color.white.opacity(0.96)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
+            .fill(AppBrandPalette.card)
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
                     .stroke(
@@ -272,6 +282,34 @@ struct BrandPlayingCard: View {
                     .frame(width: max(4, size.width * 0.12), height: max(4, size.width * 0.12))
                     .padding(max(4, size.width * 0.11))
             }
+    }
+}
+
+private struct FlippingCardFace<Front: View, Back: View>: View, Animatable {
+    var angle: Double
+    let front: Front
+    let back: Back
+
+    var animatableData: Double {
+        get { angle }
+        set { angle = newValue }
+    }
+
+    var body: some View {
+        Group {
+            if angle < 90 {
+                back
+            } else {
+                front
+                    .scaleEffect(x: -1)
+            }
+        }
+        .compositingGroup()
+        .rotation3DEffect(
+            .degrees(angle),
+            axis: (x: 0, y: 1, z: 0),
+            perspective: 0.58
+        )
     }
 }
 

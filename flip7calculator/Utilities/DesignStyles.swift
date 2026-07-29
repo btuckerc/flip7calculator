@@ -14,7 +14,6 @@ struct PrimaryButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         let fillColor = DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
-        let glowColor = fillColor.opacity(colorScheme == .dark ? 0.34 : 0.22)
         let textColor = DesignColor.color(.textInverse, theme: visualTheme, colorScheme: colorScheme)
         let disabledColor = Color(.systemGray4)
 
@@ -26,21 +25,13 @@ struct PrimaryButtonStyle: ButtonStyle {
             .frame(maxWidth: .infinity)
             .background(
                 RoundedRectangle(cornerRadius: DesignRadius.md)
-                    .fill(
-                        LinearGradient(
-                            colors: isEnabled
-                                ? [fillColor, DesignColor.color(.brandSecondary, theme: visualTheme, colorScheme: colorScheme).opacity(0.92)]
-                                : [disabledColor, disabledColor],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .fill(isEnabled ? fillColor : disabledColor)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: DesignRadius.md)
                     .stroke(Color.white.opacity(isEnabled ? 0.14 : 0), lineWidth: 1)
             )
-            .shadow(color: isEnabled ? glowColor : .clear, radius: 16, y: 8)
+            .shadow(color: isEnabled ? fillColor.opacity(0.18) : .clear, radius: 12, y: 6)
             .scaleEffect(configuration.isPressed ? 0.985 : 1)
             .opacity(configuration.isPressed ? 0.96 : 1)
             .animation(DesignMotion.animation(.fast), value: configuration.isPressed)
@@ -123,15 +114,7 @@ struct CardSurfaceStyle: ViewModifier {
         content
             .background(
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(
-                        LinearGradient(
-                            colors: visualTheme == .v2
-                                ? [raisedSurface, surface]
-                                : [surface, surface],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                    .fill(visualTheme == .v2 ? raisedSurface : surface)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
@@ -157,27 +140,9 @@ struct AppChromeBackground: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        ZStack {
+        Group {
             if visualTheme == .v2 {
-                AppBrandPalette.screenGradient(colorScheme: colorScheme)
-
-                Circle()
-                    .fill(AppBrandPalette.gold.opacity(colorScheme == .dark ? 0.09 : 0.16))
-                    .frame(width: 340, height: 340)
-                    .blur(radius: 90)
-                    .offset(x: 150, y: -230)
-
-                Circle()
-                    .fill(AppBrandPalette.brandBlueSky.opacity(colorScheme == .dark ? 0.18 : 0.14))
-                    .frame(width: 300, height: 300)
-                    .blur(radius: 100)
-                    .offset(x: -150, y: 260)
-
-                RoundedRectangle(cornerRadius: 48)
-                    .fill(Color.white.opacity(colorScheme == .dark ? 0.02 : 0.06))
-                    .padding(.horizontal, 28)
-                    .padding(.vertical, 56)
-                    .blur(radius: 42)
+                AppBrandPalette.screenBackground(colorScheme: colorScheme)
             } else {
                 Color(.systemGroupedBackground)
             }

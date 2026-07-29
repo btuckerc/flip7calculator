@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct ContentView: View {
+    var animateSetupTitle = true
+
     @State private var viewModel = GameViewModel()
     @AppStorage("appTheme") private var appTheme: String = "system"
     @AppStorage("visualThemeVersion") private var visualThemeVersion: String = VisualTheme.v2.rawValue
@@ -33,7 +35,7 @@ struct ContentView: View {
     var body: some View {
         Group {
             if viewModel.game == nil {
-                GameSetupView(viewModel: $viewModel)
+                GameSetupView(viewModel: $viewModel, animateTitle: animateSetupTitle)
             } else {
                 GameView(viewModel: viewModel)
             }

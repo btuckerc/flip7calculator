@@ -9,6 +9,7 @@ import SwiftUI
 
 struct GameSetupView: View {
     @Binding var viewModel: GameViewModel
+    var animateTitle = true
     @State private var playerRows: [PlayerNameRow] = [PlayerNameRow(), PlayerNameRow()]
     @State private var targetScore: Int = 200
     @StateObject private var focusCoordinator = FocusCoordinator()
@@ -36,38 +37,19 @@ struct GameSetupView: View {
         }
     }
 
-    private var filledPlayerCount: Int {
-        playerRows.filter { !$0.name.trimmingCharacters(in: .whitespaces).isEmpty }.count
-    }
-
-    private var deckSummary: String {
-        let deckProfile = PersistedDeckProfile.load().deckProfile
-        return "\(deckProfile.totalCardCount)-card deck"
-    }
-
-    private var playerSummary: String {
-        let count = playerRows.count
-        return "\(count) \(count == 1 ? "player" : "players")"
-    }
-    
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 18) {
-                    SetupHeroCard(themeAccent: themeAccent)
+                    SetupHeroCard(animateTitle: animateTitle)
 
                     PlayersEditorCard(
                         playerRows: $playerRows,
                         focusCoordinator: focusCoordinator,
-                        onPersist: persistRosterOrder
+                        onPersist: persistRosterOrder,
+                        onReset: clearPlayers,
+                        showsPlayerSummary: false
                     )
-
-                    if playerRows.count > 2 || playerRows.contains(where: { !$0.name.isEmpty }) {
-                        Button(action: clearPlayers) {
-                            Text("Reset players")
-                        }
-                        .buttonStyle(GhostButtonStyle())
-                    }
 
                     SetupTargetScoreCard(
                         targetScore: $targetScore,
@@ -96,19 +78,7 @@ struct GameSetupView: View {
             .navigationBarTitleDisplayMode(.inline)
             .appChromeBackground()
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                VStack(spacing: 12) {
-                    VStack(spacing: 4) {
-                        Text("\(playerSummary) • target \(targetScore) • \(deckSummary)")
-                            .font(.system(size: 13, weight: .semibold, design: .rounded))
-                            .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
-                            .multilineTextAlignment(.center)
-
-                        Text(filledPlayerCount == 0 ? "Blank names become Player 1, Player 2, and so on." : "Names save automatically, so the next game is ready faster.")
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme).opacity(0.92))
-                            .multilineTextAlignment(.center)
-                    }
-
+                VStack {
                     Button(action: {
                         HapticFeedback.success()
                         startGame()
@@ -120,7 +90,7 @@ struct GameSetupView: View {
                     .disabled(!canStartGame)
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 14)
+                .padding(.top, 12)
                 .padding(.bottom, 28)
                 .frame(maxWidth: 760)
                 .frame(maxWidth: .infinity)
@@ -232,56 +202,13 @@ struct GameSetupView: View {
 }
 
 private struct SetupHeroCard: View {
-    let themeAccent: Color
-    @Environment(\.colorScheme) private var colorScheme
-
-    private var offlineTint: Color {
-        colorScheme == .dark ? AppBrandPalette.blueGlow : AppBrandPalette.brandBlue
-    }
-
-    private var undoTint: Color {
-        colorScheme == .dark ? AppBrandPalette.gold : AppBrandPalette.goldDeep
-    }
+    let animateTitle: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            AppTitleView(showTagline: false)
-
-            HStack(spacing: 8) {
-                SetupFeatureChip(icon: "bolt.fill", label: "Fast entry", tint: themeAccent)
-                SetupFeatureChip(icon: "wifi.slash", label: "Offline", tint: offlineTint)
-                SetupFeatureChip(icon: "arrow.uturn.backward.circle", label: "Undo ready", tint: undoTint)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .padding(22)
-        .cardSurface(cornerRadius: 26)
-    }
-}
-
-private struct SetupFeatureChip: View {
-    let icon: String
-    let label: String
-    let tint: Color
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: icon)
-                .font(.system(size: 12, weight: .semibold))
-            Text(label)
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
-        }
-        .foregroundStyle(tint)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .background(
-            Capsule()
-                .fill(tint.opacity(0.14))
-        )
-        .overlay(
-            Capsule()
-                .stroke(tint.opacity(0.18), lineWidth: 0.8)
-        )
+        AppTitleView(showTagline: false, allowsAnimation: animateTitle)
+            .padding(.horizontal, 22)
+            .padding(.vertical, 14)
+            .cardSurface(cornerRadius: 26)
     }
 }
 
@@ -295,22 +222,11 @@ private struct SetupTargetScoreCard: View {
     private let presets = [150, 200, 250, 300]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Target Score")
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
-                        .textCase(.uppercase)
-
-                    Text("Quick presets keep setup moving, and you can tap the score for an exact value.")
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Spacer()
-            }
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Target Score")
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
+                .textCase(.uppercase)
 
             HStack(spacing: 18) {
                 Button(action: { targetScore = max(50, targetScore - 25) }) {

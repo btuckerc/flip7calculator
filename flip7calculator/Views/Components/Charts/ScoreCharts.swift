@@ -157,14 +157,14 @@ struct ScoreSparkline: View {
                 x: .value("Round", index),
                 y: .value("Score", score)
             )
-            .foregroundStyle(color.gradient)
+            .foregroundStyle(color)
             .interpolationMethod(.catmullRom)
             
             AreaMark(
                 x: .value("Round", index),
                 y: .value("Score", score)
             )
-            .foregroundStyle(color.opacity(0.15).gradient)
+            .foregroundStyle(color.opacity(0.15))
             .interpolationMethod(.catmullRom)
         }
         .chartXAxis(.hidden)

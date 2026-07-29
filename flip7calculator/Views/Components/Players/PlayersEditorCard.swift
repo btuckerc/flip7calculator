@@ -28,6 +28,8 @@ struct PlayersEditorCard: View {
     @Binding var playerRows: [PlayerNameRow]
     let focusCoordinator: FocusCoordinator
     let onPersist: () -> Void
+    var onReset: (() -> Void)? = nil
+    var showsPlayerSummary = true
     @Environment(\.visualTheme) private var visualTheme
     @Environment(\.colorScheme) private var colorScheme
     
@@ -38,45 +40,45 @@ struct PlayersEditorCard: View {
         DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
     }
 
-    private var surfaceColor: Color {
-        DesignColor.color(.surfacePrimary, theme: visualTheme, colorScheme: colorScheme)
-    }
-
     private var raisedSurfaceColor: Color {
         DesignColor.color(.surfaceRaised, theme: visualTheme, colorScheme: colorScheme)
+    }
+
+    private var canEditPlayers: Bool {
+        playerRows.count > 2
+    }
+
+    private var canAddPlayer: Bool {
+        playerRows.count < 8
+    }
+
+    private var canResetPlayers: Bool {
+        onReset != nil && (playerRows.count > 2 || playerRows.contains { !$0.name.isEmpty })
     }
     
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                Text("Players")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.secondary)
-                    .textCase(.uppercase)
-                
-                Spacer()
-                
-                // Edit/Done button
-                if playerRows.count > 2 {
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            isEditMode.toggle()
-                        }
-                    }) {
-                        Text(isEditMode ? "Done" : "Edit")
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                            .foregroundStyle(accentColor)
+            if showsPlayerSummary {
+                HStack {
+                    Text("Players")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                        .textCase(.uppercase)
+
+                    Spacer()
+
+                    if canEditPlayers {
+                        editButton
+                            .padding(.trailing, 8)
                     }
-                    .padding(.trailing, 8)
+
+                    Text("\(playerRows.count)")
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundStyle(.secondary)
                 }
-                
-                Text("\(playerRows.count)")
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundStyle(.secondary)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 10)
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 10)
             
             // Player rows
             VStack(spacing: 0) {
@@ -105,6 +107,7 @@ struct PlayersEditorCard: View {
                             onDragStart: { self.draggedRowId = row.id }
                         )
                     }
+                    .transition(.opacity)
                     .onDrop(of: [UTType(playerRowReorderTypeIdentifier) ?? .data], delegate: PlayerRowDropDelegate(
                         item: row,
                         items: $playerRows,
@@ -117,14 +120,11 @@ struct PlayersEditorCard: View {
                             .padding(.leading, 52)
                     }
                 }
-                .animation(.easeInOut(duration: 0.25), value: playerRows.count)
-                .animation(.easeInOut(duration: 0.2), value: playerRows.map { $0.id })
-                
-                // Add player row
-                if playerRows.count < 8 {
-                    Divider()
-                        .padding(.leading, 52)
-                    
+
+                Divider()
+                    .padding(.leading, 52)
+
+                HStack(spacing: 8) {
                     Button(action: addPlayer) {
                         HStack(spacing: 12) {
                             ZStack {
@@ -140,15 +140,35 @@ struct PlayersEditorCard: View {
                             Text("Add Player")
                                 .font(.system(size: 17, weight: .regular))
                                 .foregroundStyle(accentColor)
-                            
-                            Spacer()
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 12)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
+                    .disabled(!canAddPlayer)
+                    .opacity(canAddPlayer ? 1 : 0)
+                    .accessibilityHidden(!canAddPlayer)
+
+                    Spacer(minLength: 8)
+
+                    if !showsPlayerSummary {
+                        resetButton
+                            .frame(width: 44, height: 44)
+                            .opacity(isEditMode && canResetPlayers ? 1 : 0)
+                            .scaleEffect(isEditMode && canResetPlayers ? 1 : 0.94)
+                            .allowsHitTesting(isEditMode && canResetPlayers)
+                            .accessibilityHidden(!isEditMode || !canResetPlayers)
+
+                        editButton
+                            .frame(minWidth: 44, minHeight: 44)
+                            .opacity(canEditPlayers ? 1 : 0)
+                            .scaleEffect(canEditPlayers ? 1 : 0.94)
+                            .allowsHitTesting(canEditPlayers)
+                            .accessibilityHidden(!canEditPlayers)
+                            .animation(.easeOut(duration: 0.16), value: canEditPlayers)
+                    }
                 }
+                .frame(minHeight: 56)
+                .padding(.horizontal, 12)
             }
             .background(
                 RoundedRectangle(cornerRadius: 14)
@@ -161,6 +181,11 @@ struct PlayersEditorCard: View {
         .onChange(of: playerRows.map { $0.id }) { _, newIds in
             focusCoordinator.setOrder(newIds)
         }
+        .onChange(of: canEditPlayers) { _, canEdit in
+            if !canEdit {
+                isEditMode = false
+            }
+        }
         .onAppear {
             focusCoordinator.setOrder(playerRows.map { $0.id })
         }
@@ -171,12 +196,47 @@ struct PlayersEditorCard: View {
     private func indexOfRow(_ id: UUID) -> Int {
         playerRows.firstIndex(where: { $0.id == id }) ?? 0
     }
+
+    private var editButton: some View {
+        Button(action: {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isEditMode.toggle()
+            }
+        }) {
+            Text(isEditMode ? "Done" : "Edit")
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(accentColor)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Capsule().fill(accentColor.opacity(0.10)))
+                .overlay(Capsule().stroke(accentColor.opacity(0.18), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var resetButton: some View {
+        Button(action: {
+            onReset?()
+            isEditMode = false
+        }) {
+            Image(systemName: "arrow.counterclockwise")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(accentColor)
+                .frame(width: 32, height: 32)
+                .background(Circle().fill(accentColor.opacity(0.10)))
+                .overlay(Circle().stroke(accentColor.opacity(0.18), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Reset players")
+    }
     
     private func addPlayer() {
         guard playerRows.count < 8 else { return }
         HapticFeedback.light()
         let newRow = PlayerNameRow()
-        playerRows.append(newRow)
+        withAnimation(.smooth(duration: 0.24)) {
+            playerRows.append(newRow)
+        }
         focusCoordinator.setOrder(playerRows.map { $0.id })
         focusCoordinator.clearFocus()
         onPersist()
@@ -201,7 +261,12 @@ struct PlayersEditorCard: View {
             newFocusId = focusCoordinator.focusedId
         }
         
-        playerRows.remove(at: indexToRemove)
+        withAnimation(.smooth(duration: 0.24)) {
+            playerRows.remove(at: indexToRemove)
+            if playerRows.count == 2 {
+                isEditMode = false
+            }
+        }
         focusCoordinator.setOrder(playerRows.map { $0.id })
         onPersist()
         
@@ -271,10 +336,11 @@ struct SwipeToDeleteWrapper<Content: View>: View {
                 HStack(spacing: 0) {
                     Spacer()
                     
-                    if canDelete {
-                        deleteButton
-                            .frame(width: deleteButtonWidth)
-                    }
+                    deleteButton
+                        .frame(width: deleteButtonWidth)
+                        .opacity(deleteRevealOpacity)
+                        .allowsHitTesting(canDelete && offset < 0)
+                        .accessibilityHidden(!canDelete || offset >= 0)
                 }
                 
                 // Main content with swipe gesture
@@ -313,6 +379,11 @@ struct SwipeToDeleteWrapper<Content: View>: View {
             }
         }
         .buttonStyle(.plain)
+    }
+
+    private var deleteRevealOpacity: Double {
+        guard canDelete else { return 0 }
+        return min(1, Double(max(0, -offset) / 16))
     }
     
     @State private var startOffset: CGFloat = 0

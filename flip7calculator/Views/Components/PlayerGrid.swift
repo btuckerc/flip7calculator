@@ -225,6 +225,16 @@ struct PlayerTile: View {
     private var frozenHighlightColor: Color {
         ReservedColors.frozenHighlight
     }
+
+    private var stateTintColor: Color {
+        playerState == .frozen ? frozenHighlightColor : stateFrameColor
+    }
+
+    private var stateTintOverlay: some View {
+        RoundedRectangle(cornerRadius: cornerRadius)
+            .fill(stateTintColor.opacity(hasStateFrame ? 0.08 : 0))
+            .opacity(hasStateFrame ? 1 : 0)
+    }
     
     /// State label text for non-inRound states
     private var stateLabel: String? {
@@ -328,21 +338,7 @@ struct PlayerTile: View {
                     )
             )
             // Inner glow/tint that bleeds into the tile
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                .clear,
-                                (playerState == .frozen ? frozenHighlightColor : stateFrameColor).opacity(hasStateFrame ? 0.12 : 0)
-                            ],
-                            center: .center,
-                            startRadius: 20,
-                            endRadius: 80
-                        )
-                    )
-                    .opacity(hasStateFrame ? 1 : 0)
-            )
+            .overlay(stateTintOverlay)
             // State frame overlay (soft outer glow layer)
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius + 2)

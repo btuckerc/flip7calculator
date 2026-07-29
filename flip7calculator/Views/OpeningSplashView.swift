@@ -27,25 +27,7 @@ struct OpeningSplashView: View {
 
     var body: some View {
         ZStack {
-            AppBrandPalette.screenGradient(colorScheme: colorScheme)
-                .overlay {
-                    RadialGradient(
-                        colors: [
-                            AppBrandPalette.gold.opacity(colorScheme == .dark ? 0.20 : 0.16),
-                            Color.clear
-                        ],
-                        center: .bottomTrailing,
-                        startRadius: 20,
-                        endRadius: 280
-                    )
-                }
-                .overlay(alignment: .topLeading) {
-                    Circle()
-                        .fill(AppBrandPalette.brandBlueSky.opacity(colorScheme == .dark ? 0.15 : 0.11))
-                        .frame(width: 260, height: 260)
-                        .blur(radius: 70)
-                        .offset(x: -110, y: -90)
-                }
+            AppBrandPalette.screenBackground(colorScheme: colorScheme)
                 .ignoresSafeArea()
 
             VStack(spacing: 28) {
@@ -58,26 +40,13 @@ struct OpeningSplashView: View {
                 )
                 .frame(height: 118)
 
-                VStack(spacing: 8) {
-                    BrandWordmarkView(showDescriptor: showDescriptor || shouldReduceMotion)
-                        .opacity(showWordmark || shouldReduceMotion ? 1 : 0)
-                        .offset(y: showWordmark || shouldReduceMotion ? 0 : 10)
-
-                    Text(AppBrand.tagline)
-                        .font(.system(size: 15, weight: .medium, design: .rounded))
-                        .foregroundStyle(
-                            colorScheme == .dark
-                                ? AppBrandPalette.mist
-                                : AppBrandPalette.ink.opacity(0.72)
-                        )
-                        .multilineTextAlignment(.center)
-                        .opacity(showDescriptor || shouldReduceMotion ? 1 : 0)
-                }
+                BrandWordmarkView(showDescriptor: showDescriptor || shouldReduceMotion)
+                    .opacity(showWordmark || shouldReduceMotion ? 1 : 0)
+                    .offset(y: showWordmark || shouldReduceMotion ? 0 : 10)
             }
             .padding(.horizontal, 24)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(AppBrand.appName)
-            .accessibilityValue(AppBrand.tagline)
         }
         .opacity(exitOpacity)
         .scaleEffect(exitScale)
