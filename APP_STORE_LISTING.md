@@ -1,6 +1,6 @@
 # App Store Listing — Flipping Seven Calculator
 
-Use this document as the source of truth for the `1.3 (9)` App Store Connect update.
+Use this document as the human-readable source of truth for the `1.3 (9)` App Store Connect update. The matching machine-readable metadata is in [AppStoreAssets/1.3/metadata-en-US.json](AppStoreAssets/1.3/metadata-en-US.json).
 
 For the decision record and trademark/App Review guardrails, also read:
 
@@ -19,7 +19,7 @@ For the decision record and trademark/App Review guardrails, also read:
 | Build | `9` |
 | Primary category | `Utilities` |
 | Secondary category | `Games` → `Card` |
-| Age rating target | `4+`, subject to the completed App Store Connect questionnaire |
+| Age rating | `4+`, with the App Store Connect questionnaire verified for this release |
 | Copyright | `2026 Tucker Craig` |
 
 Keep the existing bundle ID and app record. Internal target/module names are intentionally unchanged.
@@ -69,25 +69,15 @@ Flipping Seven Calculator introduces a complete new identity and an original sev
 
 | Field | URL | Status before submission |
 |---|---|---|
-| Privacy policy | `https://btuckerc.dev/privacy/flipping-seven-calculator` | **Blocked:** HTTP 200 currently renders an empty main area with the generic portfolio title. Publish [PRIVACY_POLICY.md](PRIVACY_POLICY.md), then verify the rendered title and policy text. |
+| Privacy policy | `https://btuckerc.dev/privacy/flipping-seven-calculator` | Verified deployed production route and policy bundle on 2026-07-29 |
 | Support | `https://btuckerc.dev/contact` | Verified HTTP 200 with rendered contact content on 2026-07-28 |
 | Marketing | Optional | Leave blank unless a product-specific page is published |
 
 Do not submit with a blank fallback route or the old Lucky Ledger privacy page merely because either returns HTTP 200. The rendered policy and submitted URL must agree with the new product name.
 
-### Privacy Route Repair
+### Privacy Route Verification
 
-The production route was inspected again on 2026-07-28. It loads the generic portfolio shell, reports `https://btuckerc.dev` as its canonical URL, and renders an empty `<main>` element. The local source for that site is the `btuckerc/site` React/Vite repository, where `src/App.jsx` currently defines only `/`, `/about`, `/projects`, and `/contact` routes.
-
-To publish the policy without changing this app's intended URL:
-
-1. Add a privacy-policy page component containing the text from [PRIVACY_POLICY.md](PRIVACY_POLICY.md).
-2. Give that page a specific document title and canonical URL of `https://btuckerc.dev/privacy/flipping-seven-calculator` using the site's existing `Helmet` pattern.
-3. Lazy-load the page in `src/App.jsx` and register the exact `/privacy/flipping-seven-calculator` route.
-4. Build and deploy the site, then verify the rendered heading and policy text rather than checking status code alone.
-5. Confirm direct navigation and refresh both work in production before entering the URL in App Store Connect.
-
-The site worktree currently contains unrelated uncommitted/generated changes, so this app-repository change intentionally does not edit or deploy it.
+The production site now registers `/privacy/flipping-seven-calculator` and deploys a dedicated `FlippingSevenPrivacy` bundle. The rendered policy identifies Flipping Seven Calculator, states that the app collects no personal data, and sets the exact route as its canonical URL. The initial HTML document retains the portfolio shell title because the site is a client-rendered SPA; the route-specific title and policy are applied by the page bundle.
 
 ## App Review Notes
 
@@ -111,34 +101,42 @@ Answer the App Store Connect content-rights question based on the submitted buil
 - All app UI, card illustrations, icon assets, screenshots, and animations must be original or properly licensed.
 - Generic scorekeeping mechanics, numbers, cards, dice, and card-flip motion are used without third-party logos or product artwork.
 
-## Screenshot Plan
+## Screenshots
 
-Capture screenshots from the final `1.3 (9)` build only. Show real app UI, fictional player names, and no third-party game packaging or cards.
+The submitted screenshots were captured from deterministic real app state with the fictional names Peter, Ned, Mary, and Gwen. They contain no third-party game packaging, card artwork, or added marketing overlays.
 
-1. **Score a round in seconds** — Setup screen with three or four players and the full Flipping Seven Calculator wordmark.
-2. **Track every flip** — Live score entry with card values and modifiers visible.
-3. **See holds and busts clearly** — Active round with distinct player states and readable totals.
-4. **Fix mistakes instantly** — Undo/redo and manual score adjustment in context.
-5. **Review every round** — History and post-game stats/charts.
-6. **Make it your table** — Target score, deck profile, theme, and accessibility options.
+The final iPhone order is:
+
+1. Setup and original seven-card presentation
+2. Live score entry
+3. Distinct active, frozen, banked, and busted player states
+4. Game-over result
+5. Statistical highlights
+6. Score charts
+7. Round history
 
 Required device coverage:
 
-- Current 6.9-inch iPhone screenshot set
-- Current 13-inch iPad screenshot set
-- Additional sizes only if App Store Connect does not accept scaling from these source sets
+- Seven 1320 x 2868 screenshots in the 6.9-inch iPhone set
+- Five 2064 x 2752 screenshots in the 13-inch iPad set
 
-Screenshot overlays should use short generic phrases. Do not use the exact disputed mark, a publisher name, “official,” “authorized,” or comparison claims.
+The source images and deterministic capture instructions are in [AppStoreAssets/1.3/README.md](AppStoreAssets/1.3/README.md).
 
 ## App Preview
 
-An app preview is optional. Do not delay the compliance update for one. If produced later, keep it under 30 seconds:
+An app preview is optional and is intentionally deferred from the 1.3 release. Do not upload the current proof-of-concept recording. When a polished play-through is produced later, keep it under 30 seconds:
 
 1. Deal/flip brand animation
 2. Add players
 3. Enter a round
 4. Undo a mistake
 5. Review stats
+
+## Submission Status
+
+Version `1.3 (9)` was submitted to App Review on 2026-07-29 at 04:47:22 UTC. App Store Connect accepted the submission without validation errors and reported `WAITING_FOR_REVIEW`. The release type is `AFTER_APPROVAL`, so the update should publish automatically after Apple approves it.
+
+The App Preview is not part of this submission. It can be added later as a metadata update after a shorter, continuous recording of realistic play is ready.
 
 ## App Icon
 
@@ -171,15 +169,17 @@ If a localization cannot be accurately refreshed before submission, remove that 
 - [x] Original title and seven-card launch presentation implemented
 - [x] Approved icon files left unchanged
 - [x] Privacy policy source updated
-- [ ] New privacy policy published and verified at the submitted URL
+- [x] New privacy policy published and verified at the submitted URL
 - [x] Support URL and contact route verified
-- [ ] App Store Connect name, subtitle, keywords, description, categories, and review notes updated
-- [ ] Every localization audited or removed
-- [ ] New iPhone and iPad screenshots uploaded
-- [ ] Content-rights and age-rating questionnaires completed accurately
+- [x] App Store Connect name, subtitle, keywords, description, categories, and review notes updated
+- [x] Every localization audited or removed
+- [x] Seven iPhone and five iPad screenshots uploaded and processed
+- [x] Content-rights declaration and inherited `4+` age rating verified
 - [x] Debug, unit, UI, and Release validation passed for the release candidate source
 - [ ] Physical-device launch, icon, Dynamic Type, VoiceOver, light/dark, and reduced-motion checks completed
-- [ ] Build uploaded and processed successfully
+- [x] Distribution-signed build uploaded, processed, and attached successfully
+- [x] Version submitted to App Review with automatic release after approval
+- [x] App Preview intentionally deferred from version `1.3`
 - [ ] `APP264401-I` status email sent to Apple with the claimant copied
 
 ## Submission Order

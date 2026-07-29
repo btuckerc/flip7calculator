@@ -15,7 +15,15 @@ struct FlippingSevenCalculatorApp: App {
 
     var body: some Scene {
         WindowGroup {
+#if DEBUG
+            if let fixture = AppStoreCaptureFixture.requested {
+                AppStoreCaptureView(fixture: fixture)
+            } else {
+                RootView()
+            }
+#else
             RootView()
+#endif
         }
     }
 }
