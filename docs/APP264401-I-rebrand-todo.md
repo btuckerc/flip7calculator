@@ -38,8 +38,9 @@ This is the working checklist for the approved `1.3 (9)` rebrand. It records com
 - [x] Smoke-test a clean simulator install and launch
 - [x] Check iPhone compact layout in dark appearance
 - [x] Check iPad regular-width layout in dark appearance
-- [ ] Check light appearance on iPhone and iPad
-- [ ] Check large Dynamic Type layouts
+- [x] Check clean-install light appearance on iPhone and iPad
+- [x] Check the rebranded setup surface at the maximum accessibility content size
+- [x] Keep decorative wordmark/card fonts fixed-size while exposing one complete accessibility label
 - [x] Audit VoiceOver names and control semantics in the touched branding surfaces
 - [ ] Run the complete app flow with VoiceOver enabled
 - [x] Implement static parity for iOS Reduce Motion and the in-app Reduce Animations setting
@@ -57,6 +58,7 @@ This is the working checklist for the approved `1.3 (9)` rebrand. It records com
 - [ ] Verify privacy and support URLs return correct production content
 - [ ] Capture new iPhone screenshots
 - [ ] Capture new iPad screenshots
+- [x] Capture stable iPhone and iPad simulator images for visual QA; these are not the production screenshot set
 - [x] Confirm the project currently ships no localized metadata or `.lproj` resources that could retain stale branding
 - [ ] Update name, subtitle, keywords, description, promotional text, and What's New
 - [ ] Set primary category to `Utilities` and secondary to `Games → Card`

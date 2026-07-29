@@ -39,6 +39,7 @@ enum AppBrandPalette {
     static let brandBlueSky = Color.hex("4A79C5")
     static let blueGlow = Color.hex("6BA8E5")
     static let gold = Color.hex("F1C24B")
+    static let goldDeep = Color.hex("885600")
     static let copper = Color.hex("E47B58")
     static let parchment = Color.hex("FFF7EB")
     static let sage = Color.hex("EDF3FB")

@@ -64,5 +64,6 @@ As verified locally on July 28, 2026:
 - `make ui-test` passes all 3 UI test methods across 4 executions with no failures or skips.
 - `make build CONFIGURATION=Release` succeeds with simulator signing disabled and DerivedData outside the repo.
 - The built bundle reports `Flipping Seven Calculator`, version `1.3 (9)`, Utilities category, and iPhone/iPad support.
-- Stable dark-appearance layouts were visually checked on compact iPhone and regular-width iPad simulators.
-- Light appearance, large Dynamic Type, full VoiceOver operation, physical-device behavior, distribution signing, and App Store upload remain release checks rather than assumed successes.
+- Stable light- and dark-appearance layouts were visually checked on compact iPhone and regular-width iPad simulators.
+- The rebranded setup surface was checked at the maximum accessibility content size; decorative wordmark and card-number fonts stay fixed-size and expose a complete accessibility label instead of overflowing.
+- Full VoiceOver operation, physical-device behavior, distribution signing, and App Store upload remain release checks rather than assumed successes.

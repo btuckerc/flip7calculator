@@ -233,6 +233,15 @@ struct GameSetupView: View {
 
 private struct SetupHeroCard: View {
     let themeAccent: Color
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var offlineTint: Color {
+        colorScheme == .dark ? AppBrandPalette.blueGlow : AppBrandPalette.brandBlue
+    }
+
+    private var undoTint: Color {
+        colorScheme == .dark ? AppBrandPalette.gold : AppBrandPalette.goldDeep
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -240,8 +249,8 @@ private struct SetupHeroCard: View {
 
             HStack(spacing: 8) {
                 SetupFeatureChip(icon: "bolt.fill", label: "Fast entry", tint: themeAccent)
-                SetupFeatureChip(icon: "wifi.slash", label: "Offline", tint: AppBrandPalette.blueGlow)
-                SetupFeatureChip(icon: "arrow.uturn.backward.circle", label: "Undo ready", tint: AppBrandPalette.gold)
+                SetupFeatureChip(icon: "wifi.slash", label: "Offline", tint: offlineTint)
+                SetupFeatureChip(icon: "arrow.uturn.backward.circle", label: "Undo ready", tint: undoTint)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }

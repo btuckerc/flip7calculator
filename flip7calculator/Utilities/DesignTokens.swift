@@ -118,11 +118,11 @@ enum DesignColor {
         case .brandPrimary:
             return dark ? AppBrandPalette.blueGlow : AppBrandPalette.brandBlue
         case .brandSecondary:
-            return AppBrandPalette.gold
+            return dark ? AppBrandPalette.gold : AppBrandPalette.goldDeep
         case .stateSuccess:
             return dark ? AppBrandPalette.blueGlow : AppBrandPalette.brandBlueSky
         case .stateWarning:
-            return AppBrandPalette.gold
+            return dark ? AppBrandPalette.gold : AppBrandPalette.goldDeep
         case .stateDanger:
             return AppBrandPalette.copper
         case .playerHighlight:

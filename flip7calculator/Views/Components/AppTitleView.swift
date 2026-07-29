@@ -63,10 +63,12 @@ struct BrandWordmarkView: View {
                     )
 
                 Text(AppBrand.wordmarkSeven)
-                    .foregroundStyle(AppBrandPalette.gold)
+                    .foregroundStyle(
+                        DesignColor.color(.brandSecondary, theme: visualTheme, colorScheme: colorScheme)
+                    )
                     .shadow(color: AppBrandPalette.brandBlueDeep.opacity(0.22), radius: 0, x: 1, y: 2)
             }
-            .font(.custom("Nunito-Black", size: compact ? 24 : 29))
+            .font(.custom("Nunito-Black", fixedSize: compact ? 24 : 29))
             .tracking(compact ? 0.6 : 1.0)
             .minimumScaleFactor(0.78)
             .lineLimit(1)
@@ -191,6 +193,9 @@ struct BrandPlayingCard: View {
 
     private var isSeven: Bool { number == 7 }
     private var cornerRadius: CGFloat { max(7, size.width * 0.19) }
+    private var numberColor: Color {
+        isSeven ? AppBrandPalette.goldDeep : AppBrandPalette.brandBlue
+    }
 
     var body: some View {
         ZStack {
@@ -252,8 +257,8 @@ struct BrandPlayingCard: View {
             )
             .overlay {
                 Text("\(number)")
-                    .font(.custom("Nunito-Black", size: size.height * (isSeven ? 0.48 : 0.40)))
-                    .foregroundStyle(isSeven ? AppBrandPalette.gold : AppBrandPalette.brandBlue)
+                    .font(.custom("Nunito-Black", fixedSize: size.height * (isSeven ? 0.48 : 0.40)))
+                    .foregroundStyle(numberColor)
                     .shadow(
                         color: isSeven ? AppBrandPalette.brandBlueDeep.opacity(0.18) : .clear,
                         radius: 0,
