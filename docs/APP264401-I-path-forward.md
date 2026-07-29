@@ -1,5 +1,7 @@
 # APP264401-I Path Forward
 
+> **Decision update — July 28, 2026:** The owner approved `Flipping Seven Calculator` as the public product name, accepting the documented trademark and App Review risk. Implementation must not use the exact `FLIP 7` mark or restore the former box-art-inspired wordmark, card backs, modifier graphics, publisher artwork, or other trade dress. The approved direction restores only generic seven-card deal/flip motion in the app's original blue, cream, and gold design language. The historical audit and earlier recommendation below remain preserved as the decision record.
+
 This is a working product and repo plan for responding to the Apple/USAopoly trademark complaint, re-evaluating the app, and deciding what we should build next.
 
 This is product/engineering guidance, not legal advice.

@@ -82,6 +82,8 @@ struct GameSetupView: View {
                         .buttonStyle(GhostButtonStyle())
                     }
                 }
+                .frame(maxWidth: 760)
+                .frame(maxWidth: .infinity)
                 .padding(.horizontal, 20)
                 .padding(.top, 14)
                 .padding(.bottom, 140)
@@ -120,6 +122,8 @@ struct GameSetupView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 14)
                 .padding(.bottom, 28)
+                .frame(maxWidth: 760)
+                .frame(maxWidth: .infinity)
                 .background(
                     DesignColor.color(.surfaceRaised, theme: visualTheme, colorScheme: colorScheme)
                         .opacity(0.98)
@@ -236,7 +240,7 @@ private struct SetupHeroCard: View {
 
             HStack(spacing: 8) {
                 SetupFeatureChip(icon: "bolt.fill", label: "Fast entry", tint: themeAccent)
-                SetupFeatureChip(icon: "wifi.slash", label: "Offline", tint: AppBrandPalette.brandBlueSky)
+                SetupFeatureChip(icon: "wifi.slash", label: "Offline", tint: AppBrandPalette.blueGlow)
                 SetupFeatureChip(icon: "arrow.uturn.backward.circle", label: "Undo ready", tint: AppBrandPalette.gold)
             }
             .frame(maxWidth: .infinity, alignment: .leading)

@@ -5,7 +5,7 @@ SCHEME ?= flip7calculator
 CONFIGURATION ?= Debug
 SIMULATOR_NAME ?= iPhone 16
 SIMULATOR_OS ?= latest
-CACHE_ROOT ?= $(HOME)/Library/Caches/LuckyLedger
+CACHE_ROOT ?= $(HOME)/Library/Caches/FlippingSevenCalculator
 DERIVED_DATA ?= $(CACHE_ROOT)/DerivedData
 RESULTS_DIR ?= $(CACHE_ROOT)/Results
 BUNDLE_ID ?= com.tcraig.flip7calculator.ios
@@ -15,7 +15,7 @@ BUNDLE_ID ?= com.tcraig.flip7calculator.ios
 .PHONY: help build test test-one ui-test build-settings destinations boot-sim launch clean
 
 help: ## Show local build, test, and simulator workflows
-	@echo "Lucky Ledger local workflow"
+	@echo "Flipping Seven Calculator local workflow"
 	@echo
 	@grep -E '^[a-zA-Z0-9_.-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-14s %s\n", $$1, $$2}'
 	@echo

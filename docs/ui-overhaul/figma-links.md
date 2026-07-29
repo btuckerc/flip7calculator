@@ -10,7 +10,7 @@
   - File URL: `https://www.figma.com/design/L048vSnClZzC9fxoT1Pyvl`
 
 ## Target file
-- Rename target file to: `Lucky Ledger iOS Overhaul v2`
+- Rename target file to: `Flipping Seven Calculator iOS Overhaul v2`
 - Imported board nodes (v2 high-fidelity capture set):
   - `00 Foundations`: `https://www.figma.com/design/L048vSnClZzC9fxoT1Pyvl?node-id=9-2`
   - `01 Components`: `https://www.figma.com/design/L048vSnClZzC9fxoT1Pyvl?node-id=8-2`

@@ -2,18 +2,22 @@
 //  AppBrand.swift
 //  flip7calculator
 //
-//  Centralized brand and product copy for the rebranded app.
+//  Centralized brand and product copy for the app.
 //
 
 import SwiftUI
 
 enum AppBrand {
-    static let appName = "Lucky Ledger"
+    static let appName = "Flipping Seven Calculator"
+    static let wordmarkLead = "FLIPPING"
+    static let wordmarkSeven = "SEVEN"
+    static let wordmarkDescriptor = "CALCULATOR"
     static let tagline = "Fast scorekeeping for one-more-card nights"
-    static let shortDescription = "Flip-card scorekeeping"
+    static let shortDescription = "Fast flip-card scorekeeping"
     static let appStoreId = "6756905042"
     static let supportURL = "https://btuckerc.dev/contact"
-    static let visualThemeV2Name = "Lucky Ledger"
+    static let visualThemeV2Name = "Flipping Seven"
+    static let independenceNotice = "Independent scorekeeping utility. Not affiliated with or endorsed by any game publisher."
     static let sevenCardBonusLabel = "7-Card Bonus"
     static let sevenCardBonusShortLabel = "7-Card"
     static let sevenCardBonusValue = ScoreEngine.sevenCardBonus

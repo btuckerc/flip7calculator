@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Generate light, dark, and tinted app icon variants for Lucky Ledger.
+Generate the approved light, dark, and tinted app icon variants for Flipping Seven Calculator.
 
 Design direction:
 - a single, readable ledger sheet as the hero object
-- a small "LL" brand tab for recognition
+- the retained "LL" tab from the owner-approved icon artwork
 - a flipping card with a visible "7" cue
 - a die badge to communicate tabletop play
 - no trademarked words, logos, or game-specific visual mimicry

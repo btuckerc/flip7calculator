@@ -28,7 +28,7 @@ The local wrapper fixes the common pitfalls by:
 - passing `CODE_SIGNING_ALLOWED=NO`
 - passing `CODE_SIGNING_REQUIRED=NO`
 - piping output through `xcbeautify` when it is installed
-- storing DerivedData and result bundles under `~/Library/Caches/TableTally/` by default, outside the repo
+- storing DerivedData and result bundles under `~/Library/Caches/FlippingSevenCalculator/` by default, outside the repo
 
 ## Current Local Baseline
 

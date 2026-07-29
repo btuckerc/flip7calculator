@@ -1,294 +1,191 @@
-# APP264401-I — Lucky Ledger Discovery and Listing Strategy
+# APP264401-I — Flipping Seven Calculator Discovery and Listing Strategy
 
-Updated: April 10, 2026
+Updated: July 28, 2026
 
-This document answers three questions:
+This document records the approved product decision and the operational guardrails for implementing it. It is product and engineering guidance, not legal advice.
 
-1. Can we use `Flip 7` to help people find `Lucky Ledger`?
-2. Where is the real legal/App Review line versus the gray area?
-3. What should we do to strengthen the App Store listing without walking into an easy rejection?
+## Decision
 
-## Bottom line
+The public product name for the next update is `Flipping Seven Calculator`.
 
-If the question is specifically about **App Store-visible metadata**, my answer is:
+The owner accepts that this is a risk-tolerant position rather than a legally cleared safe harbor. The implementation must be transparent, independently designed, and limited to the approved name and generic mechanics. It must not quietly reconstruct the exact disputed mark or the physical game's visual identity elsewhere.
 
-- Do **not** use `Flip 7` in the app name, subtitle, keyword field, promotional text, description, screenshots, app previews, custom product page metadata, or update notes.
-- Treat that as **high-risk and likely noncompliant** with Apple’s published rules, especially after the active trademark complaint.
+## Registration and Risk Context
 
-If the question is about **the broader internet outside App Store metadata**, the answer is more nuanced:
+USAopoly owns U.S. registration no. `7,635,814` for the standard-character mark `FLIP 7`, covering board, parlor, and party games in Class 28.
 
-- There is some genuine legal gray area around factual, non-confusing references to another product under U.S. trademark law.
-- But that gray area does **not** override Apple’s separate App Review rules.
-- Given the notice already on file, I would not use the App Store listing itself as the battlefield.
+A separate registration for the literal spelling `FLIP SEVEN` is not required for the owner to assert confusion. Trademark comparisons can consider sound, appearance, meaning, commercial impression, related goods/services, channels, purchasers, and intent. Numerals and their spoken words may be treated as equivalent in sound and meaning.
 
-## The Apple rules that matter most
+Factors that may help distinguish this app:
 
-These are the most relevant official Apple sources I found:
+- `Flipping` is an ordinary verb describing the app's card interaction.
+- `Calculator` accurately describes the utility.
+- The app is independently developed software rather than a physical card game.
+- The app can use original artwork, an independent-developer identity, and a clear non-affiliation statement.
+- The app does not need third-party rules text, packaging, logos, or artwork to function.
 
-- [App Review Guidelines](https://developer.apple.com/app-store/review/guidelines)
-  2.3.7 says app metadata should be accurate and specifically tells developers not to pack metadata with trademarked terms.
-- [App Review Guidelines](https://developer.apple.com/app-store/review/guidelines)
-  5.2.1 says you should only use content you created or are licensed to use.
-- [App information reference in App Store Connect](https://developer.apple.com/help/app-store-connect/reference/app-information/platform-version-information)
-  Apple’s keyword-field help says the app is already searchable by app name and company name, and that names of other apps or companies aren’t allowed in the keyword list.
-- [Creating your product page](https://developer.apple.com/app-store/product-page/)
-  Apple says keywords drive search visibility, are limited to 100 characters, and that improper keyword use is a common reason for rejection. Apple specifically calls out unauthorized trademarked terms and competing app names as disallowed keyword use.
-- [Custom product pages](https://developer.apple.com/app-store/custom-product-pages/)
-  Apple says custom product page metadata can appear in search results, can have assigned keywords, and must still follow the App Review Guidelines.
-- [Discoverability on the App Store](https://developer.apple.com/app-store/discoverability/)
-  Apple’s discoverability guidance points to the importance of search relevance, category choice, conversion performance, ratings/reviews, and metadata quality.
+Factors that increase risk:
 
-## The Colonist / Catan pattern worth copying
+- `Flipping Seven` remains close to `FLIP 7` in sound, meaning, and commercial impression.
+- The app is used by the same consumers alongside the physical game.
+- The product previously used the exact disputed title and received actual notice.
+- The stated discoverability goal can be offered as evidence that the association was intentional.
+- A compact `Flipping7` treatment would move the presentation closer to the registered wording.
+- Restoring the old box-art-inspired title, colors, card backs, or modifier symbols would compound the naming issue with visual imitation.
 
-The closest useful analogy I found is `Colonist`.
+Official references:
 
-- On the **App Store**, the current [Colonist.io app listing](https://apps.apple.com/us/app/colonist-io/id6444831129) stays generic. It presents itself as `Colonist.io`, uses its own brand, and describes its own gameplay loop without putting `Catan` in the title or visible App Store positioning.
-- On the **open web**, Colonist is much more explicit. The current [Colonist website](https://colonist.io/) calls itself a `Settlers of Catan Alternative`.
+- [USPTO TSDR record for serial 98147288](https://tsdr.uspto.gov/#caseNumber=98147288&caseSearchType=US_APPLICATION&caseType=DEFAULT&searchType=statusSearch)
+- [USPTO likelihood-of-confusion guidance](https://www.uspto.gov/trademarks/search/likelihood-confusion)
+- [USPTO federal trademark searching guidance](https://www.uspto.gov/trademarks/search/federal-trademark-searching)
+- [Apple App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/)
 
-That split is important.
+## Public Naming Rules
 
-It suggests a practical model for `Lucky Ledger`:
+Approved:
 
-- keep **App Store surfaces generic but intentionally suggestive**
-- if you want to push closer to nominative discoverability later, do it on your own website instead of in App Store metadata
+- App name: `Flipping Seven Calculator`
+- In-app wordmark: `FLIPPING SEVEN` with `CALCULATOR` as a descriptor
+- Subtitle: `Fast Flip-Card Scorekeeper`
+- Generic terms such as flips, cards, seven cards, 7-card bonus, hold, bust, modifiers, score, round, target, stats, and push your luck
 
-That is the model I would copy here.
+Not approved for public product surfaces:
 
-## What that means for `Flip 7`
+- The exact `Flip 7` or `FLIP 7` mark
+- `Flip7`
+- `Flipping7` as a compact logo or title
+- `for Flip 7`, `Flip 7 scorekeeper`, or similar compatibility claims
+- Publisher or claimant names
+- `official`, `authorized`, `licensed`, `approved`, or other affiliation language
+- Third-party logos, packaging, rules pages, card artwork, or screenshots
 
-### Public App Store metadata
+Private reviewer notes and legal correspondence may identify the former title and exact disputed mark when factually necessary. They are not discovery surfaces.
 
-I would treat the following as **no-go surfaces** for `Flip 7`:
+## Visual Rules
 
-- App name
-- Subtitle
-- Keyword field
-- Promotional text
-- Description
-- What’s New text
-- Screenshots
-- App previews
-- Custom product page keywords
-- Custom product page screenshots or promotional text
+Approved generic concepts:
 
-Why:
+- Seven numbered cards dealt or fanned
+- Cards rotating around a vertical axis to reveal their faces
+- A gold-emphasized seventh card
+- Dice, pencil, calculator, ledger, score rows, and undo/redo imagery
+- The app's original blue, cream, gold, and copper palette
+- Nunito and system-rounded typography already licensed/bundled for the app
 
-- Apple’s own keyword help says names of other apps or companies are not allowed in keywords.
-- Apple’s product page guidance says unauthorized trademarked terms and competing app names are improper keyword use and common rejection triggers.
-- Apple’s review guidelines tell you not to pack metadata with trademarked terms and to use only content you own or are licensed to use.
-- The complaint is already active. That makes this a bad place to “test the edge.”
+Retired visual material:
 
-## Safe signaling inside the App Store
+- The deleted multi-outline yellow/red/blue wordmark modeled on box art
+- The deleted teal/gold Art Deco card-back design described in source as matching official cards
+- Modifier symbols selected to mirror a third-party deck
+- Third-party rules explanations or terminology presented as a game tutorial
+- Any animation whose final frame reconstructs `FLIP 7`, `Flip7`, or `Flipping7`
 
-If the real goal is “help the right people recognize what this scorekeeper is for” without using the exact mark, we can still push much harder than a bland generic utility listing.
+The choreography of dealing and flipping cards may be reused because the implementation and resulting artwork are original. The former visual styling may not be reused.
 
-These cues are the safest version of that strategy:
+## App Store Search Strategy
 
-- `flip-card`
-- `track flips`
-- `7-card bonus`
-- `track 7s`
-- `hold`
-- `bust`
-- `push your luck`
-- `round tracker`
-- `bonus tracker`
-- `offline scorekeeper`
+Apple says search considers textual relevance across the name, subtitle, keywords, and categories alongside behavior such as downloads, ratings, and reviews. Search placement for any query is never guaranteed.
 
-These cues work because they describe mechanics, not ownership.
+The next listing intentionally supplies these relevant concepts:
 
-That means:
+- Name: `Flipping`, `Seven`, `Calculator`
+- Subtitle: `Flip-Card`, `Scorekeeper`
+- Keywords: scorekeeper, card game, round tracker, score calculator, push your luck, bust, hold, offline, party game
+- Categories: Utilities primary; Games/Card secondary
 
-- subtitle ideas like `Track Flips and 7s` are defensible
-- description lines like `Track flips, 7-card bonuses, holds, busts, and totals` are defensible
-- screenshots that show `Hold`, `Bust`, and `7-card bonus` UI are defensible
-- an icon showing a flipping card, a visible `7`, and a die is defensible
+Do not repeat title/subtitle words in the keyword field. Do not add the exact disputed mark to force an exact-match result. Apple identifies unauthorized trademark terms and competing app names as improper keyword use and can reject metadata independently of a court's infringement analysis.
 
-This is how we can “tip to it” without stepping over the clearest App Review line.
+Sources:
 
-## What still crosses the line
+- [Apple App Store search](https://developer.apple.com/app-store/search/)
+- [Apple App Review Guidelines, including 2.3.7 and 4.1](https://developer.apple.com/app-store/review/guidelines/)
+- [Apple Ads match types](https://ads.apple.com/app-store/help/keywords/0059-understand-keyword-match-types)
 
-Even with a more aggressive cueing strategy, I would still keep these off App Store-visible surfaces:
+## Search Queries to Monitor
 
-- `Flip 7`
-- `FLIP 7`
-- `for Flip 7`
-- the publisher name
-- logos, trade dress, or artwork that looks like the official product
-- screenshot copy that implies affiliation or official status
+Record results after release without claiming that the app is entitled to rank for any particular term:
 
-### Private, non-public App Review communication
+- `flipping seven calculator`
+- `flipping seven`
+- `seven card calculator`
+- `flip card scorekeeper`
+- `7 card bonus tracker`
+- `push your luck scorekeeper`
+- `round score calculator`
+- `card game scorekeeper`
 
-This is fine:
+Capture the storefront, locale, date, result position, impressions, product-page views, conversion, and retention. Search results vary by region and user behavior, so one device is not a reliable ranking test.
 
-- Explaining to Apple in reviewer notes or email that you rebranded the app.
-- Referring to the prior app title or the complaint number in private correspondence.
-- Using `APP264401-I` in subject lines, as Apple requested.
+## Listing Conversion Strategy
 
-That is not a discoverability tool, but it is a legitimate operational channel.
+The first three screenshots should prove function rather than rely on name recognition:
 
-### Outside the App Store
+1. Setup and full wordmark: fast table setup.
+2. Live round entry: visible flips, modifiers, holds, and busts.
+3. History/stats: value beyond a paper score sheet.
 
-This is the real gray area:
+Later screenshots can show undo/redo, deck profiles, target score, themes, accessibility, and offline persistence. Use fictional player names and no physical third-party cards or packaging.
 
-- Your website
-- A support FAQ
-- A blog post
-- A compatibility article
-- Search-engine ads outside the App Store
+## Independence Statement
 
-U.S. trademark law does recognize forms of nominative fair use in some contexts. A useful legal reference point is [Toyota Motor Sales, U.S.A., Inc. v. Tabari (9th Cir. 2010)](https://cdn.ca9.uscourts.gov/datastore/opinions/2010/07/08/07-55344.pdf).
+Use this exact generic statement in the app help/about surface and at the end of the public description:
 
-My read:
+> Independent scorekeeping utility. Not affiliated with or endorsed by any game publisher.
 
-- A factual statement on your own site can be more defensible than stuffing a competitor’s mark into App Store metadata.
-- But the risk is still real, especially because the claimant has already put you on notice.
-- If you choose this route anyway, the copy has to be minimal, accurate, and very clearly non-affiliative.
+This statement reduces ambiguity but does not automatically cure a confusing title or presentation. It must be paired with original artwork and honest metadata.
 
-Examples of the kind of gray-area website copy that is more defensible than App Store keyword stuffing:
+## Correspondence Posture
 
-- `Works well for push-your-luck card scoring`
-- `Flexible scorekeeping for bonus-heavy card games`
-- If counsel approves: `Players have also used Lucky Ledger to track games like Flip 7`
+All correspondence with Apple about this matter must include `APP264401-I` in the subject and copy the claimant.
 
-If you decide to be more assertive on the web later, the cleanest progression is:
+The status update must:
 
-1. Keep the App Store page generic.
-2. Add a website landing page for generic search intent first.
-3. Only then decide whether to publish a restrained factual compatibility page that names the game.
-4. Make sure any such page is clearly non-affiliative and does not reuse protected visual branding.
+- Name `Flipping Seven Calculator` directly.
+- State that the exact disputed mark and former derived artwork were removed.
+- Describe the new seven-card animation as original artwork.
+- Avoid claiming claimant approval or legal clearance.
+- Avoid saying that the app is generic if the name was intentionally chosen for association.
+- Invite identification of specific remaining objections without conceding infringement.
 
-Even that last example is not something I would put in the App Store listing.
+Do not silently submit a close variant after the April assurance. Transparency preserves credibility even if the parties disagree about the result.
 
-## Risk matrix
+## Response Scenarios
 
-| Surface | Use `Flip 7`? | Risk | Recommendation |
-|--------|----------------|------|----------------|
-| App name / subtitle | No | Very high | Do not do it |
-| Keyword field | No | Very high | Do not do it |
-| Description / promo / What’s New | No | High | Do not do it |
-| Screenshots / app previews | No | High | Do not do it |
-| Custom product page keywords | No | High | Do not do it |
-| Reviewer notes / private emails | Yes, factually | Low | Fine when needed |
-| Website SEO pages | Maybe, narrowly | Medium | Only if you accept risk and keep it factual |
-| Blog / FAQ comparison copy | Maybe, narrowly | Medium | Counsel review is smart here |
-| Apple Ads on generic terms | Yes | Low | Recommended |
-| Apple Ads on `Flip 7` terms | Unclear | Medium to high | I do not recommend this without counsel |
+### Apple approves and the claimant does not object
 
-The Apple Ads row is the one place where I’m making an inference from incomplete public guidance:
+- Preserve the submitted metadata, screenshots, source commit, and correspondence.
+- Monitor search and conversion without moving closer to the exact mark.
+- Do not interpret silence as a license or authorization.
 
-- I found official Apple material supporting [custom product pages](https://developer.apple.com/app-store/custom-product-pages/) and [Apple Ads landing pages](https://developer.apple.com/app-store/custom-product-pages/).
-- I did **not** find an official Apple source that cleanly blesses targeting a third party’s trademark as a keyword in this exact situation.
-- Because of that, and because of the active complaint, I would not build the plan around trademark bidding.
+### Apple requests clarification
 
-## If you want to “hold your ground,” do it the smart way
+- Respond through the Resolution Center and the `APP264401-I` email thread.
+- Explain the app's independent function and identify the original assets.
+- Provide side-by-side screenshots only if they demonstrate real differences accurately.
+- Do not misstate the claimant's position.
 
-If the goal is not to roll over, I think the strongest posture is:
+### Apple rejects the name or imagery
 
-1. Hold the line on your product existing.
-2. Do not hand Apple an easy metadata violation.
-3. Build a stronger generic listing than the old one.
-4. Use channels outside the App Store, carefully, if you want to push nominative discoverability later.
+- Separate the rejection into exact elements: name, subtitle, icon, screenshots, animation, or description.
+- Appeal only if there is a concrete factual or policy basis.
+- Keep the committed pre-change baseline and prepare a genuinely distinct fallback name rather than another incremental spelling change.
 
-That is different from retreating.
+### USAopoly renews its objection
 
-It means:
+- Preserve the complete message and attachments.
+- Do not debate legal conclusions by email before reviewing the specific allegations.
+- Keep Apple copied as required.
+- Consider trademark counsel before making factual assurances, concessions, or another near-variant rename.
 
-- we keep the app live if possible
-- we ship a better, cleaner brand
-- we improve conversion and discoverability on generic terms
-- we do not give Apple or the claimant an obvious screenshot/keyword/title exhibit
+## Release Gate
 
-## Recommended App Store upgrade plan
+Do not submit until all of these are true:
 
-These are the highest-value listing improvements I would make.
-
-### Metadata
-
-1. Rename the app to `Lucky Ledger`.
-2. Use a clearer-but-still-safe subtitle like `Track Flips and 7s`.
-3. Keep the keyword list generic and high-intent, but lean into mechanic language like `flip card`, `7 card bonus`, `bust tracker`, and `push your luck`.
-4. Rework the first sentence of the description so it immediately signals flips, 7-card bonuses, holds, and busts.
-5. Keep promotional text focused on speed, offline use, and the specific table pain points this app removes.
-6. Update What’s New to talk about the new brand, improved icon, and reliability improvements.
-7. Keep review notes plain and operational, not argumentative.
-
-### Category and search positioning
-
-8. Try `Games → Card` as primary and `Utilities` as secondary for stronger relevance.
-9. If App Review pushes back, swap them without changing the app concept.
-10. Create custom product pages for different generic search intents, not brand names.
-11. Segment those pages around `card night`, `bonus tracking`, and `stats`.
-
-### Conversion assets
-
-12. Replace every screenshot with Lucky Ledger branding.
-13. Make the first screenshot prove the app is fast during live play and clearly about tracking flips.
-14. Make the second screenshot prove the score-entry model is clear and that `Hold` / `Bust` states are legible.
-15. Make the third screenshot prove there is value after the game via charts/stats.
-16. Show deck profiles or house-rule flexibility in later screenshots, especially configurable `7-card bonus` behavior.
-17. Keep screenshot copy short, functional, and non-comparative.
-18. Consider an app preview only if it is crisp and high signal; a mediocre preview will not help.
-
-### Trust and retention signals
-
-19. Make sure the privacy policy URL is live before submission.
-20. Make sure the support page is live and not stale.
-21. Prompt for ratings only after real success moments, such as finishing a game.
-22. Keep the app stable; conversion improvements are wasted if the app crashes or feels rough.
-
-### Distribution and measurement
-
-23. Use App Analytics to measure product-page conversion before changing copy again.
-24. Compare the default page against custom product pages.
-25. If you run Apple Ads, start with generic terms and measure install quality, not just tap-through rate.
-26. Keep a dated record of all before/after screenshots and metadata in case Apple asks for proof.
-
-## Discoverability without using `Flip 7` in metadata
-
-If the objective is simply “be found by people who want a fast scorekeeper for games like that,” these are the better levers:
-
-- `Games → Card` category positioning
-- better first three screenshots
-- stronger mechanic-level keywords and subtitle language
-- custom product pages for generic intents
-- a better icon with a visible flipping card and `7` cue
-- a sharper first sentence in the description
-- more ratings and reviews from real satisfied users
-- external SEO for phrases like `card game scorekeeper`, `push your luck score tracker`, and `game night score app`
-
-This is slower than stuffing a trademark into the keyword field, but it is much easier to defend.
-
-## What I would not do
-
-- I would not put `Flip 7` in the keyword field.
-- I would not use `Flip 7` in the subtitle.
-- I would not put `for Flip 7` in screenshots.
-- I would not use custom product page keywords containing `Flip 7`.
-- I would not try to sneak trademark references into promotional text.
-- I would not argue “there has been little legal repercussion so far” as a reason to keep poking the same App Review wound.
-
-The absence of consequences so far is not a strong shield once Apple has a documented complaint on file.
-
-## If you still want to push the gray area
-
-If you want to be aggressive anyway, the least bad version is:
-
-1. Keep the App Store listing itself clean.
-2. Build a website landing page that is factual, restrained, and clearly disclaims affiliation.
-3. Avoid logos, trade dress, screenshots of the branded game, or anything that looks like endorsement.
-4. Keep records showing the app is a generic scorekeeper, not an official companion.
-5. Expect that this could still trigger more claimant pressure.
-
-That is the “gray” path I think is at least strategically coherent.
-
-Using `Flip 7` inside App Store metadata is not the gray path. It is the exposed path.
-
-## Practical next move
-
-My recommendation is:
-
-- Ship `Lucky Ledger` with a clean generic listing.
-- Upgrade the listing hard on conversion and generic discoverability.
-- If you want to test gray-area discoverability, do it on your website, not in App Store metadata.
-- If Apple rejects anything on the listing, use the formal review/Resolution Center process rather than reintroducing the trademark by stealth.
+- The production build displays `Flipping Seven Calculator` consistently.
+- The exact disputed mark appears only in private review notes or historical documentation.
+- The app displays the independence statement.
+- The old box-art-inspired source and visuals are absent from the shipped target.
+- Privacy and support URLs resolve to correct current content.
+- Every App Store localization and screenshot has been replaced or removed.
+- Automated tests and Release build pass from the final commit.
+- Physical-device checks cover the unchanged icon, launch animation, layout, VoiceOver, and reduced motion.

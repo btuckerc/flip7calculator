@@ -49,6 +49,10 @@ struct GameView: View {
             return DesignColor.color(.brandPrimary, theme: .v2, colorScheme: colorScheme)
         }
     }
+
+    private var winnerColor: Color {
+        colorScheme == .dark ? AppBrandPalette.gold : AppBrandPalette.brandBlueDeep
+    }
     
     private var playerColors: [Color] {
         guard let game = viewModel.game else { return [] }
@@ -121,10 +125,10 @@ struct GameView: View {
                             HStack(spacing: 4) {
                                 Image(systemName: "trophy.fill")
                                     .font(.system(size: 14))
-                                    .foregroundStyle(.yellow)
+                                    .foregroundStyle(winnerColor)
                                 Text(game.winners.map { $0.name }.joined(separator: ", "))
                                     .font(.system(size: 14, weight: .medium, design: .rounded))
-                                    .foregroundStyle(.yellow)
+                                    .foregroundStyle(winnerColor)
                                     .lineLimit(1)
                                     .truncationMode(.tail)
                             }
@@ -213,13 +217,13 @@ struct GameView: View {
                 .sheet(isPresented: $showingSettings) {
                     SettingsView(viewModel: viewModel)
                         .preferredColorScheme(selectedTheme.colorScheme)
-                        .tint(selectedTheme.accentColor)
+                        .tint(themeAccent)
                         .id(appTheme)
                 }
                 .sheet(isPresented: $showingRules) {
                     AppHelpView()
                         .preferredColorScheme(selectedTheme.colorScheme)
-                        .tint(selectedTheme.accentColor)
+                        .tint(themeAccent)
                         .id(appTheme)
                 }
                 // Hide navigation bar when Game Over overlay is showing
@@ -279,6 +283,7 @@ struct GameView: View {
                         showingGameOverOverlay = false
                     }
                 }
+                .appChromeBackground()
             }
         } else {
             EmptyView()
@@ -472,6 +477,10 @@ struct SelectedPlayerPanel: View {
     private var playerColor: Color {
         playerColors[safe: playerIndex] ?? DesignColor.color(.playerHighlight, theme: visualTheme, colorScheme: colorScheme)
     }
+
+    private var bonusColor: Color {
+        colorScheme == .dark ? AppBrandPalette.gold : AppBrandPalette.brandBlueDeep
+    }
     
     var body: some View {
         let player = effectivePlayer
@@ -492,17 +501,17 @@ struct SelectedPlayerPanel: View {
                 HStack(spacing: 3) {
                     Image(systemName: "star.fill")
                         .font(.system(size: 12))
-                        .foregroundStyle(.yellow)
+                        .foregroundStyle(bonusColor)
                         .symbolEffect(.bounce, value: player.currentRound.hand.hasSevenCardBonus)
                     Text("+\(AppBrand.sevenCardBonusValue)")
                         .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundStyle(.yellow)
+                        .foregroundStyle(bonusColor)
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .background(
                     Capsule()
-                        .fill(.yellow.opacity(0.2))
+                        .fill(AppBrandPalette.gold.opacity(colorScheme == .dark ? 0.20 : 0.26))
                 )
                 .opacity(player.currentRound.hand.hasSevenCardBonus ? 1 : 0)
                 .accessibilityHidden(!player.currentRound.hand.hasSevenCardBonus)
@@ -610,8 +619,14 @@ struct SelectedPlayerPanel: View {
             .padding(.horizontal)
         }
         .padding(.vertical, 8)
-        .background(Color(.systemGroupedBackground))
-        .cornerRadius(12)
+        .background(
+            RoundedRectangle(cornerRadius: DesignRadius.md)
+                .fill(DesignColor.color(.surfaceSecondary, theme: visualTheme, colorScheme: colorScheme))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignRadius.md)
+                .stroke(AppBrandPalette.cardBorder(colorScheme: colorScheme), lineWidth: 1)
+        )
         .padding(.horizontal)
         .padding(.bottom, 8) // Comfortable gap before the bottom bar
     }
@@ -625,6 +640,24 @@ struct PlayerActionButtons: View {
     let player: Player
     let selectedId: UUID
     @Bindable var viewModel: GameViewModel
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var bankColor: Color {
+        DesignColor.color(.stateSuccess, theme: visualTheme, colorScheme: colorScheme)
+    }
+
+    private var bustColor: Color {
+        DesignColor.color(.stateDanger, theme: visualTheme, colorScheme: colorScheme)
+    }
+
+    private var holdColor: Color {
+        DesignColor.color(.playerHighlight, theme: visualTheme, colorScheme: colorScheme)
+    }
+
+    private var resumeColor: Color {
+        DesignColor.color(.stateWarning, theme: visualTheme, colorScheme: colorScheme)
+    }
     
     var body: some View {
         // Use ZStack with fixed height to prevent layout shifts between states
@@ -634,7 +667,7 @@ struct PlayerActionButtons: View {
                 ActionPillButton(
                     title: "Bank",
                     icon: "checkmark.circle.fill",
-                    color: .green,
+                    color: bankColor,
                     action: {
                         HapticFeedback.success()
                         viewModel.bankPlayer(selectedId)
@@ -644,7 +677,7 @@ struct PlayerActionButtons: View {
                 ActionPillButton(
                     title: "Bust",
                     icon: "xmark.circle.fill",
-                    color: .red,
+                    color: bustColor,
                     action: {
                         HapticFeedback.error()
                         viewModel.bustPlayer(selectedId)
@@ -654,7 +687,7 @@ struct PlayerActionButtons: View {
                 ActionPillButton(
                     title: "Hold",
                     icon: "snowflake",
-                    color: .cyan,
+                    color: holdColor,
                     action: {
                         HapticFeedback.medium()
                         viewModel.freezePlayer(selectedId)
@@ -669,17 +702,18 @@ struct PlayerActionButtons: View {
                 HStack(spacing: 4) {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 18))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(bustColor)
                     Text("Busted")
                         .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundStyle(.red)
+                        .foregroundStyle(bustColor)
                 }
                 .frame(maxWidth: .infinity)
                 
                 ActionPillButton(
                     title: "Resume",
                     icon: "arrow.uturn.backward.circle.fill",
-                    color: .orange,
+                    color: resumeColor,
+                    foregroundColor: AppBrandPalette.ink,
                     action: {
                         HapticFeedback.success()
                         viewModel.setPlayerState(selectedId, state: .inRound)
@@ -694,17 +728,18 @@ struct PlayerActionButtons: View {
                 HStack(spacing: 4) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 18))
-                        .foregroundStyle(.green)
+                        .foregroundStyle(bankColor)
                     Text("Banked")
                         .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundStyle(.green)
+                        .foregroundStyle(bankColor)
                 }
                 .frame(maxWidth: .infinity)
                 
                 ActionPillButton(
                     title: "Resume",
                     icon: "arrow.uturn.backward.circle.fill",
-                    color: .orange,
+                    color: resumeColor,
+                    foregroundColor: AppBrandPalette.ink,
                     action: {
                         HapticFeedback.medium()
                         viewModel.setPlayerState(selectedId, state: .inRound)
@@ -719,17 +754,18 @@ struct PlayerActionButtons: View {
                 HStack(spacing: 4) {
                     Image(systemName: "snowflake")
                         .font(.system(size: 18))
-                        .foregroundStyle(.cyan)
+                        .foregroundStyle(holdColor)
                     Text("On Hold")
                         .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundStyle(.cyan)
+                        .foregroundStyle(holdColor)
                 }
                 .frame(maxWidth: .infinity)
                 
                 ActionPillButton(
                     title: "Resume",
                     icon: "arrow.uturn.backward.circle.fill",
-                    color: .orange,
+                    color: resumeColor,
+                    foregroundColor: AppBrandPalette.ink,
                     action: {
                         HapticFeedback.medium()
                         viewModel.setPlayerState(selectedId, state: .inRound)
@@ -750,6 +786,7 @@ struct ActionPillButton: View {
     let title: String
     let icon: String
     let color: Color
+    var foregroundColor: Color = .white
     let action: () -> Void
     
     @State private var isPressed = false
@@ -762,7 +799,7 @@ struct ActionPillButton: View {
                 Text(title)
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(foregroundColor)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
             .background(

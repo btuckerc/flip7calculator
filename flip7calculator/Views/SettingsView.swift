@@ -143,7 +143,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Visual Theme")
                 } footer: {
-                    Text("Legacy keeps the current UI. Lucky Ledger enables the new design token system.")
+                    Text("Legacy keeps the original UI. \(AppBrand.visualThemeV2Name) uses the current design system.")
                 }
                 
                 // Player Palette - Compact picker
@@ -310,6 +310,15 @@ struct SettingsView: View {
                 
                 // About
                 Section {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("App")
+                        Spacer()
+                        Text(AppBrand.appName)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.trailing)
+                    }
+                    .settingsRowStyle(background: rowBackground, separator: rowSeparator)
+
                     HStack {
                         Text("Version")
                         Spacer()
@@ -319,6 +328,8 @@ struct SettingsView: View {
                     .settingsRowStyle(background: rowBackground, separator: rowSeparator)
                 } header: {
                     Text("About")
+                } footer: {
+                    Text(AppBrand.independenceNotice)
                 }
             }
             .scrollContentBackground(.hidden)

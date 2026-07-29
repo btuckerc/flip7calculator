@@ -36,7 +36,7 @@ Use this checklist when designing, reviewing, or refactoring UI in this repo.
 
 ## 6. Brand and Trust
 
-- UI should feel like `Table Tally`, not a thin reskin of the old single-game brand.
+- UI should feel like `Flipping Seven Calculator`, not a thin reskin of the old single-game brand.
 - Copy should sound generic, helpful, and confident.
 - Do not add fake-generic visuals that still clearly mirror old protected branding.
 

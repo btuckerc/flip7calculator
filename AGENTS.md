@@ -1,6 +1,6 @@
-# Lucky Ledger Repo Instructions
+# Flipping Seven Calculator Repo Instructions
 
-This repository contains `Lucky Ledger`, an offline SwiftUI scorekeeping app for iPhone and iPad. The codebase is being rebranded away from the old game-specific `Flip 7` positioning, but internal target and module names still use `flip7calculator`.
+This repository contains `Flipping Seven Calculator`, an offline SwiftUI scorekeeping app for iPhone and iPad. Internal target and module names still use `flip7calculator` to preserve the existing App Store record and avoid unnecessary build churn.
 
 Before substantial work:
 
@@ -11,7 +11,9 @@ Before substantial work:
 ## Working Rules
 
 - Prefer `make build`, `make test`, `make test-one TEST=...`, and `make ui-test` over raw `xcodebuild`. The local workflow disables simulator signing by default and pipes output through `xcbeautify` when available.
-- Keep user-facing copy generic and route reusable product strings through `flip7calculator/Utilities/AppBrand.swift`.
+- Route reusable product strings through `flip7calculator/Utilities/AppBrand.swift`.
+- Do not reintroduce the exact `FLIP 7` mark, third-party logos, box-art styling, card-back designs, or publisher artwork on public product surfaces.
+- Generic card flipping, seven numbered cards, scorekeeping controls, dice, and the approved blue/cream/gold palette are intentional product motifs.
 - Preserve the app's strongest trait: fast, low-friction score entry during live play. Extra taps, hidden state, or slow round flow need strong justification.
 - Validate touched UI for iPhone and iPad layout, Dynamic Type, VoiceOver labels, contrast, and reduced-motion parity.
 - Extend the in-progress design-token migration (`DesignTokens.swift`, `DesignStyles.swift`) instead of adding more one-off styling.
@@ -19,7 +21,7 @@ Before substantial work:
 
 ## Current Baseline
 
-- The user-facing app name is `Lucky Ledger`.
+- The user-facing app name is `Flipping Seven Calculator`.
 - The app is offline-first and stores its state locally.
 - `make test` passes on the simulator with the current rebrand branch.
-- The preferred local build cache now lives under `~/Library/Caches/LuckyLedger/` instead of repo-local `.build/DerivedData`, because Release builds were unstable when DerivedData lived under `Documents/...`.
+- The preferred local build cache lives under `~/Library/Caches/FlippingSevenCalculator/` instead of repo-local `.build/DerivedData`, because Release builds were unstable when DerivedData lived under `Documents/...`.

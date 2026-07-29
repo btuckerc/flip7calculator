@@ -1,8 +1,8 @@
 # Product Context
 
-## What Table Tally Is
+## What Flipping Seven Calculator Is
 
-Table Tally is an offline-first SwiftUI scorekeeper for card-night and push-your-luck style games. It is optimized for fast shared use at a real table, not for long-form data management, social features, or cloud sync.
+Flipping Seven Calculator is an offline-first SwiftUI scorekeeper for card-night and push-your-luck style games. It is optimized for fast shared use at a real table, not for long-form data management, social features, or cloud sync.
 
 Current strengths:
 
@@ -24,13 +24,14 @@ Future changes should strengthen these outcomes:
 
 ## Rebrand Constraint
 
-This repo is actively moving away from the old `Flip 7` branding and toward a generic `Table Tally` identity.
+This repo uses the public name `Flipping Seven Calculator` while intentionally avoiding the exact disputed mark and third-party visual assets.
 
 Implications:
 
-- Avoid introducing new visible `Flip 7` or `Flip7` copy.
+- Avoid introducing the exact `Flip 7` or `Flip7` mark on public product surfaces.
 - Prefer reusable generic wording such as `7-card bonus`, `score profile`, `scoring guide`, and `table game`.
 - Use `AppBrand` for repeated app name, tagline, and shared labels.
+- Keep all card, wordmark, motion, and icon artwork original; generic card-flip mechanics do not justify copying product trade dress.
 - Treat `docs/APP264401-I-path-forward.md` as the authoritative repo note before changing visible branding, screenshots, App Store text, or tutorial/help surfaces.
 
 ## Non-Goals
@@ -45,7 +46,7 @@ Usually avoid:
 
 ## Internal Naming Reality
 
-The user-facing brand is `Table Tally`, but internal project identifiers still use `flip7calculator`. That is expected for now. Visible product surfaces matter more than internal module names.
+The user-facing brand is `Flipping Seven Calculator`, but internal project identifiers still use `flip7calculator`. That is expected for now. Visible product surfaces matter more than internal module names.
 
 ## Architecture Map
 

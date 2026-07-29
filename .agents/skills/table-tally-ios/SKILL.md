@@ -1,9 +1,9 @@
 ---
 name: table-tally-ios
-description: Use when working in this repository to build, review, or refine the Table Tally SwiftUI app. Covers product intent, rebrand constraints, UX quality bar, local simulator workflow, architecture anchors, and external iOS agent-skill research.
+description: Use when working in this repository to build, review, or refine the Flipping Seven Calculator SwiftUI app. Covers product intent, rebrand constraints, UX quality bar, local simulator workflow, architecture anchors, and external iOS agent-skill research.
 ---
 
-# Table Tally iOS
+# Flipping Seven Calculator iOS
 
 Use this skill for any non-trivial work in this repository.
 
@@ -21,7 +21,8 @@ Use this skill for any non-trivial work in this repository.
 ## Working Principles
 
 - Prefer small, validated changes. This repo already has active rebrand and design-token work in flight.
-- Keep visible product copy generic and centralized in `flip7calculator/Utilities/AppBrand.swift` where reuse makes sense.
+- Keep visible product copy centralized in `flip7calculator/Utilities/AppBrand.swift` where reuse makes sense.
+- Preserve original visual authorship: do not restore third-party box-art colors, logos, card backs, modifier graphics, or other trade dress.
 - Preserve the app's strongest behavior: fast shared scorekeeping during live play.
 - When touching SwiftUI surfaces, optimize for correct state flow, stable identity, accessibility, and reduced-motion parity.
 - When touching tests or palette work, account for the current known palette failures rather than assuming a clean baseline.

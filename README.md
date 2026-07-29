@@ -1,8 +1,8 @@
-# Lucky Ledger
+# Flipping Seven Calculator
 
-Lucky Ledger is an offline SwiftUI scorekeeper for card nights and push-your-luck style table games. It supports iPhone and iPad, local persistence, round history, undo/redo, deck profiles, and post-game stats.
+Flipping Seven Calculator is an offline SwiftUI scorekeeper for card nights and push-your-luck style table games. It supports iPhone and iPad, local persistence, round history, undo/redo, deck profiles, and post-game stats.
 
-The repo is in the middle of a rebrand away from the old `Flip 7` identity. Internal names still use `flip7calculator`, but user-facing copy should stay generic and route through `AppBrand` where possible.
+The public product is being updated in place from its former title to `Flipping Seven Calculator`. Internal names still use `flip7calculator`, while reusable public copy routes through `AppBrand`.
 
 ## Quick Start
 
@@ -22,7 +22,7 @@ Common commands:
 - `make launch`
 - `make clean`
 
-The Makefile uses a no-signing simulator path by default and stores DerivedData under `~/Library/Caches/LuckyLedger/`. That matters here because raw `xcodebuild test` still fails early on simulator bundle signing, and keeping build products out of the repo avoids the filesystem issues we saw when DerivedData lived under `Documents/.../.build`.
+The Makefile uses a no-signing simulator path by default and stores DerivedData under `~/Library/Caches/FlippingSevenCalculator/`. That matters here because raw `xcodebuild test` still fails early on simulator bundle signing, and keeping build products out of the repo avoids the filesystem issues we saw when DerivedData lived under `Documents/.../.build`.
 
 ## Agent Setup
 
@@ -45,7 +45,7 @@ Repo-local agent references live under `.agents/skills/table-tally-ios/reference
 - Clear round state and cumulative score visibility
 - iPhone and iPad parity
 - Accessibility: Dynamic Type, VoiceOver, reduced motion, contrast
-- Generic branding that avoids old game-specific trademark exposure
+- Original branding and artwork that do not reuse third-party logos or trade dress
 
 ## Architecture Snapshot
 
@@ -58,9 +58,11 @@ Repo-local agent references live under `.agents/skills/table-tally-ios/reference
 
 ## Known Baseline
 
-As verified locally on April 10, 2026:
+As verified locally on July 28, 2026:
 
-- Raw `xcodebuild test` fails early on simulator signing for the test bundle.
-- `make test` passes the full unit and UI suite on `iPhone 16` / `iOS 18.5`.
-- `xcodebuild build` for `Release` succeeds when DerivedData is outside the repo; the local workflow now defaults to `~/Library/Caches/LuckyLedger/DerivedData` for that reason.
-- The earlier palette regressions and test-source warnings have been cleaned up.
+- `make test` passes 133 unit tests with no failures or skips on `iPhone 16` / `iOS 18.5`.
+- `make ui-test` passes all 3 UI test methods across 4 executions with no failures or skips.
+- `make build CONFIGURATION=Release` succeeds with simulator signing disabled and DerivedData outside the repo.
+- The built bundle reports `Flipping Seven Calculator`, version `1.3 (9)`, Utilities category, and iPhone/iPad support.
+- Stable dark-appearance layouts were visually checked on compact iPhone and regular-width iPad simulators.
+- Light appearance, large Dynamic Type, full VoiceOver operation, physical-device behavior, distribution signing, and App Store upload remain release checks rather than assumed successes.

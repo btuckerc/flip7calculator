@@ -11,7 +11,7 @@ struct ContentView: View {
     @State private var viewModel = GameViewModel()
     @AppStorage("appTheme") private var appTheme: String = "system"
     @AppStorage("visualThemeVersion") private var visualThemeVersion: String = VisualTheme.v2.rawValue
-    @AppStorage("didMigrateLuckyLedgerThemeV2") private var didMigrateLuckyLedgerThemeV2: Bool = false
+    @AppStorage("didMigrateFlippingSevenThemeV2") private var didMigrateFlippingSevenThemeV2: Bool = false
     
     private var selectedTheme: AppTheme {
         AppTheme(rawValue: appTheme) ?? .system
@@ -42,9 +42,9 @@ struct ContentView: View {
         .tint(rootTint)
         .environment(\.visualTheme, visualTheme)
         .onAppear {
-            if !didMigrateLuckyLedgerThemeV2 {
+            if !didMigrateFlippingSevenThemeV2 {
                 visualThemeVersion = VisualTheme.v2.rawValue
-                didMigrateLuckyLedgerThemeV2 = true
+                didMigrateFlippingSevenThemeV2 = true
             }
         }
     }

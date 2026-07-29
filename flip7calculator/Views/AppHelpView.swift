@@ -2,7 +2,7 @@
 //  AppHelpView.swift
 //  flip7calculator
 //
-//  Generic help and scoring guide for the rebranded app.
+//  App help and scoring guide.
 //
 
 import SwiftUI
@@ -28,7 +28,7 @@ struct AppHelpView: View {
                     )
 
                     HelpSection(
-                        title: "Scoring Profile",
+                        title: "Default Score Profile",
                         icon: "plus.forwardslash.minus",
                         color: AppBrandPalette.gold,
                         bullets: [
@@ -62,7 +62,17 @@ struct AppHelpView: View {
                             "Game Stats summarizes trends, bonus rounds, busts, and score progression."
                         ]
                     )
+
+                    Text(AppBrand.independenceNotice)
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 12)
+                        .padding(.bottom, 4)
                 }
+                .frame(maxWidth: 760)
+                .frame(maxWidth: .infinity)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 18)
             }
@@ -85,10 +95,8 @@ struct AppHelpView: View {
             BrandMarkView(animated: false)
                 .frame(height: 90)
 
-            VStack(spacing: 6) {
-                Text(AppBrand.appName)
-                    .font(.custom("Nunito-Black", size: 30))
-                    .foregroundStyle(.primary)
+            VStack(spacing: 8) {
+                BrandWordmarkView(showDescriptor: true, compact: true)
 
                 Text("Fast, shared scorekeeping for push-your-luck card nights.")
                     .font(.system(size: 16, weight: .medium, design: .rounded))

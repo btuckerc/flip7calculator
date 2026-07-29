@@ -116,7 +116,7 @@ enum DesignColor {
         case .textInverse:
             return dark ? AppBrandPalette.ink : AppBrandPalette.parchment
         case .brandPrimary:
-            return dark ? AppBrandPalette.brandBlueSky : AppBrandPalette.brandBlue
+            return dark ? AppBrandPalette.blueGlow : AppBrandPalette.brandBlue
         case .brandSecondary:
             return AppBrandPalette.gold
         case .stateSuccess:
