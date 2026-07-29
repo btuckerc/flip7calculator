@@ -63,8 +63,8 @@ struct RoundHand: Codable, Equatable {
         x2Count = max(0, x2Count - 1)
     }
     
-    /// Checks if player has achieved Flip 7 bonus (7 unique number cards)
-    var hasFlip7Bonus: Bool {
+    /// Checks if the hand earned the seven-card bonus (7 unique number cards)
+    var hasSevenCardBonus: Bool {
         selectedNumbers.count >= 7
     }
     
@@ -78,7 +78,6 @@ struct RoundHand: Codable, Equatable {
         addMods.reduce(0) { $0 + ($1.key * $1.value) }
     }
 }
-
 
 
 

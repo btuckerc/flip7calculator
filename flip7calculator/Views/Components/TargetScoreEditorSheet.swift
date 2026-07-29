@@ -11,6 +11,8 @@ struct TargetScoreEditorSheet: View {
     @Binding var targetScore: Int
     let onSave: (Int) -> Void
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
     
     @State private var inputText: String
     @FocusState private var isTextFieldFocused: Bool
@@ -30,6 +32,10 @@ struct TargetScoreEditorSheet: View {
     }
     
     private let defaultScore = 200
+
+    private var accentColor: Color {
+        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+    }
     
     var body: some View {
         NavigationStack {
@@ -54,7 +60,7 @@ struct TargetScoreEditorSheet: View {
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
-                            .stroke(isTextFieldFocused ? Color.blue : Color.clear, lineWidth: 2)
+                            .stroke(isTextFieldFocused ? accentColor : Color.clear, lineWidth: 2)
                     )
                     .toolbar {
                         ToolbarItemGroup(placement: .keyboard) {
@@ -80,7 +86,7 @@ struct TargetScoreEditorSheet: View {
                             HapticFeedback.light()
                         }
                         .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(accentColor)
                     }
                 }
                 
@@ -116,4 +122,3 @@ struct TargetScoreEditorSheet: View {
         }
     }
 }
-

@@ -8,7 +8,7 @@
 import SwiftUI
 
 @main
-struct flip7calculatorApp: App {
+struct LuckyLedgerApp: App {
     init() {
         FontRegistrar.registerAppFontsIfNeeded()
     }

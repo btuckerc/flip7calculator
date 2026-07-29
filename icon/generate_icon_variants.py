@@ -1,284 +1,381 @@
 #!/usr/bin/env python3
 """
-Generate iOS app icon variants (Light, Dark, Tinted) for iOS 18+.
+Generate light, dark, and tinted app icon variants for Lucky Ledger.
 
-Goals:
-- Fix the LIGHT icon by cropping away the big white outer border from the original artwork,
-  keeping the pleasant gradient background, and cropping in slightly to remove any halo/shadow.
-- Generate DARK and TINTED variants that:
-  - replace the background (dark gradient / pure black)
-  - keep only the foreground glyph (cards + arrows + calculator), with appropriate contrast.
+Design direction:
+- a single, readable ledger sheet as the hero object
+- a small "LL" brand tab for recognition
+- a flipping card with a visible "7" cue
+- a die badge to communicate tabletop play
+- no trademarked words, logos, or game-specific visual mimicry
 """
 
-from PIL import Image, ImageDraw
-import os
+from __future__ import annotations
 
-# Paths
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-ORIGINAL_SOURCE = os.path.join(SCRIPT_DIR, "Gemini_Generated_Image_ua9pviua9pviua9p.png")
-OUTPUT_DIR = os.path.join(SCRIPT_DIR, "../flip7calculator/Assets.xcassets/AppIcon.appiconset")
+from dataclasses import dataclass
+from pathlib import Path
 
-LIGHT_OUT = os.path.join(OUTPUT_DIR, "AppIcon-1024.png")
-DARK_OUT = os.path.join(OUTPUT_DIR, "AppIcon-1024-dark.png")
-TINTED_OUT = os.path.join(OUTPUT_DIR, "AppIcon-1024-tinted.png")
-
-TARGET_SIZE = 1024
-
-# Crop tuning (for the provided Gemini artwork)
-# - Higher sat threshold (0.07) to find actual colored gradient, not off-white background
-# - Minimal inset since saturation-based bounds are already tight to gradient
-CROP_SAT_THRESH = 0.07
-CROP_LUM_THRESH = 220.0
-CROP_INSET_PERCENT = 2.0  # Small inset to clean up any edge artifacts
-CROP_DOWNSCALE_MAX = 700
-
-def create_dark_gradient(size):
-    """Create a vertical gradient from #313131 (top) to #141414 (bottom)."""
-    width, height = size
-    gradient = Image.new('RGB', (width, height))
-    draw = ImageDraw.Draw(gradient)
-    
-    # Top color: #313131 = (49, 49, 49)
-    # Bottom color: #141414 = (20, 20, 20)
-    top_color = (49, 49, 49)
-    bottom_color = (20, 20, 20)
-    
-    for y in range(height):
-        ratio = y / height
-        r = int(top_color[0] + (bottom_color[0] - top_color[0]) * ratio)
-        g = int(top_color[1] + (bottom_color[1] - top_color[1]) * ratio)
-        b = int(top_color[2] + (bottom_color[2] - top_color[2]) * ratio)
-        draw.line([(0, y), (width, y)], fill=(r, g, b))
-    
-    return gradient
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 
-def _luminance(r: int, g: int, b: int) -> float:
-    return 0.299 * r + 0.587 * g + 0.114 * b
+SCRIPT_DIR = Path(__file__).resolve().parent
+APP_DIR = SCRIPT_DIR.parent / "flip7calculator"
+OUTPUT_DIR = APP_DIR / "Assets.xcassets" / "AppIcon.appiconset"
+FONT_PATH = APP_DIR / "Nunito-Black.ttf"
+
+LIGHT_OUT = OUTPUT_DIR / "AppIcon-1024.png"
+DARK_OUT = OUTPUT_DIR / "AppIcon-1024-dark.png"
+TINTED_OUT = OUTPUT_DIR / "AppIcon-1024-tinted.png"
+
+SIZE = 1024
 
 
-def _is_orange_accent(r: int, g: int, b: int) -> bool:
-    # Broad heuristic for the orange buttons in the glyph.
-    return r > 170 and g > 80 and b < 140 and (r - b) > 80
+def rgb(hex_value: str) -> tuple[int, int, int]:
+    hex_value = hex_value.removeprefix("#")
+    return tuple(int(hex_value[index:index + 2], 16) for index in (0, 2, 4))
 
 
-def crop_to_gradient_tile_square(
-    img: Image.Image,
-    sat_thresh: float = CROP_SAT_THRESH,
-    lum_thresh: float = CROP_LUM_THRESH,
-    inset_percent: float = CROP_INSET_PERCENT,
-    downscale_max: int = CROP_DOWNSCALE_MAX,
+@dataclass(frozen=True)
+class IconTheme:
+    bg_top: tuple[int, int, int]
+    bg_bottom: tuple[int, int, int]
+    glow_primary: tuple[int, int, int]
+    glow_secondary: tuple[int, int, int]
+    outline: tuple[int, int, int]
+    paper_front: tuple[int, int, int]
+    paper_back: tuple[int, int, int]
+    tab_fill: tuple[int, int, int]
+    tab_text: tuple[int, int, int]
+    row_neutral: tuple[int, int, int]
+    row_a: tuple[int, int, int]
+    row_b: tuple[int, int, int]
+    row_c: tuple[int, int, int]
+    ribbon: tuple[int, int, int]
+    card_face: tuple[int, int, int]
+    card_outline: tuple[int, int, int]
+    card_number: tuple[int, int, int]
+    fold_fill: tuple[int, int, int]
+    die_fill: tuple[int, int, int]
+    die_pip: tuple[int, int, int]
+    shadow: tuple[int, int, int]
+
+
+LIGHT = IconTheme(
+    bg_top=rgb("4A79C5"),
+    bg_bottom=rgb("0F3158"),
+    glow_primary=rgb("F1C24B"),
+    glow_secondary=rgb("6BA8E5"),
+    outline=rgb("213042"),
+    paper_front=rgb("FFF7EB"),
+    paper_back=rgb("D7E8DA"),
+    tab_fill=rgb("205EA4"),
+    tab_text=rgb("FFF7EB"),
+    row_neutral=rgb("DDE7F0"),
+    row_a=rgb("205EA4"),
+    row_b=rgb("F1C24B"),
+    row_c=rgb("E47B58"),
+    ribbon=rgb("E47B58"),
+    card_face=rgb("184D8A"),
+    card_outline=rgb("FFF7EB"),
+    card_number=rgb("F1C24B"),
+    fold_fill=rgb("FFF7EB"),
+    die_fill=rgb("F1C24B"),
+    die_pip=rgb("213042"),
+    shadow=rgb("142130"),
+)
+
+DARK = IconTheme(
+    bg_top=rgb("14243D"),
+    bg_bottom=rgb("06111C"),
+    glow_primary=rgb("7E5D1B"),
+    glow_secondary=rgb("2D5F96"),
+    outline=rgb("F5F7FA"),
+    paper_front=rgb("23303C"),
+    paper_back=rgb("16222B"),
+    tab_fill=rgb("4B8FD7"),
+    tab_text=rgb("F5F7FA"),
+    row_neutral=rgb("556170"),
+    row_a=rgb("68A8E3"),
+    row_b=rgb("E7C65D"),
+    row_c=rgb("EF8D6C"),
+    ribbon=rgb("C77359"),
+    card_face=rgb("10243B"),
+    card_outline=rgb("F5F7FA"),
+    card_number=rgb("E7C65D"),
+    fold_fill=rgb("F5F7FA"),
+    die_fill=rgb("D5B04B"),
+    die_pip=rgb("0B1821"),
+    shadow=rgb("010407"),
+)
+
+TINTED = IconTheme(
+    bg_top=rgb("000000"),
+    bg_bottom=rgb("000000"),
+    glow_primary=rgb("000000"),
+    glow_secondary=rgb("000000"),
+    outline=rgb("FFFFFF"),
+    paper_front=rgb("C3CBD5"),
+    paper_back=rgb("7E8896"),
+    tab_fill=rgb("FFFFFF"),
+    tab_text=rgb("000000"),
+    row_neutral=rgb("8E98A5"),
+    row_a=rgb("FFFFFF"),
+    row_b=rgb("E3E7EC"),
+    row_c=rgb("C3CBD5"),
+    ribbon=rgb("AEB7C2"),
+    card_face=rgb("7E8896"),
+    card_outline=rgb("FFFFFF"),
+    card_number=rgb("FFFFFF"),
+    fold_fill=rgb("FFFFFF"),
+    die_fill=rgb("FFFFFF"),
+    die_pip=rgb("000000"),
+    shadow=rgb("000000"),
+)
+
+
+def vertical_gradient(size: int, top: tuple[int, int, int], bottom: tuple[int, int, int]) -> Image.Image:
+    image = Image.new("RGB", (size, size))
+    draw = ImageDraw.Draw(image)
+
+    for y in range(size):
+        ratio = y / (size - 1)
+        color = tuple(
+            int(top[index] + (bottom[index] - top[index]) * ratio)
+            for index in range(3)
+        )
+        draw.line([(0, y), (size, y)], fill=color)
+
+    return image
+
+
+def add_soft_glow(base: Image.Image, color: tuple[int, int, int], center: tuple[int, int], radius: int, alpha: int) -> None:
+    overlay = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    cx, cy = center
+    bbox = (cx - radius, cy - radius, cx + radius, cy + radius)
+    draw.ellipse(bbox, fill=(*color, alpha))
+    overlay = overlay.filter(ImageFilter.GaussianBlur(radius=80))
+    base.alpha_composite(overlay)
+
+
+def add_background_texture(base: Image.Image, theme: IconTheme) -> None:
+    overlay = Image.new("RGBA", base.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+
+    for index, y in enumerate((248, 432, 616)):
+        opacity = 12 if index == 1 else 9
+        draw.rounded_rectangle(
+            (148, y, 876, y + 20),
+            radius=11,
+            outline=(*theme.paper_front, opacity),
+            width=3,
+        )
+
+    base.alpha_composite(overlay.filter(ImageFilter.GaussianBlur(radius=10)))
+
+
+def font(size: int) -> ImageFont.FreeTypeFont:
+    return ImageFont.truetype(str(FONT_PATH), size=size)
+
+
+def scale_image(image: Image.Image, factor: float) -> Image.Image:
+    return image.resize(
+        (int(image.width * factor), int(image.height * factor)),
+        Image.Resampling.LANCZOS,
+    )
+
+
+def draw_ll_tab(draw: ImageDraw.ImageDraw, theme: IconTheme, origin: tuple[int, int]) -> None:
+    x, y = origin
+    draw.rounded_rectangle((x, y, x + 214, y + 112), radius=28, fill=theme.tab_fill)
+
+    tab_font = font(92)
+    draw.text(
+        (x + 107, y + 58),
+        "LL",
+        font=tab_font,
+        fill=theme.tab_text,
+        anchor="mm",
+    )
+
+
+def draw_row(draw: ImageDraw.ImageDraw, theme: IconTheme, top_left: tuple[int, int], accent: tuple[int, int, int], long_width: int) -> None:
+    x, y = top_left
+    draw.ellipse((x, y, x + 34, y + 34), fill=accent)
+    draw.rounded_rectangle((x + 56, y + 4, x + 56 + long_width, y + 30), radius=13, fill=theme.row_neutral)
+    draw.rounded_rectangle((x + 56 + long_width + 18, y + 4, x + 56 + long_width + 98, y + 30), radius=13, fill=accent)
+
+
+def make_pencil(theme: IconTheme) -> Image.Image:
+    canvas = Image.new("RGBA", (220, 290), (0, 0, 0, 0))
+
+    shadow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    shadow_draw = ImageDraw.Draw(shadow)
+    shadow_draw.rounded_rectangle((74, 56, 150, 268), radius=26, fill=(*theme.shadow, 88))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(radius=16))
+    canvas.alpha_composite(shadow)
+
+    draw = ImageDraw.Draw(canvas)
+    body = (96, 72, 132, 206)
+    draw.rounded_rectangle(body, radius=18, fill=theme.row_a, outline=theme.outline, width=6)
+    draw.rounded_rectangle((94, 206, 134, 232), radius=12, fill=theme.row_neutral, outline=theme.outline, width=4)
+    draw.rounded_rectangle((90, 232, 138, 270), radius=14, fill=theme.ribbon, outline=theme.outline, width=4)
+    draw.polygon([(96, 72), (132, 72), (114, 34)], fill=theme.row_b)
+    draw.polygon([(105, 50), (123, 50), (114, 34)], fill=theme.shadow)
+
+    return canvas
+
+
+def make_die(
+    theme: IconTheme,
+    *,
+    size: int = 220,
+    fill: tuple[int, int, int] | None = None,
+    pip_fill: tuple[int, int, int] | None = None,
+    outline: tuple[int, int, int] | None = None,
+    pattern: str = "5",
 ) -> Image.Image:
-    """
-    Crop to the colorful gradient tile (removing the large white outer canvas).
+    fill = fill or theme.die_fill
+    pip_fill = pip_fill or theme.die_pip
+    outline = outline or theme.paper_front
 
-    Strategy:
-    - Downscale for speed
-    - Find bounds of pixels that are either:
-      - sufficiently saturated (the gradient tile)
-      - sufficiently dark (the glyph outlines)
-    - Scale bounds back up, inset slightly to remove halo/shadow, then square-crop.
-    """
-    rgb = img.convert("RGB")
-    w, h = rgb.size
+    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
 
-    scale = min(1.0, float(downscale_max) / float(max(w, h)))
-    sw = max(1, int(round(w * scale)))
-    sh = max(1, int(round(h * scale)))
-    small = rgb.resize((sw, sh), Image.Resampling.BILINEAR)
-    pixels = small.load()
+    shadow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    shadow_draw = ImageDraw.Draw(shadow)
+    shadow_draw.rounded_rectangle(
+        (int(size * 0.14), int(size * 0.16), int(size * 0.86), int(size * 0.88)),
+        radius=int(size * 0.19),
+        fill=(*theme.shadow, 118),
+    )
+    shadow = shadow.filter(ImageFilter.GaussianBlur(radius=max(10, size // 10)))
+    canvas.alpha_composite(shadow)
 
-    min_x, min_y = sw, sh
-    max_x, max_y = 0, 0
+    draw = ImageDraw.Draw(canvas)
+    die_box = (int(size * 0.08), int(size * 0.08), int(size * 0.82), int(size * 0.82))
+    draw.rounded_rectangle(die_box, radius=int(size * 0.18), fill=fill, outline=outline, width=max(4, size // 28))
 
-    for y in range(sh):
-        for x in range(sw):
-            r, g, b = pixels[x, y]
-            lum = _luminance(r, g, b)
-            max_c = max(r, g, b)
-            min_c = min(r, g, b)
-            sat = (max_c - min_c) / 255.0 if max_c > 0 else 0.0
+    left, top, right, bottom = die_box
+    width = right - left
+    height = bottom - top
+    offsets = {
+        "2": [(0.28, 0.28), (0.72, 0.72)],
+        "3": [(0.28, 0.28), (0.50, 0.50), (0.72, 0.72)],
+        "4": [(0.28, 0.28), (0.72, 0.28), (0.28, 0.72), (0.72, 0.72)],
+        "5": [(0.28, 0.28), (0.72, 0.28), (0.50, 0.50), (0.28, 0.72), (0.72, 0.72)],
+    }[pattern]
+    pip_radius = max(6, size // 22)
+    for px, py in offsets:
+        x = int(left + width * px)
+        y = int(top + height * py)
+        draw.ellipse((x - pip_radius, y - pip_radius, x + pip_radius, y + pip_radius), fill=pip_fill)
 
-            if sat > sat_thresh or lum < lum_thresh:
-                if x < min_x:
-                    min_x = x
-                if y < min_y:
-                    min_y = y
-                if x > max_x:
-                    max_x = x
-                if y > max_y:
-                    max_y = y
-
-    if max_x <= min_x or max_y <= min_y:
-        return rgb
-
-    # Convert small-image bounds back to original coordinates.
-    inv = 1.0 / scale
-    left = int(round(min_x * inv))
-    top = int(round(min_y * inv))
-    right = int(round((max_x + 1) * inv))
-    bottom = int(round((max_y + 1) * inv))
-
-    # Inset slightly to remove halo/shadow around the tile.
-    side = max(right - left, bottom - top)
-    inset_px = int(round(side * (inset_percent / 100.0)))
-    left += inset_px
-    top += inset_px
-    right -= inset_px
-    bottom -= inset_px
-
-    # Center square crop.
-    cx = (left + right) / 2.0
-    cy = (top + bottom) / 2.0
-    side2 = max(right - left, bottom - top)
-
-    sq_left = int(round(cx - side2 / 2.0))
-    sq_top = int(round(cy - side2 / 2.0))
-    sq_right = sq_left + int(round(side2))
-    sq_bottom = sq_top + int(round(side2))
-
-    sq_left = max(0, sq_left)
-    sq_top = max(0, sq_top)
-    sq_right = min(w, sq_right)
-    sq_bottom = min(h, sq_bottom)
-
-    cropped = rgb.crop((sq_left, sq_top, sq_right, sq_bottom))
-
-    # Ensure square (pad with white if clamping made it rectangular).
-    cw, ch = cropped.size
-    if cw != ch:
-        new_side = max(cw, ch)
-        square = Image.new("RGB", (new_side, new_side), (255, 255, 255))
-        square.paste(cropped, ((new_side - cw) // 2, (new_side - ch) // 2))
-        cropped = square
-
-    return cropped
+    return canvas
 
 
-def create_light_icon(original_img: Image.Image) -> Image.Image:
-    cropped = crop_to_gradient_tile_square(original_img)
-    return cropped.resize((TARGET_SIZE, TARGET_SIZE), Image.Resampling.LANCZOS).convert("RGB")
+def make_sheet(theme: IconTheme, *, front: bool) -> Image.Image:
+    width, height = (490, 612) if front else (420, 536)
+    canvas = Image.new("RGBA", (width + 140, height + 150), (0, 0, 0, 0))
+
+    shadow = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    shadow_draw = ImageDraw.Draw(shadow)
+    shadow_bbox = (52, 44, 52 + width, 44 + height)
+    shadow_draw.rounded_rectangle(shadow_bbox, radius=56, fill=(*theme.shadow, 118 if front else 74))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(radius=28 if front else 22))
+    canvas.alpha_composite(shadow)
+
+    draw = ImageDraw.Draw(canvas)
+    body_bbox = (40, 28, 40 + width, 28 + height)
+    draw.rounded_rectangle(
+        body_bbox,
+        radius=56,
+        fill=theme.paper_front if front else theme.card_face,
+        outline=theme.outline if front else theme.card_outline,
+        width=18,
+    )
+
+    if not front:
+        left, top, _, _ = body_bbox
+        header_font = font(84)
+        draw.text(
+            (left + 92, top + 38),
+            "FL",
+            font=header_font,
+            fill=theme.card_outline,
+        )
+        draw.rounded_rectangle(
+            (left + 200, top + 58, left + 210, top + 104),
+            radius=5,
+            fill=theme.card_outline,
+        )
+
+        card_font = font(196)
+        bbox = draw.textbbox((0, 0), "7", font=card_font)
+        height_text = bbox[3] - bbox[1]
+        left_inset = 56
+        bottom_inset = 94
+        draw.text(
+            (left + left_inset, top + height - height_text - bottom_inset),
+            "7",
+            font=card_font,
+            fill=theme.card_number,
+        )
+        return canvas
+
+    draw_ll_tab(draw, theme, origin=(84, 76))
+    draw_row(draw, theme, (108, 236), theme.row_a, 176)
+    draw_row(draw, theme, (108, 334), theme.row_b, 146)
+    draw_row(draw, theme, (108, 432), theme.row_c, 208)
+    draw.rounded_rectangle((108, 530, 364, 558), radius=14, fill=theme.row_neutral)
+
+    return canvas
 
 
-def is_foreground_pixel(r: int, g: int, b: int) -> bool:
-    """
-    Foreground detection tuned for this icon:
-    - outlines/arrows: darker pixels
-    - calculator buttons: mid-gray pixels
-    - orange accent: orange pixels
-    Background gradient is very light, so a luminance threshold works well.
-    """
-    lum = _luminance(r, g, b)
-    if _is_orange_accent(r, g, b):
-        return True
-    return lum < 205
+def create_icon(theme: IconTheme) -> Image.Image:
+    base = vertical_gradient(SIZE, theme.bg_top, theme.bg_bottom).convert("RGBA")
+
+    add_soft_glow(base, theme.glow_primary, center=(752, 164), radius=290, alpha=84)
+    add_soft_glow(base, theme.glow_secondary, center=(208, 836), radius=270, alpha=72)
+    add_background_texture(base, theme)
+
+    back_sheet = make_sheet(theme, front=False).rotate(-10, resample=Image.Resampling.BICUBIC, expand=True)
+    back_sheet = scale_image(back_sheet, 1.08)
+    base.alpha_composite(back_sheet, dest=(-10, 84))
+
+    front_sheet = make_sheet(theme, front=True).rotate(3, resample=Image.Resampling.BICUBIC, expand=True)
+    front_sheet = scale_image(front_sheet, 1.07)
+    base.alpha_composite(front_sheet, dest=(264, 162))
+
+    pencil = make_pencil(theme).rotate(22, resample=Image.Resampling.BICUBIC, expand=True)
+    pencil = scale_image(pencil, 1.06)
+    base.alpha_composite(pencil, dest=(612, 186))
+
+    die_back_left = make_die(theme, size=148, fill=theme.row_neutral, pip_fill=theme.die_pip, outline=theme.outline, pattern="3")
+    die_back_left = scale_image(die_back_left, 1.05)
+    base.alpha_composite(die_back_left, dest=(606, 736))
+
+    die = make_die(theme, size=220, pattern="5")
+    die = scale_image(die, 1.08)
+    base.alpha_composite(die, dest=(682, 690))
+
+    return base.convert("RGB")
 
 
-def create_dark_icon(source_img):
-    """
-    Create dark mode icon:
-    - Dark gradient background
-    - Foreground elements with inverted/adjusted colors for contrast
-    """
-    size = source_img.size
-    
-    # Create dark gradient background
-    dark_bg = create_dark_gradient(size)
-    
-    src = source_img.convert("RGB")
-    result = dark_bg.convert("RGB")
-    
-    width, height = size
-    src_pixels = src.load()
-    result_pixels = result.load()
-    
-    for y in range(height):
-        for x in range(width):
-            r, g, b = src_pixels[x, y]
-            if not is_foreground_pixel(r, g, b):
-                continue
-
-            lum = _luminance(r, g, b)
-            # Preserve orange accent.
-            if _is_orange_accent(r, g, b):
-                result_pixels[x, y] = (min(255, int(r * 1.05)), min(255, int(g * 1.05)), b)
-                continue
-
-            # Outlines/arrows -> white
-            if lum < 120:
-                result_pixels[x, y] = (240, 240, 240)
-            else:
-                # Mid-gray buttons -> darker gray for dark mode
-                v = max(70, min(140, int(lum * 0.55)))
-                result_pixels[x, y] = (v, v, v)
-
-    return result
+def save_icon(image: Image.Image, destination: Path) -> None:
+    image.save(destination, format="PNG", optimize=True)
 
 
-def create_tinted_icon(source_img):
-    """
-    Create tinted mode icon:
-    - Black background
-    - Grayscale foreground elements (lighter = more visible when tinted)
-    - The system will apply the user's chosen tint color
-    """
-    size = source_img.size
-    
-    src = source_img.convert("RGB")
-    result = Image.new("RGB", size, (0, 0, 0))
-    result_pixels = result.load()
-    
-    width, height = size
-    src_pixels = src.load()
-    
-    for y in range(height):
-        for x in range(width):
-            r, g, b = src_pixels[x, y]
-            if not is_foreground_pixel(r, g, b):
-                continue
+def main() -> None:
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-            lum = _luminance(r, g, b)
-            if _is_orange_accent(r, g, b):
-                # Make the accent bright so it tints strongly.
-                result_pixels[x, y] = (255, 255, 255)
-            elif lum < 120:
-                # Outlines/arrows -> white
-                result_pixels[x, y] = (255, 255, 255)
-            else:
-                # Buttons/filled areas -> mid gray (still tints, but with depth).
-                v = max(140, min(220, int(lum)))
-                result_pixels[x, y] = (v, v, v)
-    
-    return result
+    save_icon(create_icon(LIGHT), LIGHT_OUT)
+    save_icon(create_icon(DARK), DARK_OUT)
+    save_icon(create_icon(TINTED), TINTED_OUT)
 
-
-def main():
-    print("Loading original artwork...")
-    original = Image.open(ORIGINAL_SOURCE)
-    print(f"Original size: {original.size}, mode: {original.mode}")
-
-    print("\nCreating LIGHT icon (crop away white border, keep gradient)...")
-    light = create_light_icon(original)
-    light.save(LIGHT_OUT, "PNG")
-    print(f"✓ Saved: {LIGHT_OUT}")
-
-    print("\nCreating DARK icon...")
-    dark_icon = create_dark_icon(light)
-    dark_icon.save(DARK_OUT, "PNG")
-    print(f"✓ Saved: {DARK_OUT}")
-
-    print("\nCreating TINTED icon...")
-    tinted_icon = create_tinted_icon(light)
-    tinted_icon.save(TINTED_OUT, "PNG")
-    print(f"✓ Saved: {TINTED_OUT}")
-    
-    print("\n✅ All icon variants created successfully!")
-    print("\nVariants:")
-    print("  - AppIcon-1024.png (Light/Normal)")
-    print("  - AppIcon-1024-dark.png (Dark mode)")
-    print("  - AppIcon-1024-tinted.png (Tinted mode)")
+    print(f"Wrote {LIGHT_OUT}")
+    print(f"Wrote {DARK_OUT}")
+    print(f"Wrote {TINTED_OUT}")
 
 
 if __name__ == "__main__":
     main()
-

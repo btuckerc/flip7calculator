@@ -53,6 +53,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @Environment(\.requestReview) private var requestReview
+    @Environment(\.colorScheme) private var colorScheme
     
     @AppStorage("appTheme") private var appTheme: String = "system"
     @AppStorage("playerPalette") private var playerPaletteRaw: String = PlayerPalette.classic.rawValue
@@ -62,11 +63,10 @@ struct SettingsView: View {
     @AppStorage("showOpeningAnimation") private var showOpeningAnimation: Bool = true
     @AppStorage("animateMainMenuTitle") private var animateMainMenuTitle: Bool = true
     @AppStorage("defaultTargetScore") private var defaultTargetScore: Int = 200
+    @AppStorage("visualThemeVersion") private var visualThemeVersion: String = VisualTheme.v2.rawValue
     
     @State private var showingTargetScoreEditor = false
     @State private var tempTargetScore: Int = 200
-    
-    private let appStoreId = "6756905042"
     
     private var selectedTheme: AppTheme {
         AppTheme(rawValue: appTheme) ?? .system
@@ -74,6 +74,27 @@ struct SettingsView: View {
     
     private var selectedPalette: PlayerPalette {
         PlayerPalette(rawValue: playerPaletteRaw) ?? PlayerPalette.fromLegacyRawValue(playerPaletteRaw)
+    }
+
+    private var selectedVisualTheme: VisualTheme {
+        VisualTheme(rawValue: visualThemeVersion) ?? .v2
+    }
+
+    private var themeTint: Color {
+        switch selectedVisualTheme {
+        case .legacy:
+            return selectedTheme.accentColor
+        case .v2:
+            return DesignColor.color(.brandPrimary, theme: .v2, colorScheme: selectedTheme.colorScheme)
+        }
+    }
+
+    private var rowBackground: Color {
+        DesignColor.color(.surfaceRaised, theme: selectedVisualTheme, colorScheme: selectedTheme.colorScheme ?? colorScheme)
+    }
+
+    private var rowSeparator: Color {
+        AppBrandPalette.cardBorder(colorScheme: selectedTheme.colorScheme ?? colorScheme)
     }
     
     /// The displayed target score: from active game if present, otherwise from default
@@ -97,10 +118,32 @@ struct SettingsView: View {
                         colorForOption: { $0.accentColor }
                     )
                     .padding(.vertical, 4)
+                    .settingsRowStyle(background: rowBackground, separator: rowSeparator)
                 } header: {
                     Text("Theme")
                 } footer: {
                     Text("Choose a color scheme for the app")
+                }
+
+                Section {
+                    OptionChips(
+                        options: Array(VisualTheme.allCases),
+                        selectedOption: selectedVisualTheme,
+                        onSelect: { visualTheme in
+                            visualThemeVersion = visualTheme.rawValue
+                        },
+                        labelForOption: { $0.displayName },
+                        iconForOption: { $0.icon },
+                        colorForOption: { visualTheme in
+                            DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: selectedTheme.colorScheme)
+                        }
+                    )
+                    .padding(.vertical, 4)
+                    .settingsRowStyle(background: rowBackground, separator: rowSeparator)
+                } header: {
+                    Text("Visual Theme")
+                } footer: {
+                    Text("Legacy keeps the current UI. Lucky Ledger enables the new design token system.")
                 }
                 
                 // Player Palette - Compact picker
@@ -118,6 +161,7 @@ struct SettingsView: View {
                         }
                     )
                     .padding(.vertical, 4)
+                    .settingsRowStyle(background: rowBackground, separator: rowSeparator)
                 } header: {
                     Text("Player Colors")
                 } footer: {
@@ -138,7 +182,7 @@ struct SettingsView: View {
                         } label: {
                             Image(systemName: "minus.circle.fill")
                                 .font(.system(size: 20))
-                                .foregroundStyle(displayedTargetScore > 50 ? .blue : Color(.systemGray4))
+                                .foregroundStyle(displayedTargetScore > 50 ? themeTint : Color(.systemGray4))
                         }
                         .buttonStyle(.borderless)
                         .disabled(displayedTargetScore <= 50)
@@ -149,7 +193,7 @@ struct SettingsView: View {
                         } label: {
                             Text("\(displayedTargetScore)")
                                 .font(.system(size: 17, weight: .medium, design: .rounded))
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(themeTint)
                                 .frame(minWidth: 50)
                         }
                         .buttonStyle(.borderless)
@@ -160,11 +204,12 @@ struct SettingsView: View {
                         } label: {
                             Image(systemName: "plus.circle.fill")
                                 .font(.system(size: 20))
-                                .foregroundStyle(displayedTargetScore < 5000 ? .blue : Color(.systemGray4))
+                                .foregroundStyle(displayedTargetScore < 5000 ? themeTint : Color(.systemGray4))
                         }
                         .buttonStyle(.borderless)
                         .disabled(displayedTargetScore >= 5000)
                     }
+                    .settingsRowStyle(background: rowBackground, separator: rowSeparator)
                     
                     // Manage Players
                     NavigationLink(destination: PlayerManagementView(viewModel: viewModel)) {
@@ -177,6 +222,7 @@ struct SettingsView: View {
                             }
                         }
                     }
+                    .settingsRowStyle(background: rowBackground, separator: rowSeparator)
                     
                     // Manage Deck
                     NavigationLink(destination: DeckManagementView(viewModel: viewModel)) {
@@ -188,6 +234,7 @@ struct SettingsView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    .settingsRowStyle(background: rowBackground, separator: rowSeparator)
                 } header: {
                     Text("Game Options")
                 } footer: {
@@ -201,6 +248,7 @@ struct SettingsView: View {
                 // Haptics
                 Section {
                     Toggle("Haptic Feedback", isOn: $hapticFeedbackEnabled)
+                        .settingsRowStyle(background: rowBackground, separator: rowSeparator)
                 } header: {
                     Text("Haptics")
                 }
@@ -208,6 +256,7 @@ struct SettingsView: View {
                 // Display
                 Section {
                     Toggle("Show Round Score Preview", isOn: $showRoundScorePreview)
+                        .settingsRowStyle(background: rowBackground, separator: rowSeparator)
                 } header: {
                     Text("Display")
                 } footer: {
@@ -217,8 +266,11 @@ struct SettingsView: View {
                 // Accessibility
                 Section {
                     Toggle("Show Opening Animation", isOn: $showOpeningAnimation)
+                        .settingsRowStyle(background: rowBackground, separator: rowSeparator)
                     Toggle("Animate Title", isOn: $animateMainMenuTitle)
+                        .settingsRowStyle(background: rowBackground, separator: rowSeparator)
                     Toggle("Reduce Animations", isOn: $reduceAnimations)
+                        .settingsRowStyle(background: rowBackground, separator: rowSeparator)
                 } header: {
                     Text("Accessibility")
                 } footer: {
@@ -228,28 +280,30 @@ struct SettingsView: View {
                 // Support
                 Section {
                     Button {
-                        if let url = URL(string: "https://btuckerc.dev/contact") {
+                        if let url = URL(string: AppBrand.supportURL) {
                             openURL(url)
                         }
                     } label: {
                         HStack {
                             Image(systemName: "envelope")
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(themeTint)
                             Text("Send Feedback")
                                 .foregroundStyle(.primary)
                         }
                     }
+                    .settingsRowStyle(background: rowBackground, separator: rowSeparator)
                     
                     Button {
                         requestAppReview()
                     } label: {
                         HStack {
                             Image(systemName: "star")
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(themeTint)
                             Text("Rate the App")
                                 .foregroundStyle(.primary)
                         }
                     }
+                    .settingsRowStyle(background: rowBackground, separator: rowSeparator)
                 } header: {
                     Text("Support")
                 }
@@ -259,13 +313,17 @@ struct SettingsView: View {
                     HStack {
                         Text("Version")
                         Spacer()
-                        Text("1.0.0")
+                        Text(AppBrand.versionSummary)
                             .foregroundStyle(.secondary)
                     }
+                    .settingsRowStyle(background: rowBackground, separator: rowSeparator)
                 } header: {
                     Text("About")
                 }
             }
+            .scrollContentBackground(.hidden)
+            .listStyle(.insetGrouped)
+            .appChromeBackground()
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -276,13 +334,13 @@ struct SettingsView: View {
                 }
             }
         }
-        .tint(selectedTheme.accentColor)
+        .tint(themeTint)
         .sheet(isPresented: $showingTargetScoreEditor) {
             TargetScoreEditorSheet(targetScore: $tempTargetScore) { newScore in
                 updateTargetScore(newScore)
             }
             .preferredColorScheme(selectedTheme.colorScheme)
-            .tint(selectedTheme.accentColor)
+            .tint(themeTint)
             .id(appTheme)
         }
     }
@@ -311,8 +369,25 @@ struct SettingsView: View {
     
     /// Opens the App Store review page directly
     private func openAppStoreReview() {
-        if let url = URL(string: "https://apps.apple.com/app/id\(appStoreId)?action=write-review") {
+        if let url = URL(string: "https://apps.apple.com/app/id\(AppBrand.appStoreId)?action=write-review") {
             openURL(url)
         }
+    }
+}
+
+private struct SettingsRowChrome: ViewModifier {
+    let background: Color
+    let separator: Color
+
+    func body(content: Content) -> some View {
+        content
+            .listRowBackground(background)
+            .listRowSeparatorTint(separator.opacity(0.34))
+    }
+}
+
+private extension View {
+    func settingsRowStyle(background: Color, separator: Color) -> some View {
+        modifier(SettingsRowChrome(background: background, separator: separator))
     }
 }

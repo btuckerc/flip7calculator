@@ -35,7 +35,7 @@ struct ModifierGrid: View {
                 ModifierTile(
                     label: "+\(value)",
                     count: addMods[value] ?? 0,
-                    color: .orange,  // Changed from green to orange to match physical game
+                    color: AppBrandPalette.gold,
                     isEnabled: isModifierEnabled(value),
                     showCountBadge: showCountBadges,
                     onTap: { onTapModifier(value) },
@@ -47,7 +47,7 @@ struct ModifierGrid: View {
             ModifierTile(
                 label: "×2",
                 count: x2Count,
-                color: .purple,
+                color: AppBrandPalette.brandBlue,
                 isEnabled: isX2Enabled,
                 showCountBadge: showCountBadges,
                 onTap: onTapX2,
@@ -139,4 +139,3 @@ struct ModifierTile: View {
         )
     }
 }
-

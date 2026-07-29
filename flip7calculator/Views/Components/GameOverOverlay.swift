@@ -13,6 +13,8 @@ struct GameOverOverlay: View {
     let onPlayAgain: () -> Void
     let onNewGame: () -> Void
     let onUndo: () -> Void
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
     
     @State private var isPresented = false
     @State private var showingStats = false
@@ -43,6 +45,14 @@ struct GameOverOverlay: View {
     /// Player count for layout decisions
     private var playerCount: Int {
         rankedPlayers.count
+    }
+
+    private var accentColor: Color {
+        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+    }
+
+    private var cardSurface: Color {
+        DesignColor.color(.surfacePrimary, theme: visualTheme, colorScheme: colorScheme)
     }
     
     var body: some View {
@@ -100,8 +110,8 @@ struct GameOverOverlay: View {
             // Trophy icon
             Image(systemName: "trophy.fill")
                 .font(.system(size: useCompactLayout ? 38 : 48))
-                .foregroundStyle(.yellow)
-                .shadow(color: .orange.opacity(0.5), radius: 8, x: 0, y: 4)
+                .foregroundStyle(AppBrandPalette.gold)
+                .shadow(color: AppBrandPalette.gold.opacity(0.35), radius: 8, x: 0, y: 4)
             
             // Game Over title
             Text("Game Over!")
@@ -114,11 +124,11 @@ struct GameOverOverlay: View {
                     if winners.count == 1 {
                         Text("\(winners[0].name) Wins!")
                             .font(.system(size: useCompactLayout ? 18 : 22, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(accentColor)
                     } else {
                         Text("Tie: \(winners.map { $0.name }.joined(separator: " & "))")
                             .font(.system(size: useCompactLayout ? 18 : 22, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(accentColor)
                             .multilineTextAlignment(.center)
                     }
                     
@@ -216,7 +226,7 @@ struct GameOverOverlay: View {
                     // Score
                     Text("\(player.totalScore)")
                         .font(.system(size: fontSize, weight: .bold, design: .rounded))
-                        .foregroundStyle(index == 0 ? .blue : .secondary)
+                        .foregroundStyle(index == 0 ? accentColor : .secondary)
                         .monospacedDigit()
                 }
                 .padding(.horizontal, 4)
@@ -241,10 +251,10 @@ struct GameOverOverlay: View {
                     Text("Undo")
                         .font(.system(size: 15, weight: .medium, design: .rounded))
                 }
-                .foregroundColor(viewModel.canUndo ? .blue : .gray.opacity(0.5))
+                .foregroundColor(viewModel.canUndo ? accentColor : .gray.opacity(0.5))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
-                .background(viewModel.canUndo ? Color.blue.opacity(0.1) : Color(.secondarySystemFill))
+                .background(viewModel.canUndo ? accentColor.opacity(0.1) : Color(.secondarySystemFill))
                 .cornerRadius(10)
             }
             .disabled(!viewModel.canUndo)
@@ -263,7 +273,7 @@ struct GameOverOverlay: View {
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
-                .background(.blue)
+                .background(accentColor)
                 .cornerRadius(12)
             }
             
@@ -280,10 +290,10 @@ struct GameOverOverlay: View {
                         Text("Stats")
                             .font(.system(size: 15, weight: .medium, design: .rounded))
                     }
-                    .foregroundColor(.blue)
+                    .foregroundColor(accentColor)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
-                    .background(Color.blue.opacity(0.1))
+                    .background(accentColor.opacity(0.1))
                     .cornerRadius(10)
                 }
                 
@@ -307,16 +317,16 @@ struct GameOverOverlay: View {
             }
         }
         .padding(16)
-        .background(Color(.systemBackground))
+        .background(cardSurface)
         .cornerRadius(20)
         .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: -2)
     }
     
     private func rankColor(for index: Int) -> Color {
         switch index {
-        case 0: return .yellow
-        case 1: return Color(.systemGray)
-        case 2: return .orange
+        case 0: return AppBrandPalette.gold
+        case 1: return AppBrandPalette.slate
+        case 2: return AppBrandPalette.copper
         default: return .secondary
         }
     }
@@ -449,6 +459,5 @@ struct GameOverOverlay: View {
         onUndo: {}
     )
 }
-
 
 

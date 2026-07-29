@@ -12,18 +12,17 @@ enum PlayerRoundState: String, Codable, CaseIterable {
     case inRound    // Player is still drawing cards
     case banked     // Player chose to stay/bank their points
     case busted     // Player drew a duplicate number
-    case frozen     // Player was forced to bank (e.g., Freeze card)
+    case frozen     // Player was forced to stop and bank their points
     
     var displayName: String {
         switch self {
         case .inRound: return "In Round"
         case .banked: return "Banked"
         case .busted: return "Busted"
-        case .frozen: return "Frozen"
+        case .frozen: return "On Hold"
         }
     }
 }
-
 
 
 

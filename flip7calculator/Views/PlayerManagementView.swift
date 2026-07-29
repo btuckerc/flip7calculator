@@ -52,9 +52,8 @@ struct PlayerManagementView: View {
                         )
                         .padding(.horizontal, 12)
                         .padding(.vertical, 12)
-                        .background(Color(.systemBackground))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
+                    .cardSurface(cornerRadius: 16)
                 }
                 
                 // Players editor card - using shared component
@@ -72,7 +71,7 @@ struct PlayerManagementView: View {
         .onTapGesture {
             focusCoordinator.clearFocus()
         }
-        .background(Color(.systemGroupedBackground))
+        .appChromeBackground()
         .navigationTitle("Manage Players")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -132,7 +131,7 @@ struct PlayerPreviewGrid: View {
             ForEach(Array(playerRows.enumerated()), id: \.element.id) { index, row in
                 PlayerPreviewTile(
                     name: row.name.isEmpty ? "Player \(index + 1)" : row.name,
-                    color: playerColors[safe: index] ?? .blue
+                    color: playerColors[safe: index] ?? AppBrandPalette.brandBlue
                 )
             }
         }
@@ -148,7 +147,7 @@ struct PlayerPreviewTile: View {
             // Status icon (always show circle for preview)
             Image(systemName: "circle.fill")
                 .font(.system(size: 10))
-                .foregroundStyle(.blue)
+                .foregroundStyle(color)
             
             // Player name
             Text(name)

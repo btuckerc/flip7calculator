@@ -22,7 +22,7 @@ struct GameViewModelUndoTests {
         let playerId = game.players[0].id
         
         // Perform an action
-        viewModel.addCardToPlayer(playerId, number: 5)
+        _ = viewModel.addCardToPlayer(playerId, number: 5)
         
         // Verify action occurred
         guard let gameAfter = viewModel.game else {
@@ -64,8 +64,8 @@ struct GameViewModelUndoTests {
         let playerId = game.players[0].id
         
         // Perform multiple actions
-        viewModel.addCardToPlayer(playerId, number: 3)
-        viewModel.addCardToPlayer(playerId, number: 7)
+        _ = viewModel.addCardToPlayer(playerId, number: 3)
+        _ = viewModel.addCardToPlayer(playerId, number: 7)
         viewModel.addModifierToPlayer(playerId, value: 4)
         
         // Undo three times
@@ -95,13 +95,13 @@ struct GameViewModelUndoTests {
         let playerId = game.players[0].id
         
         // Perform action and undo
-        viewModel.addCardToPlayer(playerId, number: 5)
+        _ = viewModel.addCardToPlayer(playerId, number: 5)
         viewModel.undo()
         
         #expect(viewModel.canRedo)
         
         // Perform new action - should clear redo stack
-        viewModel.addCardToPlayer(playerId, number: 8)
+        _ = viewModel.addCardToPlayer(playerId, number: 8)
         
         #expect(!viewModel.canRedo)
     }
@@ -187,6 +187,9 @@ struct GameViewModelUndoTests {
     @Test func testUndoRedoX2Changes() {
         let viewModel = GameViewModel()
         viewModel.startNewGame(players: ["Alice", "Bob"], targetScore: 200)
+        var profile = DeckProfile.standard
+        profile.x2Count = 2
+        viewModel.updateDeckProfile(profile)
         
         guard let game = viewModel.game else {
             Issue.record("Game should exist")
@@ -266,4 +269,3 @@ struct GameViewModelUndoTests {
         #expect(!viewModel.canRedo)
     }
 }
-

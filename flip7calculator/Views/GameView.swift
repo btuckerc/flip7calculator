@@ -30,6 +30,8 @@ struct GameView: View {
     
     @AppStorage("playerPalette") private var playerPaletteRaw: String = PlayerPalette.classic.rawValue
     @AppStorage("appTheme") private var appTheme: String = "system"
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
     
     private var selectedTheme: AppTheme {
         AppTheme(rawValue: appTheme) ?? .system
@@ -37,6 +39,15 @@ struct GameView: View {
     
     private var selectedPalette: PlayerPalette {
         PlayerPalette(rawValue: playerPaletteRaw) ?? PlayerPalette.fromLegacyRawValue(playerPaletteRaw)
+    }
+
+    private var themeAccent: Color {
+        switch visualTheme {
+        case .legacy:
+            return selectedTheme.accentColor
+        case .v2:
+            return DesignColor.color(.brandPrimary, theme: .v2, colorScheme: colorScheme)
+        }
     }
     
     private var playerColors: [Color] {
@@ -128,7 +139,7 @@ struct GameView: View {
                             }) {
                                 Text("Next Round")
                                     .font(.system(size: 15, weight: .medium, design: .rounded))
-                                    .foregroundStyle(.blue)
+                                    .foregroundStyle(themeAccent)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             
@@ -140,7 +151,7 @@ struct GameView: View {
                                 }) {
                                     Image(systemName: "arrow.uturn.backward.circle.fill")
                                         .font(.system(size: 28))
-                                        .foregroundStyle(viewModel.canUndo ? .blue : .gray.opacity(0.4))
+                                        .foregroundStyle(viewModel.canUndo ? themeAccent : .gray.opacity(0.4))
                                 }
                                 .disabled(!viewModel.canUndo)
                                 
@@ -150,7 +161,7 @@ struct GameView: View {
                                 }) {
                                     Image(systemName: "arrow.uturn.forward.circle.fill")
                                         .font(.system(size: 28))
-                                        .foregroundStyle(viewModel.canRedo ? .blue : .gray.opacity(0.4))
+                                        .foregroundStyle(viewModel.canRedo ? themeAccent : .gray.opacity(0.4))
                                 }
                                 .disabled(!viewModel.canRedo)
                             }
@@ -170,14 +181,14 @@ struct GameView: View {
                                 .padding(.vertical, 10)
                                 .background(
                                     Capsule()
-                                        .fill(.blue)
+                                        .fill(themeAccent)
                                 )
                             }
                             .frame(maxWidth: .infinity, alignment: .trailing)
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
-                        .background(Color(.systemBackground))
+                        .background(DesignColor.color(.surfacePrimary, theme: visualTheme, colorScheme: colorScheme))
                     }
                 }
                 .navigationTitle("Round \(game.currentRoundNumber)")
@@ -191,7 +202,7 @@ struct GameView: View {
                     
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Menu {
-                            Button("How to Play") { showingRules = true }
+                            Button("Scoring Guide") { showingRules = true }
                             Divider()
                             Button("New Game", role: .destructive) { activeConfirmation = .newGame }
                         } label: {
@@ -206,7 +217,7 @@ struct GameView: View {
                         .id(appTheme)
                 }
                 .sheet(isPresented: $showingRules) {
-                    RulesView()
+                    AppHelpView()
                         .preferredColorScheme(selectedTheme.colorScheme)
                         .tint(selectedTheme.accentColor)
                         .id(appTheme)
@@ -437,6 +448,8 @@ struct SelectedPlayerPanel: View {
     @Binding var showingBustBanner: Bool
     @Binding var bustNumber: Int?
     let onNumberTap: (UUID, Int) -> Void
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
     
     /// Falls back to first player for layout measurement when no selection
     private var effectivePlayer: Player {
@@ -457,7 +470,7 @@ struct SelectedPlayerPanel: View {
     }
     
     private var playerColor: Color {
-        playerColors[safe: playerIndex] ?? .blue
+        playerColors[safe: playerIndex] ?? DesignColor.color(.playerHighlight, theme: visualTheme, colorScheme: colorScheme)
     }
     
     var body: some View {
@@ -465,7 +478,7 @@ struct SelectedPlayerPanel: View {
         let selectedId = effectivePlayerId
         
         VStack(spacing: 8) {
-            // Player header with Flip 7 bonus
+            // Player header with 7-card bonus
             HStack {
                 Text(player.name)
                     .font(.system(size: 17, weight: .bold, design: .rounded))
@@ -475,13 +488,13 @@ struct SelectedPlayerPanel: View {
                 
                 Spacer()
                 
-                // Flip 7 bonus indicator - always reserve space to prevent layout shift
+                // 7-card bonus indicator - always reserve space to prevent layout shift
                 HStack(spacing: 3) {
                     Image(systemName: "star.fill")
                         .font(.system(size: 12))
                         .foregroundStyle(.yellow)
-                        .symbolEffect(.bounce, value: player.currentRound.hand.hasFlip7Bonus)
-                    Text("+15")
+                        .symbolEffect(.bounce, value: player.currentRound.hand.hasSevenCardBonus)
+                    Text("+\(AppBrand.sevenCardBonusValue)")
                         .font(.system(size: 12, weight: .bold, design: .rounded))
                         .foregroundStyle(.yellow)
                 }
@@ -491,8 +504,8 @@ struct SelectedPlayerPanel: View {
                     Capsule()
                         .fill(.yellow.opacity(0.2))
                 )
-                .opacity(player.currentRound.hand.hasFlip7Bonus ? 1 : 0)
-                .accessibilityHidden(!player.currentRound.hand.hasFlip7Bonus)
+                .opacity(player.currentRound.hand.hasSevenCardBonus ? 1 : 0)
+                .accessibilityHidden(!player.currentRound.hand.hasSevenCardBonus)
             }
             .padding(.horizontal)
             
@@ -616,7 +629,7 @@ struct PlayerActionButtons: View {
     var body: some View {
         // Use ZStack with fixed height to prevent layout shifts between states
         ZStack {
-            // In Round: Bank, Bust, Freeze
+            // In Round: Bank, Bust, Hold
             HStack(spacing: 6) {
                 ActionPillButton(
                     title: "Bank",
@@ -639,7 +652,7 @@ struct PlayerActionButtons: View {
                 )
                 
                 ActionPillButton(
-                    title: "Freeze",
+                    title: "Hold",
                     icon: "snowflake",
                     color: .cyan,
                     action: {
@@ -657,14 +670,14 @@ struct PlayerActionButtons: View {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 18))
                         .foregroundStyle(.red)
-                    Text("BUSTED")
+                    Text("Busted")
                         .font(.system(size: 12, weight: .bold, design: .rounded))
                         .foregroundStyle(.red)
                 }
                 .frame(maxWidth: .infinity)
                 
                 ActionPillButton(
-                    title: "Un-bust",
+                    title: "Resume",
                     icon: "arrow.uturn.backward.circle.fill",
                     color: .orange,
                     action: {
@@ -682,14 +695,14 @@ struct PlayerActionButtons: View {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 18))
                         .foregroundStyle(.green)
-                    Text("BANKED")
+                    Text("Banked")
                         .font(.system(size: 12, weight: .bold, design: .rounded))
                         .foregroundStyle(.green)
                 }
                 .frame(maxWidth: .infinity)
                 
                 ActionPillButton(
-                    title: "Un-bank",
+                    title: "Resume",
                     icon: "arrow.uturn.backward.circle.fill",
                     color: .orange,
                     action: {
@@ -701,20 +714,20 @@ struct PlayerActionButtons: View {
             .opacity(player.currentRound.state == .banked ? 1 : 0)
             .allowsHitTesting(player.currentRound.state == .banked)
             
-            // Frozen state
+            // Held state
             HStack(spacing: 6) {
                 HStack(spacing: 4) {
                     Image(systemName: "snowflake")
                         .font(.system(size: 18))
                         .foregroundStyle(.cyan)
-                    Text("FROZEN")
+                    Text("On Hold")
                         .font(.system(size: 12, weight: .bold, design: .rounded))
                         .foregroundStyle(.cyan)
                 }
                 .frame(maxWidth: .infinity)
                 
                 ActionPillButton(
-                    title: "Un-freeze",
+                    title: "Resume",
                     icon: "arrow.uturn.backward.circle.fill",
                     color: .orange,
                     action: {

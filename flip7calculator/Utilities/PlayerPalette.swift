@@ -9,7 +9,7 @@ import SwiftUI
 
 /// Player color palette themes - each with a unique curated 8-color set.
 /// Colors are carefully chosen to:
-/// - Stay distinct from action colors (Bank green, Bust red, Freeze cyan)
+/// - Stay distinct from action colors (Bank green, Bust red, Hold cyan)
 /// - Remain visually distinct from each other for up to 8 players
 /// - Feel comfortable and avoid harsh/ugly colors
 enum PlayerPalette: String, CaseIterable {
@@ -64,10 +64,10 @@ enum PlayerPalette: String, CaseIterable {
     private static let classicColors: [Color] = [
         Color.hex("FBBF24"),  // Gold
         Color.hex("8B5CF6"),  // Purple
-        Color.hex("EC4899"),  // Pink
+        Color.hex("7E22CE"),  // Plum
         Color.hex("2563EB"),  // Blue
         Color.hex("64748B"),  // Slate
-        Color.hex("F97316"),  // Orange
+        Color.hex("D97706"),  // Amber
         Color.hex("D946EF"),  // Fuchsia
         Color.hex("0D9488"),  // Teal
     ]
@@ -76,36 +76,36 @@ enum PlayerPalette: String, CaseIterable {
     // Sea and sky inspired. Blues with warm accents.
     private static let oceanColors: [Color] = [
         Color.hex("1E3A8A"),  // Navy
-        Color.hex("0284C7"),  // Sky blue
-        Color.hex("0D9488"),  // Teal
+        Color.hex("2563EB"),  // Crest blue
+        Color.hex("0F766E"),  // Deep teal
         Color.hex("7C3AED"),  // Violet
         Color.hex("D97706"),  // Amber sand
         Color.hex("64748B"),  // Slate
-        Color.hex("8B5CF6"),  // Lavender
-        Color.hex("EC4899"),  // Coral
+        Color.hex("A855F7"),  // Lavender
+        Color.hex("F59E0B"),  // Sunlit amber
     ]
     
     // MARK: - Warm Theme
     // Sunset vibes. Variety of warm hues.
     private static let warmColors: [Color] = [
         Color.hex("FBBF24"),  // Gold
-        Color.hex("EC4899"),  // Hot pink
-        Color.hex("F97316"),  // Orange
-        Color.hex("A855F7"),  // Violet
-        Color.hex("D97706"),  // Amber
-        Color.hex("F472B6"),  // Coral
+        Color.hex("7E22CE"),  // Magenta plum
+        Color.hex("D97706"),  // Amber orange
+        Color.hex("8B5CF6"),  // Violet
+        Color.hex("7C2D12"),  // Espresso
+        Color.hex("FB7185"),  // Coral
         Color.hex("C026D3"),  // Magenta
-        Color.hex("92400E"),  // Brown
+        Color.hex("475569"),  // Slate
     ]
     
     // MARK: - Neon Theme
     // Electric and vibrant. High energy.
     private static let neonColors: [Color] = [
         Color.hex("A855F7"),  // Electric purple
-        Color.hex("EC4899"),  // Hot pink
+        Color.hex("4F46E5"),  // Electric indigo
         Color.hex("FBBF24"),  // Gold
         Color.hex("2563EB"),  // Electric blue
-        Color.hex("F97316"),  // Neon orange
+        Color.hex("D97706"),  // Neon amber
         Color.hex("D946EF"),  // Fuchsia
         Color.hex("6366F1"),  // Indigo
         Color.hex("0D9488"),  // Teal
@@ -114,13 +114,13 @@ enum PlayerPalette: String, CaseIterable {
     // MARK: - Pastel Theme
     // Soft and gentle. Easy on the eyes.
     private static let pastelColors: [Color] = [
-        Color.hex("93C5FD"),  // Sky
-        Color.hex("C4B5FD"),  // Lavender
+        Color.hex("DDD6FE"),  // Mist
         Color.hex("FDE047"),  // Lemon
-        Color.hex("F9A8D4"),  // Rose
+        Color.hex("FB7185"),  // Blush
+        Color.hex("C4B5FD"),  // Lavender
         Color.hex("FDBA74"),  // Peach
-        Color.hex("D8B4FE"),  // Wisteria
-        Color.hex("F0ABFC"),  // Orchid
+        Color.hex("A7F3D0"),  // Seafoam
+        Color.hex("E879F9"),  // Orchid
         Color.hex("94A3B8"),  // Slate
     ]
     
@@ -142,12 +142,12 @@ enum PlayerPalette: String, CaseIterable {
     private static let earthColors: [Color] = [
         Color.hex("78716C"),  // Stone
         Color.hex("A16207"),  // Ochre
-        Color.hex("92400E"),  // Sienna
-        Color.hex("64748B"),  // Slate
-        Color.hex("854D0E"),  // Umber
-        Color.hex("7C3AED"),  // Violet (wildflower)
-        Color.hex("0D9488"),  // Teal (water)
-        Color.hex("44403C"),  // Charcoal
+        Color.hex("92400E"),  // Bark
+        Color.hex("475569"),  // Slate
+        Color.hex("7E22CE"),  // Iris
+        Color.hex("0F766E"),  // Pinewater
+        Color.hex("CA8A04"),  // Harvest gold
+        Color.hex("1E3A8A"),  // Midnight
     ]
 }
 

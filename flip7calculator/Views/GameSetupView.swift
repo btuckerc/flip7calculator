@@ -20,155 +20,123 @@ struct GameSetupView: View {
     
     @AppStorage("defaultTargetScore") private var defaultTargetScore: Int = 200
     @AppStorage("appTheme") private var appTheme: String = "system"
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
     
     private var selectedTheme: AppTheme {
         AppTheme(rawValue: appTheme) ?? .system
     }
+
+    private var themeAccent: Color {
+        switch visualTheme {
+        case .legacy:
+            return selectedTheme.accentColor
+        case .v2:
+            return DesignColor.color(.brandPrimary, theme: .v2, colorScheme: colorScheme)
+        }
+    }
+
+    private var filledPlayerCount: Int {
+        playerRows.filter { !$0.name.trimmingCharacters(in: .whitespaces).isEmpty }.count
+    }
+
+    private var deckSummary: String {
+        let deckProfile = PersistedDeckProfile.load().deckProfile
+        return "\(deckProfile.totalCardCount)-card deck"
+    }
+
+    private var playerSummary: String {
+        let count = playerRows.count
+        return "\(count) \(count == 1 ? "player" : "players")"
+    }
     
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                // Main content - scrollable (includes title)
-                ScrollView {
-                    VStack(spacing: 16) {
-                        // Hero title section
-                        VStack(spacing: 10) {
-                            Flip7TitleView()
-                            
-                            // How to Play button
-                            Button(action: { showingRules = true }) {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "questionmark.circle")
-                                        .font(.system(size: 14, weight: .medium))
-                                    Text("How to Play")
-                                        .font(.system(size: 14, weight: .medium, design: .rounded))
-                                }
-                                .foregroundStyle(.blue)
-                            }
+            ScrollView {
+                VStack(spacing: 18) {
+                    SetupHeroCard(themeAccent: themeAccent)
+
+                    PlayersEditorCard(
+                        playerRows: $playerRows,
+                        focusCoordinator: focusCoordinator,
+                        onPersist: persistRosterOrder
+                    )
+
+                    if playerRows.count > 2 || playerRows.contains(where: { !$0.name.isEmpty }) {
+                        Button(action: clearPlayers) {
+                            Text("Reset players")
                         }
-                        .padding(.top, 8)
-                        .frame(maxWidth: .infinity)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            focusCoordinator.clearFocus()
-                        }
-                        
-                        // Players card - using shared component
-                        PlayersEditorCard(
-                            playerRows: $playerRows,
-                            focusCoordinator: focusCoordinator,
-                            onPersist: persistRosterOrder
-                        )
-                        
-                        // Reset link
-                        if playerRows.count > 2 || playerRows.contains(where: { !$0.name.isEmpty }) {
-                            Button(action: clearPlayers) {
-                                Text("Reset to Default")
-                                    .font(.system(size: 14, weight: .medium, design: .rounded))
-                                    .foregroundStyle(.blue)
-                            }
-                            .padding(.top, 4)
-                        }
-                        
-                        // Target Score card
-                        VStack(spacing: 0) {
-                            HStack {
-                                Text("Target Score")
-                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                                    .foregroundStyle(.secondary)
-                                    .textCase(.uppercase)
-                                
-                                Spacer()
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 8)
-                            
-                            HStack {
-                                Button(action: { targetScore = max(50, targetScore - 25) }) {
-                                    Image(systemName: "minus.circle.fill")
-                                        .font(.system(size: 28))
-                                        .foregroundStyle(targetScore > 50 ? .blue : Color(.systemGray4))
-                                }
-                                .disabled(targetScore <= 50)
-                                
-                                Spacer()
-                                
-                                Button(action: { showingTargetScoreEditor = true }) {
-                                    Text("\(targetScore)")
-                                        .font(.system(size: 34, weight: .bold, design: .rounded))
-                                        .foregroundStyle(.primary)
-                                        .frame(minWidth: 80)
-                                        .contentTransition(.numericText())
-                                        .animation(.snappy(duration: 0.2), value: targetScore)
-                                }
-                                .buttonStyle(.plain)
-                                
-                                Spacer()
-                                
-                                Button(action: { targetScore = min(5000, targetScore + 25) }) {
-                                    Image(systemName: "plus.circle.fill")
-                                        .font(.system(size: 28))
-                                        .foregroundStyle(targetScore < 5000 ? .blue : Color(.systemGray4))
-                                }
-                                .disabled(targetScore >= 5000)
-                            }
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 16)
-                            .background(Color(.systemBackground))
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                        }
-                        
-                        // Reset to 200 link
-                        if targetScore != 200 {
-                            Button(action: { targetScore = 200 }) {
-                                Text("Reset to 200")
-                                    .font(.system(size: 14, weight: .medium, design: .rounded))
-                                    .foregroundStyle(.blue)
-                            }
-                            .padding(.top, 4)
-                        }
+                        .buttonStyle(GhostButtonStyle())
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 100) // Space for start button
+
+                    SetupTargetScoreCard(
+                        targetScore: $targetScore,
+                        themeAccent: themeAccent,
+                        showingTargetScoreEditor: $showingTargetScoreEditor
+                    )
+
+                    if targetScore != 200 {
+                        Button(action: { targetScore = 200 }) {
+                            Text("Reset to 200")
+                        }
+                        .buttonStyle(GhostButtonStyle())
+                    }
                 }
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    focusCoordinator.clearFocus()
-                }
-                
-                // Start button - fixed at bottom
-                VStack(spacing: 0) {
+                .padding(.horizontal, 20)
+                .padding(.top, 14)
+                .padding(.bottom, 140)
+            }
+            .scrollIndicators(.hidden)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                focusCoordinator.clearFocus()
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .appChromeBackground()
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                VStack(spacing: 12) {
+                    VStack(spacing: 4) {
+                        Text("\(playerSummary) • target \(targetScore) • \(deckSummary)")
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
+                            .multilineTextAlignment(.center)
+
+                        Text(filledPlayerCount == 0 ? "Blank names become Player 1, Player 2, and so on." : "Names save automatically, so the next game is ready faster.")
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme).opacity(0.92))
+                            .multilineTextAlignment(.center)
+                    }
+
                     Button(action: {
                         HapticFeedback.success()
                         startGame()
                     }) {
                         Text("Start Game")
-                            .font(.system(size: 18, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(
-                                RoundedRectangle(cornerRadius: 14)
-                                    .fill(canStartGame ? .blue : Color(.systemGray4))
-                            )
                     }
+                    .buttonStyle(PrimaryButtonStyle())
                     .disabled(!canStartGame)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 12)
-                    .padding(.bottom, 32)
-                    .background(
-                        Color(.systemGroupedBackground)
-                            .shadow(color: .black.opacity(0.05), radius: 8, y: -4)
-                            .ignoresSafeArea()
-                    )
                 }
+                .padding(.horizontal, 20)
+                .padding(.top, 14)
+                .padding(.bottom, 28)
+                .background(
+                    DesignColor.color(.surfaceRaised, theme: visualTheme, colorScheme: colorScheme)
+                        .opacity(0.98)
+                        .shadow(color: AppBrandPalette.ink.opacity(visualTheme == .v2 ? 0.10 : 0.05), radius: 18, y: -6)
+                        .ignoresSafeArea()
+                )
             }
-            .navigationBarTitleDisplayMode(.inline)
-            .background(Color(.systemGroupedBackground))
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button(action: { showingSettings = true }) {
                         Image(systemName: "gearshape")
+                    }
+                }
+
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: { showingRules = true }) {
+                        Image(systemName: "questionmark.circle")
                     }
                 }
             }
@@ -177,19 +145,19 @@ struct GameSetupView: View {
                     targetScore = newScore
                 }
                 .preferredColorScheme(selectedTheme.colorScheme)
-                .tint(selectedTheme.accentColor)
+                .tint(themeAccent)
                 .id(appTheme)
             }
             .sheet(isPresented: $showingRules) {
-                RulesView()
+                AppHelpView()
                     .preferredColorScheme(selectedTheme.colorScheme)
-                    .tint(selectedTheme.accentColor)
+                    .tint(themeAccent)
                     .id(appTheme)
             }
             .sheet(isPresented: $showingSettings) {
                 SettingsView(viewModel: viewModel)
                     .preferredColorScheme(selectedTheme.colorScheme)
-                    .tint(selectedTheme.accentColor)
+                    .tint(themeAccent)
                     .id(appTheme)
             }
             .onAppear {
@@ -256,5 +224,188 @@ struct GameSetupView: View {
         let names = playerRows.map { $0.name.trimmingCharacters(in: .whitespaces) }
         PersistedRoster(names: names).save()
         focusCoordinator.setOrder(playerRows.map { $0.id })
+    }
+}
+
+private struct SetupHeroCard: View {
+    let themeAccent: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            AppTitleView(showTagline: false)
+
+            HStack(spacing: 8) {
+                SetupFeatureChip(icon: "bolt.fill", label: "Fast entry", tint: themeAccent)
+                SetupFeatureChip(icon: "wifi.slash", label: "Offline", tint: AppBrandPalette.brandBlueSky)
+                SetupFeatureChip(icon: "arrow.uturn.backward.circle", label: "Undo ready", tint: AppBrandPalette.gold)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(22)
+        .cardSurface(cornerRadius: 26)
+    }
+}
+
+private struct SetupFeatureChip: View {
+    let icon: String
+    let label: String
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+            Text(label)
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+        }
+        .foregroundStyle(tint)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            Capsule()
+                .fill(tint.opacity(0.14))
+        )
+        .overlay(
+            Capsule()
+                .stroke(tint.opacity(0.18), lineWidth: 0.8)
+        )
+    }
+}
+
+private struct SetupTargetScoreCard: View {
+    @Binding var targetScore: Int
+    let themeAccent: Color
+    @Binding var showingTargetScoreEditor: Bool
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
+
+    private let presets = [150, 200, 250, 300]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Target Score")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
+                        .textCase(.uppercase)
+
+                    Text("Quick presets keep setup moving, and you can tap the score for an exact value.")
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer()
+            }
+
+            HStack(spacing: 18) {
+                Button(action: { targetScore = max(50, targetScore - 25) }) {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.system(size: 32))
+                        .foregroundStyle(targetScore > 50 ? themeAccent : Color(.systemGray4))
+                }
+                .disabled(targetScore <= 50)
+
+                Spacer()
+
+                Button(action: { showingTargetScoreEditor = true }) {
+                    VStack(spacing: 4) {
+                        Text("\(targetScore)")
+                            .font(.system(size: 38, weight: .black, design: .rounded))
+                            .foregroundStyle(DesignColor.color(.textPrimary, theme: visualTheme, colorScheme: colorScheme))
+                            .contentTransition(.numericText())
+                        Text("Tap to type")
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
+                    }
+                    .frame(minWidth: 110)
+                }
+                .buttonStyle(.plain)
+
+                Spacer()
+
+                Button(action: { targetScore = min(5000, targetScore + 25) }) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 32))
+                        .foregroundStyle(targetScore < 5000 ? themeAccent : Color(.systemGray4))
+                }
+                .disabled(targetScore >= 5000)
+            }
+
+            HStack(spacing: 8) {
+                ForEach(presets, id: \.self) { preset in
+                    Button(action: { targetScore = preset }) {
+                        Text("\(preset)")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .modifier(
+                        TargetScorePresetStyleModifier(
+                            isSelected: preset == targetScore,
+                            fill: themeAccent
+                        )
+                    )
+                }
+            }
+        }
+        .padding(20)
+        .cardSurface(cornerRadius: 22)
+        .animation(.snappy(duration: 0.2), value: targetScore)
+    }
+}
+
+private struct TargetScorePresetStyleModifier: ViewModifier {
+    let isSelected: Bool
+    let fill: Color
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if isSelected {
+            content.buttonStyle(PrimaryPillButtonStyle(fill: fill))
+        } else {
+            content.buttonStyle(SecondaryPillButtonStyle())
+        }
+    }
+}
+
+private struct PrimaryPillButtonStyle: ButtonStyle {
+    let fill: Color
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 14, weight: .semibold, design: .rounded))
+            .foregroundStyle(.white)
+            .padding(.vertical, 10)
+            .background(
+                Capsule()
+                    .fill(fill.opacity(configuration.isPressed ? 0.82 : 1))
+            )
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(DesignMotion.animation(.fast), value: configuration.isPressed)
+    }
+}
+
+private struct SecondaryPillButtonStyle: ButtonStyle {
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
+
+    func makeBody(configuration: Configuration) -> some View {
+        let surface = DesignColor.color(.surfaceInteractive, theme: visualTheme, colorScheme: colorScheme)
+        let border = DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme).opacity(0.12)
+
+        return configuration.label
+            .font(.system(size: 14, weight: .semibold, design: .rounded))
+            .foregroundStyle(DesignColor.color(.textPrimary, theme: visualTheme, colorScheme: colorScheme))
+            .padding(.vertical, 10)
+            .background(
+                Capsule()
+                    .fill(surface.opacity(configuration.isPressed ? 0.88 : 1))
+            )
+            .overlay(
+                Capsule()
+                    .stroke(border, lineWidth: 1)
+            )
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(DesignMotion.animation(.fast), value: configuration.isPressed)
     }
 }

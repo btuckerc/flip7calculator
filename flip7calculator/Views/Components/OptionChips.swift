@@ -15,6 +15,8 @@ struct OptionChips<T: Hashable & RawRepresentable>: View where T.RawValue == Str
     let iconForOption: (T) -> String
     let colorForOption: ((T) -> Color)?
     let previewColorsForOption: ((T) -> [Color])?
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
     
     init(
         options: [T],
@@ -52,7 +54,16 @@ struct OptionChips<T: Hashable & RawRepresentable>: View where T.RawValue == Str
                     )
                 }
             }
-            .padding(.horizontal, 4)
+            .padding(10)
+            .background(
+                RoundedRectangle(cornerRadius: 18)
+                    .fill(DesignColor.color(.surfaceRaised, theme: visualTheme, colorScheme: colorScheme))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(AppBrandPalette.cardBorder(colorScheme: colorScheme), lineWidth: 1)
+            )
+            .padding(.horizontal, 2)
         }
     }
 }
@@ -65,6 +76,40 @@ struct OptionChip: View {
     let color: Color?
     let previewColors: [Color]?
     let onTap: () -> Void
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var accentColor: Color {
+        color ?? DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+    }
+
+    private var chipFill: Color {
+        if visualTheme == .v2 {
+            return isSelected
+                ? accentColor.opacity(colorScheme == .dark ? 0.24 : 0.16)
+                : DesignColor.color(.surfaceInteractive, theme: visualTheme, colorScheme: colorScheme)
+        }
+
+        return isSelected ? accentColor.opacity(0.15) : Color(.systemGray6)
+    }
+
+    private var chipStroke: Color {
+        if visualTheme == .v2 {
+            return isSelected
+                ? accentColor.opacity(colorScheme == .dark ? 0.48 : 0.30)
+                : AppBrandPalette.cardBorder(colorScheme: colorScheme)
+        }
+
+        return isSelected ? accentColor.opacity(0.4) : .clear
+    }
+
+    private var primaryText: Color {
+        DesignColor.color(.textPrimary, theme: visualTheme, colorScheme: colorScheme)
+    }
+
+    private var secondaryText: Color {
+        DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme)
+    }
     
     var body: some View {
         Button(action: onTap) {
@@ -75,12 +120,12 @@ struct OptionChip: View {
                     HStack(spacing: 4) {
                         Text(label)
                             .font(.system(size: 14, weight: isSelected ? .semibold : .regular, design: .rounded))
-                            .foregroundStyle(isSelected ? .primary : .secondary)
+                            .foregroundStyle(isSelected ? primaryText : secondaryText)
                         
                         if isSelected {
                             Image(systemName: "checkmark")
                                 .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(color ?? .blue)
+                                .foregroundStyle(accentColor)
                         }
                     }
                     
@@ -100,17 +145,17 @@ struct OptionChip: View {
                 HStack(spacing: 6) {
                     Image(systemName: icon)
                         .font(.system(size: 12))
-                        .foregroundStyle(color ?? .primary)
+                        .foregroundStyle(isSelected ? accentColor : (color ?? secondaryText))
                         .frame(width: 24, height: 24)
                     
                     Text(label)
                         .font(.system(size: 14, weight: isSelected ? .semibold : .regular, design: .rounded))
-                        .foregroundStyle(isSelected ? .primary : .secondary)
+                        .foregroundStyle(isSelected ? primaryText : secondaryText)
                     
                     if isSelected {
                         Image(systemName: "checkmark")
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(color ?? .blue)
+                            .foregroundStyle(accentColor)
                     }
                 }
                 .padding(.horizontal, 12)
@@ -119,13 +164,17 @@ struct OptionChip: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(isSelected ? (color ?? .blue).opacity(0.15) : Color(.systemGray6))
+                .fill(chipFill)
         )
         .overlay(
             RoundedRectangle(cornerRadius: 10)
-                .stroke(isSelected ? (color ?? .blue).opacity(0.4) : Color.clear, lineWidth: 1.5)
+                .stroke(chipStroke, lineWidth: isSelected ? 1.5 : 1)
+        )
+        .shadow(
+            color: accentColor.opacity(isSelected ? 0.12 : 0),
+            radius: isSelected ? 8 : 0,
+            y: isSelected ? 4 : 0
         )
         .buttonStyle(.plain)
     }
 }
-

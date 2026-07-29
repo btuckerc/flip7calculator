@@ -9,7 +9,7 @@ import SwiftUI
 import UIKit
 
 /// Reserved colors used for game actions that player colors must stay distinct from.
-/// These are used for Bank (green), Bust (red), and Freeze (cyan) actions.
+/// These are used for Bank (green), Bust (red), and Hold (cyan) actions.
 struct ReservedColors {
     
     // MARK: - Action Colors (from GameView action pills)
@@ -20,7 +20,7 @@ struct ReservedColors {
     /// Bust action - system red
     static let bustRed = Color.red
     
-    /// Freeze action - system cyan
+    /// Hold action - system cyan
     static let freezeCyan = Color.cyan
     
     // MARK: - State Frame Colors (from PlayerGrid)
@@ -31,7 +31,7 @@ struct ReservedColors {
     /// Busted state frame - vivid red
     static let bustedFrameRed = Color(red: 0.95, green: 0.25, blue: 0.25)
     
-    /// Frozen state frame - icy cyan-white
+    /// Held state frame - icy cyan-white
     static let frozenFrameCyan = Color(red: 0.55, green: 0.85, blue: 1.0)
     
     /// Secondary frost highlight color
@@ -217,4 +217,3 @@ extension Color {
         return Color(red: r, green: g, blue: b)
     }
 }
-

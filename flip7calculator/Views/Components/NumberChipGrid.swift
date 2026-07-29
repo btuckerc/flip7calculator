@@ -21,6 +21,8 @@ struct NumberChipGrid: View {
     let onClearRound: () -> Void  // Clears entire round (cards + modifiers + manual)
     
     @State private var showingScorePopover = false
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
     
     // 4 columns for number rows 1-12
     private let columns = [
@@ -82,7 +84,7 @@ struct NumberChipGrid: View {
                         )
                         .presentationDetents([.height(220)])
                         .presentationDragIndicator(.visible)
-                        .presentationBackground(Color(.systemBackground))
+                        .presentationBackground(DesignColor.color(.surfacePrimary, theme: visualTheme, colorScheme: colorScheme))
                     }
                     
                     // Clear Button (1 unit)
@@ -122,10 +124,14 @@ struct ManualScoreSummaryButton: View {
     let autoScore: Int
     let isEnabled: Bool
     @Binding var showingPopover: Bool
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
     
     @State private var isPressed = false
     
-    private var accentColor: Color { .blue }
+    private var accentColor: Color {
+        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+    }
     
     private var displayValue: String {
         if let manual = manualScore {
@@ -194,7 +200,7 @@ struct ManualScoreSummaryButton: View {
     
     private var backgroundColor: Color {
         if !isEnabled {
-            return hasOverride ? accentColor.opacity(0.5) : Color(.systemGray6)
+            return hasOverride ? accentColor.opacity(0.35) : DesignColor.color(.surfaceSecondary, theme: visualTheme, colorScheme: colorScheme)
         }
         return hasOverride ? accentColor : accentColor.opacity(0.15)
     }
@@ -205,8 +211,12 @@ struct ManualScoreClearButton: View {
     let action: () -> Void
     
     @State private var isPressed = false
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
     
-    private var accentColor: Color { .red }
+    private var accentColor: Color {
+        DesignColor.color(.stateDanger, theme: visualTheme, colorScheme: colorScheme)
+    }
     
     var body: some View {
         Button(action: action) {
@@ -221,7 +231,7 @@ struct ManualScoreClearButton: View {
             .frame(height: 44)
             .background(
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(isEnabled ? accentColor.opacity(0.15) : Color(.systemGray6))
+                    .fill(isEnabled ? accentColor.opacity(0.15) : DesignColor.color(.surfaceSecondary, theme: visualTheme, colorScheme: colorScheme))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
@@ -250,6 +260,12 @@ struct NumberChip: View {
     let onTap: () -> Void
     
     @State private var isPressed = false
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var accentColor: Color {
+        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+    }
     
     var body: some View {
         Button(action: {
@@ -264,7 +280,13 @@ struct NumberChip: View {
                 .frame(height: 44)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(isSelected ? Color.blue : (isEnabled ? Color(.systemGray5) : Color(.systemGray6)))
+                        .fill(
+                            isSelected
+                                ? accentColor
+                                : (isEnabled
+                                    ? DesignColor.color(.surfaceSecondary, theme: visualTheme, colorScheme: colorScheme)
+                                    : DesignColor.color(.surfaceSecondary, theme: visualTheme, colorScheme: colorScheme).opacity(0.78))
+                        )
                 )
                 .scaleEffect(isPressed ? 0.92 : 1.0)
         }

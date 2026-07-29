@@ -96,10 +96,10 @@ struct PlayerPaletteTests {
     
     // MARK: - Legacy Migration Tests
     
-    @Test("Legacy 'classic' palette migrates correctly")
+    @Test("Current 'Classic' palette name resolves directly")
     func testClassicMigration() {
         let migrated = PlayerPalette.fromLegacyRawValue("Classic")
-        #expect(migrated == .jewel)
+        #expect(migrated == .classic)
     }
     
     @Test("Legacy 'cool' palette migrates correctly")
@@ -120,10 +120,10 @@ struct PlayerPaletteTests {
         #expect(migrated == .pastel)
     }
     
-    @Test("Unknown legacy palette defaults to ocean")
+    @Test("Unknown legacy palette defaults to classic")
     func testUnknownMigration() {
         let migrated = PlayerPalette.fromLegacyRawValue("NonExistent")
-        #expect(migrated == .ocean)
+        #expect(migrated == .classic)
     }
     
     @Test("Direct new palette names work via rawValue")
@@ -296,4 +296,3 @@ struct ColorExtensionTests {
         #expect(abs(components.blue - 0.0) < 0.01)
     }
 }
-

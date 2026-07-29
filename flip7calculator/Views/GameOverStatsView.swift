@@ -11,6 +11,8 @@ import Charts
 struct GameOverStatsView: View {
     let game: Game
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
     @State private var selectedPlayerForChart: UUID?
     @State private var selectedPlayerForDetail: Player?
     
@@ -30,9 +32,13 @@ struct GameOverStatsView: View {
     
     private func colorForPlayer(_ playerId: UUID) -> Color {
         guard let index = game.players.firstIndex(where: { $0.id == playerId }) else {
-            return .gray
+            return AppBrandPalette.brandBlue
         }
-        return playerColors[safe: index] ?? .gray
+        return playerColors[safe: index] ?? AppBrandPalette.brandBlue
+    }
+
+    private var accentColor: Color {
+        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
     }
     
     var body: some View {
@@ -50,8 +56,12 @@ struct GameOverStatsView: View {
                 // Round History Section
                 roundHistorySection
             }
+            .scrollContentBackground(.hidden)
+            .background(Color.clear)
+            .listStyle(.insetGrouped)
             .navigationTitle("Game Stats")
             .navigationBarTitleDisplayMode(.inline)
+            .appChromeBackground()
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
@@ -67,6 +77,7 @@ struct GameOverStatsView: View {
                     playerColor: colorForPlayer(player.id)
                 )
             }
+            .tint(accentColor)
             .onAppear {
                 if selectedPlayerForChart == nil, let first = game.players.first {
                     selectedPlayerForChart = first.id
@@ -84,7 +95,7 @@ struct GameOverStatsView: View {
             if !stats.winners.isEmpty {
                 HighlightRow(
                     icon: "crown.fill",
-                    iconColor: .yellow,
+                    iconColor: AppBrandPalette.gold,
                     title: stats.winners.count > 1 ? "Winners" : "Winner",
                     value: stats.winners.map { $0.name }.joined(separator: ", "),
                     detail: stats.winningMargin > 0 ? "Won by \(stats.winningMargin) pts" : nil
@@ -95,7 +106,7 @@ struct GameOverStatsView: View {
             if stats.leadChanges > 0 {
                 HighlightRow(
                     icon: "arrow.left.arrow.right",
-                    iconColor: .purple,
+                    iconColor: AppBrandPalette.brandBlueSky,
                     title: "Lead Changes",
                     value: "\(stats.leadChanges)",
                     detail: nil
@@ -106,7 +117,7 @@ struct GameOverStatsView: View {
             if let comeback = stats.biggestComeback, comeback.deficit > 10 {
                 HighlightRow(
                     icon: "arrow.up.right",
-                    iconColor: .green,
+                    iconColor: AppBrandPalette.brandBlue,
                     title: "Biggest Comeback",
                     value: comeback.player.name,
                     detail: "Overcame \(comeback.deficit) pt deficit"
@@ -117,7 +128,7 @@ struct GameOverStatsView: View {
             if let best = stats.bestRoundScore {
                 HighlightRow(
                     icon: "flame.fill",
-                    iconColor: .orange,
+                    iconColor: AppBrandPalette.copper,
                     title: "Best Round",
                     value: "\(best.score) pts",
                     detail: "\(best.playerName) in R\(best.round)"
@@ -128,7 +139,7 @@ struct GameOverStatsView: View {
             if let consistent = stats.mostConsistent, stats.roundsPlayed >= 3 {
                 HighlightRow(
                     icon: "target",
-                    iconColor: .blue,
+                    iconColor: AppBrandPalette.brandBlueDeep,
                     title: "Most Consistent",
                     value: consistent.player.name,
                     detail: "σ = \(String(format: "%.1f", consistent.stdDev))"
@@ -136,12 +147,12 @@ struct GameOverStatsView: View {
             }
             
             // Aggregate fun facts
-            if stats.totalFlip7s > 0 {
+            if stats.totalSevenCardBonuses > 0 {
                 HighlightRow(
                     icon: "7.circle.fill",
-                    iconColor: .mint,
-                    title: "Total Flip 7s",
-                    value: "\(stats.totalFlip7s)",
+                    iconColor: AppBrandPalette.gold,
+                    title: "Total 7-Card Bonuses",
+                    value: "\(stats.totalSevenCardBonuses)",
                     detail: nil
                 )
             }
@@ -149,7 +160,7 @@ struct GameOverStatsView: View {
             if stats.totalBusts > 0 {
                 HighlightRow(
                     icon: "xmark.circle.fill",
-                    iconColor: .red.opacity(0.8),
+                    iconColor: AppBrandPalette.copper,
                     title: "Total Busts",
                     value: "\(stats.totalBusts)",
                     detail: nil
@@ -331,9 +342,15 @@ private struct PlayerStatRow: View {
     let rank: Int
     let game: Game
     let playerColor: Color
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
     
     private var playerStats: PlayerGameStats {
         PlayerGameStats(playerId: player.id, game: game)
+    }
+
+    private var accentColor: Color {
+        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
     }
     
     var body: some View {
@@ -364,7 +381,7 @@ private struct PlayerStatRow: View {
                 
                 Text("\(player.totalScore) pts")
                     .font(.system(size: 16, weight: .bold, design: .rounded))
-                    .foregroundStyle(rank == 1 ? .blue : .primary)
+                    .foregroundStyle(rank == 1 ? accentColor : playerColor)
                 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
@@ -388,8 +405,8 @@ private struct PlayerStatRow: View {
                 MiniStat(label: "Avg", value: String(format: "%.0f", playerStats.averageRoundScore))
                 MiniStat(label: "Busts", value: "\(playerStats.bustCount)", isNegative: playerStats.bustCount > 0)
                 
-                if playerStats.flip7Count > 0 {
-                    MiniStat(label: "Flip7", value: "\(playerStats.flip7Count)", isPositive: true)
+                if playerStats.sevenCardBonusCount > 0 {
+                    MiniStat(label: "7-Card", value: "\(playerStats.sevenCardBonusCount)", isPositive: true)
                 }
             }
         }
@@ -398,9 +415,9 @@ private struct PlayerStatRow: View {
     
     private var rankColor: Color {
         switch rank {
-        case 1: return .yellow
-        case 2: return Color(.systemGray)
-        case 3: return .orange
+        case 1: return AppBrandPalette.gold
+        case 2: return AppBrandPalette.slate
+        case 3: return AppBrandPalette.copper
         default: return .secondary
         }
     }
@@ -419,7 +436,11 @@ private struct MiniStat: View {
             Text(value)
                 .font(.system(size: 14, weight: .semibold, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(isNegative ? .red.opacity(0.8) : (isPositive ? .green : .primary))
+                .foregroundStyle(
+                    isNegative
+                        ? AppBrandPalette.copper
+                        : (isPositive ? AppBrandPalette.gold : .primary)
+                )
             Text(label)
                 .font(.system(size: 11, design: .rounded))
                 .foregroundStyle(.secondary)
@@ -443,9 +464,9 @@ private struct RoundHistoryRow: View {
     
     private func colorForPlayer(_ playerId: UUID) -> Color {
         guard let index = players.firstIndex(where: { $0.id == playerId }) else {
-            return .gray
+            return AppBrandPalette.brandBlue
         }
-        return playerColors[safe: index] ?? .gray
+        return playerColors[safe: index] ?? AppBrandPalette.brandBlue
     }
     
     var body: some View {
@@ -504,18 +525,18 @@ private struct RoundHistoryRow: View {
                                 StateBadge(state: state)
                             }
                             
-                            // Flip7 indicator
-                            if result.hasFlip7 {
+                            // 7-card bonus indicator
+                            if result.hasSevenCardBonus {
                                 Image(systemName: "7.circle.fill")
                                     .font(.system(size: 12))
-                                    .foregroundStyle(.mint)
+                                    .foregroundStyle(AppBrandPalette.gold)
                             }
                             
                             // x2 indicator
                             if result.x2Count > 0 {
                                 Text("×\(Int(pow(2.0, Double(result.x2Count))))")
                                     .font(.system(size: 11, weight: .medium, design: .rounded))
-                                    .foregroundStyle(.purple)
+                                    .foregroundStyle(AppBrandPalette.brandBlueSky)
                             }
                             
                             Spacer()
@@ -523,11 +544,11 @@ private struct RoundHistoryRow: View {
                             if result.isBusted {
                                 Text("Bust")
                                     .font(.system(size: 13, weight: .medium, design: .rounded))
-                                    .foregroundStyle(.red.opacity(0.8))
+                                    .foregroundStyle(AppBrandPalette.copper)
                             } else {
                                 Text("+\(result.roundScore)")
                                     .font(.system(size: 14, weight: .medium, design: .rounded))
-                                    .foregroundStyle(.green)
+                                    .foregroundStyle(AppBrandPalette.brandBlue)
                                     .monospacedDigit()
                             }
                         }
@@ -568,6 +589,8 @@ struct PlayerDetailView: View {
     let game: Game
     let playerColor: Color
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
     
     private var stats: PlayerGameStats {
         PlayerGameStats(playerId: player.id, game: game)
@@ -580,6 +603,10 @@ struct PlayerDetailView: View {
     private var rank: Int {
         let ranked = game.players.sorted { $0.totalScore > $1.totalScore }
         return (ranked.firstIndex(where: { $0.id == player.id }) ?? 0) + 1
+    }
+
+    private var surfaceColor: Color {
+        DesignColor.color(.surfacePrimary, theme: visualTheme, colorScheme: colorScheme)
     }
     
     var body: some View {
@@ -597,7 +624,7 @@ struct PlayerDetailView: View {
                             if rank == 1 {
                                 Image(systemName: "crown.fill")
                                     .font(.system(size: 24))
-                                    .foregroundStyle(.yellow)
+                                    .foregroundStyle(AppBrandPalette.gold)
                             } else {
                                 Text("#\(rank)")
                                     .font(.system(size: 22, weight: .bold, design: .rounded))
@@ -657,13 +684,13 @@ struct PlayerDetailView: View {
                         label: "Busts",
                         value: "\(stats.bustCount)",
                         detail: String(format: "%.0f%% of rounds", stats.bustRate * 100),
-                        valueColor: stats.bustCount > 0 ? .red.opacity(0.8) : nil
+                        valueColor: stats.bustCount > 0 ? AppBrandPalette.copper : nil
                     )
                     
                     DetailStatRow(label: "Banked", value: "\(stats.bankedCount)")
                     
-                    if stats.frozenCount > 0 {
-                        DetailStatRow(label: "Frozen", value: "\(stats.frozenCount)")
+                    if stats.heldCount > 0 {
+                        DetailStatRow(label: "On Hold", value: "\(stats.heldCount)")
                     }
                 } header: {
                     Text("Outcomes")
@@ -672,23 +699,23 @@ struct PlayerDetailView: View {
                 // Bonuses & Multipliers
                 Section {
                     DetailStatRow(
-                        label: "Flip 7 Bonuses",
-                        value: "\(stats.flip7Count)",
-                        detail: stats.flip7Count > 0 ? "+\(stats.totalFlip7Bonus) pts" : nil,
-                        valueColor: stats.flip7Count > 0 ? .mint : nil
+                        label: "7-Card Bonuses",
+                        value: "\(stats.sevenCardBonusCount)",
+                        detail: stats.sevenCardBonusCount > 0 ? "+\(stats.totalSevenCardBonusPoints) pts" : nil,
+                        valueColor: stats.sevenCardBonusCount > 0 ? AppBrandPalette.gold : nil
                     )
                     
                     DetailStatRow(
                         label: "×2 Multipliers Used",
                         value: "\(stats.totalX2Used)",
                         detail: stats.totalMultiplierEffect > 0 ? "+\(stats.totalMultiplierEffect) pts" : nil,
-                        valueColor: stats.totalX2Used > 0 ? .purple : nil
+                        valueColor: stats.totalX2Used > 0 ? AppBrandPalette.brandBlueSky : nil
                     )
                     
                     DetailStatRow(
                         label: "Modifier Points",
                         value: "+\(stats.totalModifiersUsed)",
-                        valueColor: stats.totalModifiersUsed > 0 ? .orange : nil
+                        valueColor: stats.totalModifiersUsed > 0 ? AppBrandPalette.copper : nil
                     )
                 } header: {
                     Text("Bonuses & Multipliers")
@@ -709,8 +736,13 @@ struct PlayerDetailView: View {
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(Color.clear)
+            .listStyle(.insetGrouped)
+            .background(surfaceColor)
             .navigationTitle(player.name)
             .navigationBarTitleDisplayMode(.inline)
+            .appChromeBackground()
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
@@ -730,6 +762,12 @@ private struct DetailStatRow: View {
     let value: String
     var detail: String? = nil
     var valueColor: Color? = nil
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var accentColor: Color {
+        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+    }
     
     var body: some View {
         HStack {
@@ -741,7 +779,7 @@ private struct DetailStatRow: View {
             HStack(spacing: 6) {
                 Text(value)
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundStyle(valueColor ?? .blue)
+                    .foregroundStyle(valueColor ?? accentColor)
                     .monospacedDigit()
                 
                 if let detail = detail {

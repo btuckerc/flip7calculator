@@ -7,8 +7,8 @@
 
 import Foundation
 
-/// Represents the composition of a Flip 7 deck
-/// This is stored for future use (e.g., suggestions, remaining card tracking)
+/// Represents the composition of a score-profile deck.
+/// This is stored for future use (e.g., suggestions, remaining card tracking).
 struct DeckProfile: Codable, Equatable {
     /// Number of each number card (0-12) in the deck
     var numberCardCounts: [Int: Int]
@@ -19,7 +19,7 @@ struct DeckProfile: Codable, Equatable {
     /// Number of x2 multiplier cards in the deck
     var x2Count: Int
     
-    /// Number of action cards (Freeze, Flip Three, etc.) - for future use
+    /// Number of action cards - for future use
     var actionCardCounts: [String: Int]
     
     init(
@@ -31,13 +31,12 @@ struct DeckProfile: Codable, Equatable {
         self.numberCardCounts = numberCardCounts
         self.addModifierCounts = addModifierCounts
         self.x2Count = x2Count
-        self.actionCardCounts = actionCardCounts
+        self.actionCardCounts = Self.normalizedActionCounts(actionCardCounts)
     }
     
-    /// Standard Flip 7 deck composition (default)
-    /// Based on official Flip 7 rules: 94 cards total
+    /// Default score-profile deck composition
     /// - Number cards: 0 has 1 copy, 1-12 have n copies each (1+2+...+12 = 78, plus 0 = 79)
-    /// - Action cards: Freeze, Flip Three, Second Chance (3 copies each = 9)
+    /// - Action cards: Hold, Draw 3, Retry (3 copies each = 9)
     /// - Modifiers: +2, +4, +6, +8, +10 (1 copy each = 5)
     /// - x2 multiplier: 1 copy
     /// Total: 79 + 9 + 5 + 1 = 94
@@ -58,9 +57,9 @@ struct DeckProfile: Codable, Equatable {
         
         // Action cards: 3 copies each
         var actionCounts: [String: Int] = [:]
-        actionCounts["Freeze"] = 3
-        actionCounts["FlipThree"] = 3
-        actionCounts["SecondChance"] = 3
+        actionCounts[ActionCard.hold.rawValue] = 3
+        actionCounts[ActionCard.drawThree.rawValue] = 3
+        actionCounts[ActionCard.retry.rawValue] = 3
         
         return DeckProfile(
             numberCardCounts: numberCounts,
@@ -87,10 +86,81 @@ struct DeckProfile: Codable, Equatable {
     }
     
     /// Action card name constants
-    enum ActionCard: String {
-        case freeze = "Freeze"
-        case flipThree = "FlipThree"
-        case secondChance = "SecondChance"
+    enum ActionCard: String, CaseIterable {
+        case hold = "Hold"
+        case drawThree = "DrawThree"
+        case retry = "Retry"
+        
+        var displayName: String {
+            switch self {
+            case .hold:
+                return "Hold"
+            case .drawThree:
+                return "Draw 3"
+            case .retry:
+                return "Retry"
+            }
+        }
+        
+        static func fromStoredKey(_ key: String) -> ActionCard? {
+            if let action = ActionCard(rawValue: key) {
+                return action
+            }
+            
+            switch key {
+            case "Freeze":
+                return .hold
+            case "FlipThree":
+                return .drawThree
+            case "SecondChance":
+                return .retry
+            default:
+                return nil
+            }
+        }
+    }
+    
+    private enum CodingKeys: String, CodingKey {
+        case numberCardCounts
+        case addModifierCounts
+        case x2Count
+        case actionCardCounts
+    }
+    
+    private static func normalizedActionCounts(_ counts: [String: Int]) -> [String: Int] {
+        var normalized: [String: Int] = [:]
+        
+        for (key, count) in counts where count > 0 {
+            if let action = ActionCard.fromStoredKey(key) {
+                normalized[action.rawValue, default: 0] += count
+            } else {
+                normalized[key, default: 0] += count
+            }
+        }
+        
+        return normalized
+    }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let numberCardCounts = try container.decodeIfPresent([Int: Int].self, forKey: .numberCardCounts) ?? [:]
+        let addModifierCounts = try container.decodeIfPresent([Int: Int].self, forKey: .addModifierCounts) ?? [:]
+        let x2Count = try container.decodeIfPresent(Int.self, forKey: .x2Count) ?? 0
+        let actionCardCounts = try container.decodeIfPresent([String: Int].self, forKey: .actionCardCounts) ?? [:]
+        
+        self.init(
+            numberCardCounts: numberCardCounts,
+            addModifierCounts: addModifierCounts,
+            x2Count: x2Count,
+            actionCardCounts: actionCardCounts
+        )
+    }
+    
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(numberCardCounts, forKey: .numberCardCounts)
+        try container.encode(addModifierCounts, forKey: .addModifierCounts)
+        try container.encode(x2Count, forKey: .x2Count)
+        try container.encode(Self.normalizedActionCounts(actionCardCounts), forKey: .actionCardCounts)
     }
 }
-

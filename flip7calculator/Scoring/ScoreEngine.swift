@@ -7,13 +7,13 @@
 
 import Foundation
 
-/// Pure scoring engine for Flip 7 game
+/// Pure scoring engine for the app's default scoring profile.
 struct ScoreEngine {
     /// Standard bonus for achieving 7 unique number cards
-    static let flip7Bonus = 15
+    static let sevenCardBonus = 15
     
     /// Calculates round score based on hand and state (without manual override)
-    /// Formula: (NumberSum × 2^x2Count) + AddMods + (Flip7? 15 : 0), unless busted ⇒ 0
+    /// Formula: (NumberSum × 2^x2Count) + AddMods + (SevenCardBonus? 15 : 0), unless busted ⇒ 0
     static func calculateRoundScore(hand: RoundHand, state: PlayerRoundState) -> Int {
         // If busted, score is 0
         if state == .busted {
@@ -29,8 +29,8 @@ struct ScoreEngine {
         // Add modifier cards
         let modifierSum = hand.modifierSum
         
-        // Add Flip 7 bonus if achieved
-        let bonus = hand.hasFlip7Bonus ? flip7Bonus : 0
+        // Add the seven-card bonus if achieved
+        let bonus = hand.hasSevenCardBonus ? sevenCardBonus : 0
         
         return multipliedSum + modifierSum + bonus
     }
@@ -68,7 +68,6 @@ struct ScoreEngine {
         return player.totalScore + roundScore
     }
 }
-
 
 
 

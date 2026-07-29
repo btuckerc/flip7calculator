@@ -1,45 +1,40 @@
-# Privacy Policy — Flip 7 Calculator
+# Privacy Policy — Lucky Ledger
 
-**Effective date:** 2025-12-23  
-**App name:** Flip 7 Calculator  
+**Effective date:** 2026-04-10  
+**App name:** Lucky Ledger  
 **Developer/Contact:** Tucker Craig (`btuckerc.dev@gmail.com`)
 
 ## Summary
-Flip 7 Calculator is a score-tracking utility. **We do not collect, transmit, sell, or share personal data.** The app works offline.
+Lucky Ledger is an offline scorekeeping utility. **We do not collect, transmit, sell, or share personal data.**
 
 ## Data We Collect
 **None.**  
-Flip 7 Calculator does not collect data about you and does not send any information to our servers (we do not operate any servers for the app).
+Lucky Ledger does not collect data about you and does not send information to any server.
 
 ## Data Stored on Your Device
-The app stores limited information **locally on your device** using Apple’s standard on-device storage (e.g., `UserDefaults`) to provide core functionality and preferences, such as:
-- Player names and roster (for convenience)
-- Current game state (so you can resume)
+The app stores limited information locally on your device using Apple's standard on-device storage to support core functionality, including:
+- Player names and roster
+- Current game state
 - Deck/profile settings
-- App preferences (theme, haptics, UI options)
+- App preferences such as theme, haptics, and display options
 
-This data stays on your device unless you choose to back up your device using Apple backup services (e.g., iCloud device backup), which are controlled by Apple and your device settings.
+This information stays on your device unless you choose to include it in an Apple-managed device backup such as iCloud Backup.
 
 ## Tracking
-Flip 7 Calculator **does not track you** across apps or websites and does not use the iOS App Tracking Transparency framework.
+Lucky Ledger does not track you across apps or websites and does not use the App Tracking Transparency framework.
 
 ## Third-Party Services
-Flip 7 Calculator **does not use third-party analytics, advertising, or crash-reporting SDKs**.
+Lucky Ledger does not use third-party analytics, advertising, or crash-reporting SDKs.
 
 ## Permissions
-Flip 7 Calculator does not require access to sensitive device features such as location, contacts, photos, camera, microphone, or Bluetooth.
+Lucky Ledger does not require access to location, contacts, photos, camera, microphone, Bluetooth, or similar sensitive device features.
 
-## Children’s Privacy
-Flip 7 Calculator does not knowingly collect personal information from children (or anyone). Because the app does not collect data, there is nothing for us to share or monetize.
+## Children's Privacy
+Because Lucky Ledger does not collect personal information, there is no user data to sell, profile, or share for children or adults.
 
 ## Changes to This Policy
-If we change this privacy policy, we will update the **Effective date** above and publish the updated policy at the same location.
+If this policy changes, the effective date above will be updated and the revised policy will be published at the same location.
 
 ## Contact
 If you have questions about this policy, contact:
 - Email: **btuckerc.dev@gmail.com**
-
-
-
-
-

@@ -1,6 +1,8 @@
-# App Store Listing — Flip 7 Calculator
+# App Store Listing — Lucky Ledger
 
-Use this document to prepare your App Store Connect submission. Fill in the blanks and copy/paste into App Store Connect.
+Use this document to prepare the App Store Connect submission for `Lucky Ledger`.
+
+For trademark/discoverability guardrails related to `Flip 7`, also read [docs/APP264401-I-discovery-and-listing-strategy.md](/Users/tucker/Documents/GitHub/flip-7/flip7calculator/docs/APP264401-I-discovery-and-listing-strategy.md).
 
 ---
 
@@ -8,8 +10,8 @@ Use this document to prepare your App Store Connect submission. Fill in the blan
 
 | Field | Value |
 |-------|-------|
-| **App Name** (30 chars max) | `Flip 7 Calculator` |
-| **Subtitle** (30 chars max) | `Score tracker for card game` |
+| **App Name** (30 chars max) | `Lucky Ledger` |
+| **Subtitle** (30 chars max) | `Track Flips and 7s` |
 | **Bundle ID** | `com.tcraig.flip7calculator.ios` |
 | **SKU** | `flip7calculator` |
 | **Primary Language** | English (U.S.) |
@@ -20,106 +22,87 @@ Use this document to prepare your App Store Connect submission. Fill in the blan
 
 | Field | Recommendation |
 |-------|----------------|
-| **Primary Category** | Utilities |
-| **Secondary Category** | Games → Card |
+| **Primary Category** | `Games → Card` |
+| **Secondary Category** | `Utilities` |
+| **Fallback** | If App Review objects to `Games → Card`, flip the two categories and resubmit metadata without changing the build. |
 
-> Tip: "Utilities" often has less competition than "Games" and fits a score-tracker app well.
+`Games → Card` is the stronger discoverability play for a scorekeeping companion used during live card play. `Utilities` is the conservative fallback.
 
 ---
 
 ## Keywords (100 characters max, comma-separated)
 
-```
-flip 7,card game,score tracker,score keeper,card score,game calculator,flip seven,board game scorer
+```text
+scorekeeper,flip card,7 card bonus,push your luck,round tracker,bust tracker,hold,offline
 ```
 
-*(98 characters — adjust as needed)*
+Current byte count: `89`
 
 ---
 
 ## Description
 
-### Short Promotional Text (170 chars max, can be updated without review)
+### Promotional Text (170 chars max)
 
-```
-Track scores for Flip 7 card games quickly and accurately. Supports multiple players, undo, and automatic bonus calculation.
+```text
+Track flips, 7-card bonuses, holds, busts, and totals fast with one-tap scoring, undo/redo, and post-game stats.
 ```
 
 ### Full Description (4000 chars max)
 
-```
-Flip 7 Calculator is the ultimate companion for tracking scores during your Flip 7 card game sessions.
+```text
+Lucky Ledger is a fast, offline scorekeeper for flip-card and push-your-luck table games where flips, 7-card bonuses, holds, busts, and running totals all matter.
 
 FEATURES
-• Multi-player support — add as many players as you need
-• Quick card entry — tap to log each card drawn
-• Automatic scoring — calculates bonuses (×2 multipliers, +5/+10 modifiers, Flip 7 bonus) instantly
-• Round-by-round history — review past rounds at a glance
-• Undo support — made a mistake? Roll it back
-• Customizable themes — light, dark, or system preference
-• Haptic feedback — satisfying taps as you play
-• Offline-first — no internet required, your data stays on your device
+• 2 to 8 players with quick setup
+• One-tap round entry for number cards, multipliers, and add-on modifiers
+• Automatic scoring with support for configurable 7-card bonus thresholds
+• Undo and redo directly from the main game screen
+• Round history, end-of-game charts, streaks, and player stats
+• Custom deck profile controls for house rules and alternate scoring setups
+• Light, dark, and themed appearance options
+• Fully offline: no account, no sync, no ads
 
 HOW IT WORKS
-1. Add player names before you start.
-2. As cards are drawn, tap the corresponding number or modifier.
-3. When a player busts or stops, end their turn.
-4. View cumulative scores and crown the winner!
+1. Add players and choose a target score.
+2. Tap cards and modifiers as the round unfolds.
+3. Mark each player as banked, busted, or on hold.
+4. Continue through rounds until someone reaches the target.
+5. Review trends, bonuses, bust rates, and score progression after the game.
 
 PRIVACY
-This app collects no personal data. All game data is stored locally on your device and is never uploaded anywhere.
-
----
-Flip 7 Calculator is an unofficial companion app and is not affiliated with or endorsed by the creators of Flip 7.
+Lucky Ledger keeps game state and settings on your device and does not collect personal data.
 ```
 
 ---
 
-## What's New (Release Notes)
+## What's New
 
-Use for each new version submitted.
+### Version 1.2
 
-### Version 1.0
-
-```
-Initial release — track Flip 7 scores with ease!
+```text
+Lucky Ledger now has a sharper icon, clearer flip-card scorekeeping language, refined brand visuals, and build and reliability fixes.
 ```
 
 ---
 
 ## Privacy Policy
 
-Apple requires a privacy policy URL even for apps that collect no data.
+| Field | Value |
+|-------|-------|
+| **Privacy Policy URL** | `https://btuckerc.dev/privacy/lucky-ledger` |
 
-**Option A — Host your own**
-Create a simple page (GitHub Pages, Notion, personal site) with the following text:
-
-> **Privacy Policy for Flip 7 Calculator**
->
-> Last updated: [DATE]
->
-> Flip 7 Calculator does not collect, store, or share any personal information. All data (player names, scores, settings) is stored locally on your device using standard iOS storage and is never transmitted to any server.
->
-> This app does not use analytics, advertising, or third-party tracking services.
->
-> If you have questions, contact: [YOUR EMAIL]
-
-**Option B — Use a free generator**
-Sites like termly.io or freeprivacypolicy.com can generate a compliant policy.
-
-| Field | Your Value |
-|-------|------------|
-| **Privacy Policy URL** | `https://___________` |
+If that URL changes, update both the App Store record and [PRIVACY_POLICY.md](/Users/tucker/Documents/GitHub/flip-7/flip7calculator/PRIVACY_POLICY.md).
 
 ---
 
 ## Support Information
 
-| Field | Your Value |
-|-------|------------|
-| **Support URL** | `https://___________` (can be GitHub Issues, personal site, etc.) |
+| Field | Value |
+|-------|-------|
+| **Support URL** | `https://btuckerc.dev/contact` |
 | **Marketing URL** (optional) | |
-| **Contact Email** | `___________@_____` |
+| **Contact Email** | `btuckerc.dev@gmail.com` |
 
 ---
 
@@ -128,13 +111,13 @@ Sites like termly.io or freeprivacypolicy.com can generate a compliant policy.
 | Field | Value |
 |-------|-------|
 | **Demo Account Required?** | No |
-| **Notes for Reviewer** | This is a simple score-tracking utility for the Flip 7 card game. Launch the app, add player names, and tap cards to track scores. No login or network access required. |
+| **Notes for Reviewer** | `Lucky Ledger` is an offline scorekeeping utility for customizable flip-card and push-your-luck scoring profiles. Launch the app, add player names, and tap card values or modifiers to track rounds, 7-card bonuses, holds, and busts. No login, purchases, or network access required. The app has been rebranded away from its previous game-specific presentation and now uses only generic scorekeeping terminology in public-facing metadata. |
 
 ---
 
 ## Age Rating Questionnaire
 
-Answer **No** to all content questions (violence, gambling, etc.) unless you've added something beyond basic score tracking.
+Answer **No** to all content questions unless the app changes materially before submission.
 
 | Content Type | Answer |
 |--------------|--------|
@@ -151,25 +134,21 @@ Answer **No** to all content questions (violence, gambling, etc.) unless you've 
 | Simulated Gambling | No |
 | Unrestricted Web Access | No |
 
-**Expected Rating:** 4+ (suitable for all ages)
+**Expected Rating:** 4+
 
 ---
 
-## App Privacy (App Store Connect Data Collection)
+## App Privacy
 
-When asked "Does this app collect any user data?", select:
+When asked whether the app collects user data, select:
 
-**☑ No, we do not collect data from this app**
-
-This sets the App Privacy label to "Data Not Collected".
+**No, we do not collect data from this app**
 
 ---
 
 ## Screenshots Checklist
 
-App Store Connect requires screenshots for each device class you support. Since `TARGETED_DEVICE_FAMILY = "1,2"` (iPhone + iPad), you need both.
-
-### iPhone (required sizes — provide at least one)
+### iPhone
 
 | Size | Device Examples | Resolution |
 |------|-----------------|------------|
@@ -177,62 +156,107 @@ App Store Connect requires screenshots for each device class you support. Since 
 | 6.5" | iPhone 14 Plus, 11 Pro Max | 1284 × 2778 |
 | 5.5" | iPhone 8 Plus, 7 Plus | 1242 × 2208 |
 
-### iPad (required if supporting iPad)
+### iPad
 
 | Size | Device Examples | Resolution |
 |------|-----------------|------------|
 | 12.9" (6th gen) | iPad Pro 12.9" | 2048 × 2732 |
 | 12.9" (2nd gen) | iPad Pro 12.9" (older) | 2048 × 2732 |
 
-### Screenshot Suggestions
+### Screenshot Story Beats
 
-1. **Game Setup** — show the player entry screen with a few names
-2. **Active Round** — mid-game with cards selected and scores visible
-3. **Score Summary** — end-of-round or multi-round leaderboard
-4. **Settings** — show theme options
-5. **Flip 7 Bonus** — highlight the 7-card bonus indicator
+1. Setup screen with several players entered and the Lucky Ledger wordmark visible.
+2. Active round with quick-entry controls plus obvious `Hold` and `Bust` states.
+3. End-of-game stats or score progression chart that proves the app is more than a calculator.
+4. Deck profile or scoring guide screen showing configurable `7-card bonus` behavior.
+5. Settings screen with themes and palette options.
 
-> Tip: Use Xcode Simulator or a real device to capture. Consider adding device frames via tools like Screenshots.pro or Rotato.
+### Screenshot Copy Guidance
+
+- Keep overlay text generic and functional.
+- Show speed, clarity, flips, 7-card bonus tracking, stats, and offline use.
+- Do not mention `Flip 7`, any publisher name, or any comparison claim.
+
+Suggested overlay lines:
+
+- `Track Every Flip`
+- `Catch 7-Card Bonuses`
+- `See Holds and Busts Fast`
+- `Fix Mistakes Instantly`
+- `Review Every Round`
+
+---
+
+## App Preview / Video Ideas
+
+If you add an app preview later, keep it under 30 seconds and structure it like this:
+
+1. `Set up a table in seconds`
+2. `Track rounds as you play`
+3. `Undo mistakes instantly`
+4. `Review stats after the game`
+5. `Works offline`
+
+---
+
+## Custom Product Pages
+
+These are optional, but they are a strong discoverability/conversion lever once the default page is clean.
+
+### Page 1 — Flip-Card Scoring
+
+- Focus: setup + live round entry
+- Suggested keywords: `flip card`, `card game`, `scorekeeper`
+
+### Page 2 — 7-Card Bonus Tracking
+
+- Focus: bonus thresholds, modifiers, hold/bust states
+- Suggested keywords: `7 card bonus`, `round tracker`, `push your luck`
+
+### Page 3 — Busts, Holds, and Stats
+
+- Focus: deck profiles, charts, offline stats
+- Suggested keywords: `bust tracker`, `hold`, `offline`
+
+All custom product page metadata must stay generic and follow the same trademark guardrails as the default page.
+
+---
+
+## Ratings and Reviews
+
+- Ask for review only after a finished game or other clear success moment.
+- Prioritize happy-path prompts after the app has helped the user complete real scorekeeping work.
+- If ratings dip after the rebrand, refresh screenshots and promotional text before changing the core metadata again.
 
 ---
 
 ## App Icon Checklist
 
-Your asset catalog already includes:
-- [x] `AppIcon-1024.png` (standard)
-- [x] `AppIcon-1024-dark.png` (dark mode variant)
-- [x] `AppIcon-1024-tinted.png` (tinted variant)
-
-Ensure:
-- [ ] No alpha channel / transparency
-- [ ] No rounded corners (iOS applies them automatically)
-- [ ] sRGB color space recommended
+- [x] `AppIcon-1024.png`
+- [x] `AppIcon-1024-dark.png`
+- [x] `AppIcon-1024-tinted.png`
+- [x] Verified no alpha channel
+- [ ] Verify icon previews on light, dark, and tinted home screens
+- [ ] Check readability of the `7` cue and die badge on a physical device
 
 ---
 
 ## Pre-Submission Checklist
 
-- [ ] Bundle ID matches App Store Connect app record
-- [ ] Version number (`MARKETING_VERSION`) is correct (currently `1.0`)
-- [ ] Build number (`CURRENT_PROJECT_VERSION`) increments with each upload
-- [ ] Archive built with **Release** configuration
-- [ ] Tested on real device (not just Simulator)
-- [ ] Privacy Policy URL is live and accessible
-- [ ] Support URL is live and accessible
-- [ ] All required screenshots uploaded
-- [ ] App Review notes filled in
-- [ ] Export compliance answered (set to NO in build settings)
+- [ ] App Store Connect metadata updated to `Lucky Ledger`
+- [ ] Screenshots replaced with Lucky Ledger captures
+- [ ] Privacy Policy URL live and accessible
+- [ ] Support URL live and accessible
+- [ ] App Review notes updated
+- [ ] Version/build numbers aligned with the next upload
+- [ ] Archive built with `Release`
+- [ ] Tested on physical device
+- [ ] Public metadata rechecked to confirm no `Flip 7` references remain
 
 ---
 
 ## Notes
 
-- **Trademark disclaimer**: The in-app UI and App Store description include a note that this app is unofficial and not affiliated with the Flip 7 game creators. Adjust wording if you obtain explicit permission.
-- **Localization**: Currently English only. Add more languages in Xcode's String Catalogs if desired.
-
----
-
-*Document generated for flip7calculator — good luck with your submission!*
-
-
-
+- Keep the bundle identifier unchanged to preserve the existing app record.
+- Do not mention or compare against third-party game brands in the public listing.
+- Use the rebrand checklist in [docs/APP264401-I-rebrand-todo.md](/Users/tucker/Documents/GitHub/flip-7/flip7calculator/docs/APP264401-I-rebrand-todo.md) before submission.

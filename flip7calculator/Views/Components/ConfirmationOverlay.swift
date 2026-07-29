@@ -16,6 +16,8 @@ struct ConfirmationOverlay: View {
     let onPrimary: () -> Void
     let onSecondary: () -> Void
     let onDismiss: () -> Void
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
     
     @State private var isPresented = false
     
@@ -37,6 +39,10 @@ struct ConfirmationOverlay: View {
         self.onPrimary = onPrimary
         self.onSecondary = onSecondary
         self.onDismiss = onDismiss
+    }
+
+    private var accentColor: Color {
+        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
     }
     
     var body: some View {
@@ -78,7 +84,7 @@ struct ConfirmationOverlay: View {
                     }) {
                         Text(secondaryActionTitle)
                             .font(.system(size: 17, weight: .regular, design: .rounded))
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(accentColor)
                             .frame(maxWidth: .infinity)
                             .frame(height: 56)
                     }
@@ -95,7 +101,7 @@ struct ConfirmationOverlay: View {
                     }) {
                         Text(primaryActionTitle)
                             .font(.system(size: 17, weight: .semibold, design: .rounded))
-                            .foregroundStyle(primaryActionRole == .destructive ? .red : .blue)
+                            .foregroundStyle(primaryActionRole == .destructive ? .red : accentColor)
                             .frame(maxWidth: .infinity)
                             .frame(height: 56)
                     }
@@ -124,4 +130,3 @@ struct ConfirmationOverlay: View {
         }
     }
 }
-

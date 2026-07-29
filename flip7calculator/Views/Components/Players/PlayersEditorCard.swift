@@ -28,9 +28,23 @@ struct PlayersEditorCard: View {
     @Binding var playerRows: [PlayerNameRow]
     let focusCoordinator: FocusCoordinator
     let onPersist: () -> Void
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
     
     @State private var draggedRowId: UUID?
     @State private var isEditMode = false
+
+    private var accentColor: Color {
+        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+    }
+
+    private var surfaceColor: Color {
+        DesignColor.color(.surfacePrimary, theme: visualTheme, colorScheme: colorScheme)
+    }
+
+    private var raisedSurfaceColor: Color {
+        DesignColor.color(.surfaceRaised, theme: visualTheme, colorScheme: colorScheme)
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -52,7 +66,7 @@ struct PlayersEditorCard: View {
                     }) {
                         Text(isEditMode ? "Done" : "Edit")
                             .font(.system(size: 13, weight: .medium, design: .rounded))
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(accentColor)
                     }
                     .padding(.trailing, 8)
                 }
@@ -62,7 +76,7 @@ struct PlayersEditorCard: View {
                     .foregroundStyle(.secondary)
             }
             .padding(.horizontal, 16)
-            .padding(.bottom, 8)
+            .padding(.bottom, 10)
             
             // Player rows
             VStack(spacing: 0) {
@@ -115,30 +129,35 @@ struct PlayersEditorCard: View {
                         HStack(spacing: 12) {
                             ZStack {
                                 Circle()
-                                    .fill(Color.blue.opacity(0.1))
+                                    .fill(accentColor.opacity(0.12))
                                     .frame(width: 32, height: 32)
                                 
                                 Image(systemName: "plus")
                                     .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(.blue)
+                                    .foregroundStyle(accentColor)
                             }
                             
                             Text("Add Player")
                                 .font(.system(size: 17, weight: .regular))
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(accentColor)
                             
                             Spacer()
                         }
                         .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, 12)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .background(Color(.systemBackground))
+            .background(
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(raisedSurfaceColor)
+            )
             .clipShape(RoundedRectangle(cornerRadius: 12))
         }
+        .padding(18)
+        .cardSurface(cornerRadius: 22)
         .onChange(of: playerRows.map { $0.id }) { _, newIds in
             focusCoordinator.setOrder(newIds)
         }
@@ -235,6 +254,8 @@ struct SwipeToDeleteWrapper<Content: View>: View {
     let isEditMode: Bool
     let onDelete: () -> Void
     @ViewBuilder let content: () -> Content
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
     
     @State private var offset: CGFloat = 0
     @State private var isSwiping = false
@@ -259,7 +280,7 @@ struct SwipeToDeleteWrapper<Content: View>: View {
                 // Main content with swipe gesture
                 content()
                     .frame(width: geometry.size.width, height: geometry.size.height)
-                    .background(Color(.systemBackground))
+                    .background(DesignColor.color(.surfaceRaised, theme: visualTheme, colorScheme: colorScheme))
                     .offset(x: offset)
                     .simultaneousGesture(swipeGesture)
             }
@@ -373,17 +394,35 @@ struct PlayerInputRow: View {
     let canDelete: Bool
     let isEditMode: Bool
     let draggedRowId: UUID?
-    let focusCoordinator: FocusCoordinator
+    @ObservedObject var focusCoordinator: FocusCoordinator
     let onClearName: () -> Void
     let onDelete: () -> Void
     let onDragStart: () -> Void
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
     
     private var isDragging: Bool {
         draggedRowId == row.id
     }
     
+    private var isFocused: Bool {
+        focusCoordinator.focusedId == row.id
+    }
+    
     private var hasName: Bool {
         !row.name.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    private var dragPreviewFill: Color {
+        DesignColor.color(.surfacePrimary, theme: visualTheme, colorScheme: colorScheme)
+    }
+
+    private var dragPreviewBorder: Color {
+        visualTheme == .v2 ? AppBrandPalette.cardBorder(colorScheme: colorScheme) : Color(.systemGray4)
+    }
+
+    private var accentColor: Color {
+        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
     }
     
     /// Display name for drag preview
@@ -395,43 +434,48 @@ struct PlayerInputRow: View {
     var body: some View {
         HStack(spacing: 12) {
             // Drag handle with custom preview and custom UTType (prevents text field drops)
-            Image(systemName: "line.3.horizontal")
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(isDragging ? Color(.systemGray) : Color(.systemGray3))
-                .frame(width: 32, height: 32)
-                .contentShape(Rectangle())
-                .onDrag {
-                    onDragStart()
-                    // Use custom UTType so text fields won't accept this drop
-                    let provider = NSItemProvider()
-                    provider.registerDataRepresentation(forTypeIdentifier: playerRowReorderTypeIdentifier, visibility: .ownProcess) { completion in
-                        let data = row.id.uuidString.data(using: .utf8) ?? Data()
-                        completion(data, nil)
-                        return nil
-                    }
-                    return provider
-                } preview: {
-                    // Custom drag preview - shows the player name in a styled capsule
-                    HStack(spacing: 8) {
-                        Image(systemName: "line.3.horizontal")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(.secondary)
-                        Text(displayName)
-                            .font(.system(size: 15, weight: .medium, design: .rounded))
-                            .foregroundStyle(.primary)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(
-                        Capsule()
-                            .fill(Color(.systemBackground))
-                            .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
-                    )
-                    .overlay(
-                        Capsule()
-                            .stroke(Color(.systemGray4), lineWidth: 0.5)
-                    )
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(accentColor.opacity(isFocused ? 0.18 : 0.10))
+                    .frame(width: 34, height: 34)
+
+                Image(systemName: "line.3.horizontal")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(isDragging ? accentColor : accentColor.opacity(0.72))
+            }
+            .contentShape(Rectangle())
+            .onDrag {
+                onDragStart()
+                // Use custom UTType so text fields won't accept this drop
+                let provider = NSItemProvider()
+                provider.registerDataRepresentation(forTypeIdentifier: playerRowReorderTypeIdentifier, visibility: .ownProcess) { completion in
+                    let data = row.id.uuidString.data(using: .utf8) ?? Data()
+                    completion(data, nil)
+                    return nil
                 }
+                return provider
+            } preview: {
+                // Custom drag preview - shows the player name in a styled capsule
+                HStack(spacing: 8) {
+                    Image(systemName: "line.3.horizontal")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(accentColor)
+                    Text(displayName)
+                        .font(.system(size: 15, weight: .medium, design: .rounded))
+                        .foregroundStyle(.primary)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule()
+                        .fill(dragPreviewFill)
+                        .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
+                )
+                .overlay(
+                    Capsule()
+                        .stroke(dragPreviewBorder, lineWidth: 0.75)
+                )
+            }
             
             // Text field
             FocusableTextFieldRepresentable(
@@ -479,8 +523,14 @@ struct PlayerInputRow: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
-        .background(isDragging ? Color(.systemGray5).opacity(0.5) : Color.clear)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(
+                    isDragging
+                        ? AppBrandPalette.brandBlue.opacity(colorScheme == .dark ? 0.26 : 0.12)
+                        : (isFocused ? accentColor.opacity(0.08) : Color.clear)
+                )
+        )
         .contentShape(Rectangle())
     }
 }
-

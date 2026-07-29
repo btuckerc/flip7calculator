@@ -181,10 +181,10 @@ struct ScoreBreakdownBar: View {
     let numberPoints: Int
     let modifierPoints: Int
     let multiplierEffect: Int
-    let flip7Bonus: Int
+    let sevenCardBonus: Int
     
     private var total: Int {
-        max(numberPoints + modifierPoints + multiplierEffect + flip7Bonus, 1)
+        max(numberPoints + modifierPoints + multiplierEffect + sevenCardBonus, 1)
     }
     
     var body: some View {
@@ -193,29 +193,29 @@ struct ScoreBreakdownBar: View {
                 // Numbers (base)
                 if numberPoints > 0 {
                     Rectangle()
-                        .fill(Color.blue.opacity(0.7))
+                        .fill(AppBrandPalette.brandBlue.opacity(0.82))
                         .frame(width: segmentWidth(for: numberPoints, in: geometry.size.width))
                 }
                 
                 // Multiplier effect
                 if multiplierEffect > 0 {
                     Rectangle()
-                        .fill(Color.purple.opacity(0.7))
+                        .fill(AppBrandPalette.brandBlueSky.opacity(0.82))
                         .frame(width: segmentWidth(for: multiplierEffect, in: geometry.size.width))
                 }
                 
                 // Modifiers
                 if modifierPoints > 0 {
                     Rectangle()
-                        .fill(Color.orange.opacity(0.7))
+                        .fill(AppBrandPalette.copper.opacity(0.82))
                         .frame(width: segmentWidth(for: modifierPoints, in: geometry.size.width))
                 }
                 
-                // Flip7 bonus
-                if flip7Bonus > 0 {
+                // Seven-card bonus
+                if sevenCardBonus > 0 {
                     Rectangle()
-                        .fill(Color.green.opacity(0.7))
-                        .frame(width: segmentWidth(for: flip7Bonus, in: geometry.size.width))
+                        .fill(AppBrandPalette.gold.opacity(0.9))
+                        .frame(width: segmentWidth(for: sevenCardBonus, in: geometry.size.width))
                 }
             }
         }
@@ -223,7 +223,7 @@ struct ScoreBreakdownBar: View {
         .clipShape(RoundedRectangle(cornerRadius: 4))
         .background(
             RoundedRectangle(cornerRadius: 4)
-                .fill(Color(.systemGray5))
+                .fill(AppBrandPalette.mist.opacity(0.55))
         )
     }
     
@@ -273,24 +273,23 @@ struct ScoreBreakdownBar: View {
         RoundDataPoint(roundNumber: 5, score: 58, playerName: "Alice", playerId: playerId),
     ]
     
-    return RoundScoreBarChart(dataPoints: dataPoints, playerColor: .orange)
+    return RoundScoreBarChart(dataPoints: dataPoints, playerColor: AppBrandPalette.copper)
         .frame(height: 150)
         .padding()
 }
 
 #Preview("Sparkline") {
-    ScoreSparkline(scores: [45, 0, 67, 32, 58, 41, 0, 73], color: .blue, height: 40)
+    ScoreSparkline(scores: [45, 0, 67, 32, 58, 41, 0, 73], color: AppBrandPalette.brandBlue, height: 40)
         .padding()
 }
 
 #Preview("Breakdown Bar") {
     VStack(spacing: 20) {
-        ScoreBreakdownBar(numberPoints: 45, modifierPoints: 10, multiplierEffect: 45, flip7Bonus: 15)
+        ScoreBreakdownBar(numberPoints: 45, modifierPoints: 10, multiplierEffect: 45, sevenCardBonus: 15)
             .frame(width: 200)
         
-        ScoreBreakdownBar(numberPoints: 30, modifierPoints: 0, multiplierEffect: 0, flip7Bonus: 0)
+        ScoreBreakdownBar(numberPoints: 30, modifierPoints: 0, multiplierEffect: 0, sevenCardBonus: 0)
             .frame(width: 200)
     }
     .padding()
 }
-

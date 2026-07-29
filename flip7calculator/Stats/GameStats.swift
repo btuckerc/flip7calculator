@@ -201,10 +201,10 @@ struct GameStats {
         }
     }
     
-    /// Total Flip7 bonuses achieved
-    var totalFlip7s: Int {
+    /// Total seven-card bonuses achieved
+    var totalSevenCardBonuses: Int {
         game.gameHistory.reduce(0) { total, round in
-            total + round.results.filter { $0.hasFlip7 }.count
+            total + round.results.filter { $0.hasSevenCardBonus }.count
         }
     }
     
@@ -233,10 +233,10 @@ struct GameStats {
         return (player, count)
     }
     
-    /// Player with the most Flip7 bonuses
-    var mostFlip7s: (player: Player, count: Int)? {
-        let flip7Counts = playerFlip7Counts
-        guard let (playerId, count) = flip7Counts.max(by: { $0.value < $1.value }),
+    /// Player with the most seven-card bonuses
+    var mostSevenCardBonuses: (player: Player, count: Int)? {
+        let sevenCardBonusCounts = playerSevenCardBonusCounts
+        guard let (playerId, count) = sevenCardBonusCounts.max(by: { $0.value < $1.value }),
               let player = game.players.first(where: { $0.id == playerId }),
               count > 0 else { return nil }
         return (player, count)
@@ -273,10 +273,10 @@ struct GameStats {
         return counts
     }
     
-    private var playerFlip7Counts: [UUID: Int] {
+    private var playerSevenCardBonusCounts: [UUID: Int] {
         var counts: [UUID: Int] = [:]
         for round in game.gameHistory {
-            for result in round.results where result.hasFlip7 {
+            for result in round.results where result.hasSevenCardBonus {
                 counts[result.playerId, default: 0] += 1
             }
         }
@@ -373,14 +373,14 @@ struct PlayerGameStats {
         roundResults.filter { $0.state == .banked }.count
     }
     
-    var frozenCount: Int {
+    var heldCount: Int {
         roundResults.filter { $0.state == .frozen }.count
     }
     
-    // MARK: - Flip7 / Multipliers / Modifiers
+    // MARK: - Bonus / Multipliers / Modifiers
     
-    var flip7Count: Int {
-        roundResults.filter { $0.hasFlip7 }.count
+    var sevenCardBonusCount: Int {
+        roundResults.filter { $0.hasSevenCardBonus }.count
     }
     
     var totalX2Used: Int {
@@ -408,9 +408,9 @@ struct PlayerGameStats {
         }
     }
     
-    /// Total Flip7 bonus points earned
-    var totalFlip7Bonus: Int {
-        flip7Count * ScoreEngine.flip7Bonus
+    /// Total seven-card bonus points earned
+    var totalSevenCardBonusPoints: Int {
+        sevenCardBonusCount * ScoreEngine.sevenCardBonus
     }
     
     // MARK: - Streaks
@@ -511,4 +511,3 @@ extension GameStats {
         }
     }
 }
-

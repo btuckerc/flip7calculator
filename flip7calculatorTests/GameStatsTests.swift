@@ -87,7 +87,7 @@ struct GameStatsTests {
             )
         ]))
         
-        // Round 3: Alice takes lead with Flip7 + x2
+        // Round 3: Alice takes lead with a seven-card bonus + x2
         game.gameHistory.append(GameRound(roundNumber: 3, results: [
             RoundResult(
                 playerId: aliceId,
@@ -218,10 +218,10 @@ struct GameStatsTests {
         #expect(stats.totalBusts == 2) // Charlie R1, Bob R2
     }
     
-    @Test func testTotalFlip7s() {
+    @Test func testTotalSevenCardBonuses() {
         let game = createTestGame()
         let stats = GameStats(game: game)
-        #expect(stats.totalFlip7s == 1) // Alice R3
+        #expect(stats.totalSevenCardBonuses == 1) // Alice R3
     }
     
     @Test func testTotalX2Used() {
@@ -248,14 +248,14 @@ struct GameStatsTests {
         #expect(mostBusts?.count == 1) // Both Charlie and Bob have 1 bust
     }
     
-    @Test func testMostFlip7s() {
+    @Test func testMostSevenCardBonuses() {
         let game = createTestGame()
         let stats = GameStats(game: game)
-        let mostFlip7s = stats.mostFlip7s
+        let mostSevenCardBonuses = stats.mostSevenCardBonuses
         
-        #expect(mostFlip7s != nil)
-        #expect(mostFlip7s?.player.name == "Alice")
-        #expect(mostFlip7s?.count == 1)
+        #expect(mostSevenCardBonuses != nil)
+        #expect(mostSevenCardBonuses?.player.name == "Alice")
+        #expect(mostSevenCardBonuses?.count == 1)
     }
 }
 
@@ -403,20 +403,20 @@ struct PlayerGameStatsTests {
         #expect(stats.bankedCount == 3) // Rounds 1, 3, 4
     }
     
-    @Test func testFrozenCount() {
+    @Test func testHeldCount() {
         let game = createTestGame()
         let stats = PlayerGameStats(playerId: game.players[0].id, game: game)
         
-        #expect(stats.frozenCount == 1) // Round 5
+        #expect(stats.heldCount == 1) // Round 5
     }
     
-    // MARK: - Flip7 / Multipliers / Modifiers Tests
+    // MARK: - Bonus / Multipliers / Modifiers Tests
     
-    @Test func testFlip7Count() {
+    @Test func testSevenCardBonusCount() {
         let game = createTestGame()
         let stats = PlayerGameStats(playerId: game.players[0].id, game: game)
         
-        #expect(stats.flip7Count == 1) // Round 4
+        #expect(stats.sevenCardBonusCount == 1) // Round 4
     }
     
     @Test func testTotalX2Used() {
@@ -499,7 +499,7 @@ struct RoundResultTests {
         #expect(result.isBusted == false) // State takes precedence
     }
     
-    @Test func testHasFlip7() {
+    @Test func testHasSevenCardBonus() {
         let result = RoundResult(
             playerId: UUID(),
             playerName: "Test",
@@ -509,7 +509,7 @@ struct RoundResultTests {
             handSnapshot: RoundHand(selectedNumbers: [0, 1, 2, 3, 4, 5, 6], x2Count: 0, addMods: [:]),
             autoScore: 50
         )
-        #expect(result.hasFlip7 == true)
+        #expect(result.hasSevenCardBonus == true)
     }
     
     @Test func testX2Count() {
@@ -556,7 +556,7 @@ struct RoundResultTests {
 
 struct BackwardCompatibilityTests {
     
-    @Test func testLegacyRoundResultDecoding() throws {
+    @MainActor @Test func testLegacyRoundResultDecoding() throws {
         // JSON representing old RoundResult format (no snapshot fields)
         let legacyJSON = """
         {
@@ -579,7 +579,7 @@ struct BackwardCompatibilityTests {
         #expect(result.autoScore == nil)
     }
     
-    @Test func testNewRoundResultDecoding() throws {
+    @MainActor @Test func testNewRoundResultDecoding() throws {
         let newJSON = """
         {
             "playerId": "550e8400-e29b-41d4-a716-446655440000",
@@ -609,7 +609,7 @@ struct BackwardCompatibilityTests {
         #expect(result.autoScore == 55)
     }
     
-    @Test func testRoundResultEncoding() throws {
+    @MainActor @Test func testRoundResultEncoding() throws {
         let result = RoundResult(
             playerId: UUID(),
             playerName: "EncodeTest",
@@ -640,13 +640,13 @@ struct BackwardCompatibilityTests {
         
         // Should use fallback behaviors
         #expect(result.isBusted == true) // Falls back to roundScore == 0
-        #expect(result.hasFlip7 == false) // No snapshot
+        #expect(result.hasSevenCardBonus == false) // No snapshot
         #expect(result.x2Count == 0) // No snapshot
         #expect(result.modifierTotal == 0) // No snapshot
         #expect(result.cardCount == 0) // No snapshot
     }
     
-    @Test func testGameRoundWithMixedResults() throws {
+    @MainActor @Test func testGameRoundWithMixedResults() throws {
         // A game round might have a mix of old and new results during migration
         let json = """
         {
@@ -761,4 +761,3 @@ struct ChartDataTests {
         #expect(chartData[2].score == 45)
     }
 }
-

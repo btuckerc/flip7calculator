@@ -115,22 +115,22 @@ struct DeckManagementView: View {
                 
                 // Action cards section (for future use)
                 Section {
-                    ForEach(["Freeze", "FlipThree", "SecondChance"], id: \.self) { actionName in
+                    ForEach(DeckProfile.ActionCard.allCases, id: \.rawValue) { actionCard in
                         HStack {
-                            Text(actionNameDisplayName(actionName))
+                            Text(actionCard.displayName)
                                 .font(.system(size: 17, weight: .medium, design: .rounded))
                             Spacer()
                             Stepper(
                                 value: Binding(
-                                    get: { deckProfile.actionCardCounts[actionName] ?? 0 },
+                                    get: { deckProfile.actionCardCounts[actionCard.rawValue] ?? 0 },
                                     set: { newValue in
-                                        deckProfile.actionCardCounts[actionName] = max(0, newValue)
+                                        deckProfile.actionCardCounts[actionCard.rawValue] = max(0, newValue)
                                         hasChanges = true
                                     }
                                 ),
                                 in: 0...10
                             ) {
-                                Text("\(deckProfile.actionCardCounts[actionName] ?? 0)")
+                                Text("\(deckProfile.actionCardCounts[actionCard.rawValue] ?? 0)")
                                     .font(.system(size: 17, weight: .semibold, design: .rounded))
                                     .foregroundStyle(.primary)
                                     .frame(minWidth: 30)
@@ -140,7 +140,7 @@ struct DeckManagementView: View {
                 } header: {
                     Text("Action Cards")
                 } footer: {
-                    Text("Set the quantity of each action card (for future use)")
+                    Text("Set the quantity of each optional action card in the profile")
                 }
                 
                 // Reset section
@@ -153,10 +153,10 @@ struct DeckManagementView: View {
                         }
                     }
                 } footer: {
-                    Text("Restore the default Flip 7 deck composition")
+                    Text("Restore the default score-profile deck composition")
                 }
             }
-            .navigationTitle("Manage Deck")
+            .navigationTitle("Deck Profile")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -171,16 +171,7 @@ struct DeckManagementView: View {
             }
         }
     }
-    
-    private func actionNameDisplayName(_ name: String) -> String {
-        switch name {
-        case "Freeze": return "Freeze"
-        case "FlipThree": return "Flip Three"
-        case "SecondChance": return "Second Chance"
-        default: return name
-        }
-    }
-    
+
     private func loadDeckProfile() {
         if hasActiveGame, let game = viewModel.game {
             // Load from active game
@@ -212,4 +203,3 @@ struct DeckManagementView: View {
         saveChanges()
     }
 }
-

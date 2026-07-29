@@ -52,7 +52,7 @@ struct PlayerGrid: View {
                                 let player = players[index]
                                 PlayerTile(
                                     player: player,
-                                    color: playerColors[safe: index] ?? .blue,
+                                    color: playerColors[safe: index] ?? AppBrandPalette.brandBlue,
                                     isSelected: selectedPlayerId == player.id,
                                     showScorePreview: showRoundScorePreview,
                                     tileHeight: tileHeight,
@@ -406,4 +406,3 @@ struct PlayerTile: View {
         return parts.joined(separator: ", ")
     }
 }
-

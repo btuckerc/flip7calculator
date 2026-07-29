@@ -100,21 +100,21 @@ struct ScoreEngineTests {
         #expect(score == 11) // 5 + (2*3) = 5 + 6 = 11
     }
     
-    // MARK: - Flip 7 Bonus Tests
+    // MARK: - Seven-Card Bonus Tests
     
-    @Test func testFlip7Bonus() {
+    @Test func testSevenCardBonus() {
         let hand = RoundHand(selectedNumbers: [1, 2, 3, 4, 5, 6, 7])
         let score = ScoreEngine.calculateRoundScore(hand: hand, state: .banked)
         #expect(score == 43) // (1+2+3+4+5+6+7) + 15 = 28 + 15 = 43
     }
     
-    @Test func testFlip7BonusWithMoreThan7Cards() {
+    @Test func testSevenCardBonusWithMoreThan7Cards() {
         let hand = RoundHand(selectedNumbers: [1, 2, 3, 4, 5, 6, 7, 8, 9])
         let score = ScoreEngine.calculateRoundScore(hand: hand, state: .banked)
         #expect(score == 60) // (1+2+3+4+5+6+7+8+9) + 15 = 45 + 15 = 60
     }
     
-    @Test func testNoFlip7BonusWith6Cards() {
+    @Test func testNoSevenCardBonusWith6Cards() {
         let hand = RoundHand(selectedNumbers: [1, 2, 3, 4, 5, 6])
         let score = ScoreEngine.calculateRoundScore(hand: hand, state: .banked)
         #expect(score == 21) // 1+2+3+4+5+6 = 21 (no bonus)
@@ -170,10 +170,10 @@ struct ScoreEngineTests {
         #expect(score == 18)
     }
     
-    @Test func testFrozenState() {
+    @Test func testHeldState() {
         let hand = RoundHand(selectedNumbers: [5, 6, 7])
         let score = ScoreEngine.calculateRoundScore(hand: hand, state: .frozen)
-        #expect(score == 18) // Frozen is like banked for scoring
+        #expect(score == 18) // Held is scored like banked
     }
     
     // MARK: - RoundHand Tests
@@ -225,14 +225,14 @@ struct ScoreEngineTests {
         #expect(hand.x2Count == 0)
     }
     
-    @Test func testHasFlip7Bonus() {
+    @Test func testHasSevenCardBonus() {
         let hand6 = RoundHand(selectedNumbers: [1, 2, 3, 4, 5, 6])
         let hand7 = RoundHand(selectedNumbers: [1, 2, 3, 4, 5, 6, 7])
         let hand8 = RoundHand(selectedNumbers: [1, 2, 3, 4, 5, 6, 7, 8])
         
-        #expect(hand6.hasFlip7Bonus == false)
-        #expect(hand7.hasFlip7Bonus == true)
-        #expect(hand8.hasFlip7Bonus == true)
+        #expect(hand6.hasSevenCardBonus == false)
+        #expect(hand7.hasSevenCardBonus == true)
+        #expect(hand8.hasSevenCardBonus == true)
     }
     
     @Test func testNumberSum() {
@@ -253,21 +253,21 @@ struct ScoreEngineTests {
     
     @Test func testManualScoreOverrideTakesPrecedence() {
         let hand = RoundHand(selectedNumbers: [1, 2, 3, 4, 5])
-        var round = PlayerRound(state: .banked, hand: hand, manualScoreOverride: 100)
+        let round = PlayerRound(state: .banked, hand: hand, manualScoreOverride: 100)
         let score = ScoreEngine.calculateRoundScore(round: round)
         #expect(score == 100) // Manual override takes precedence over computed 15
     }
     
     @Test func testManualScoreOverrideWithZero() {
         let hand = RoundHand(selectedNumbers: [1, 2, 3])
-        var round = PlayerRound(state: .banked, hand: hand, manualScoreOverride: 0)
+        let round = PlayerRound(state: .banked, hand: hand, manualScoreOverride: 0)
         let score = ScoreEngine.calculateRoundScore(round: round)
         #expect(score == 0) // Manual override of 0 is valid
     }
     
     @Test func testBustedAlwaysScoresZeroEvenWithManualOverride() {
         let hand = RoundHand(selectedNumbers: [1, 2, 3, 4, 5])
-        var round = PlayerRound(state: .busted, hand: hand, manualScoreOverride: 100)
+        let round = PlayerRound(state: .busted, hand: hand, manualScoreOverride: 100)
         let score = ScoreEngine.calculateRoundScore(round: round)
         #expect(score == 0) // Busted always scores 0, even with manual override
     }
@@ -281,7 +281,7 @@ struct ScoreEngineTests {
     
     @Test func testNegativeManualScoreClampedToZero() {
         let hand = RoundHand(selectedNumbers: [1, 2])
-        var round = PlayerRound(state: .banked, hand: hand, manualScoreOverride: -50)
+        let round = PlayerRound(state: .banked, hand: hand, manualScoreOverride: -50)
         let score = ScoreEngine.calculateRoundScore(round: round)
         #expect(score == 0) // Negative scores are clamped to 0
     }
@@ -297,16 +297,16 @@ struct ScoreEngineTests {
         var hand = RoundHand(selectedNumbers: [1, 2])
         hand.addModifier(10)
         hand.addX2()
-        var round = PlayerRound(state: .banked, hand: hand, manualScoreOverride: 50)
+        let round = PlayerRound(state: .banked, hand: hand, manualScoreOverride: 50)
         let score = ScoreEngine.calculateRoundScore(round: round)
         #expect(score == 50) // Manual override ignores all card calculations
     }
     
-    @Test func testManualOverrideWithFlip7() {
+    @Test func testManualOverrideWithSevenCardBonus() {
         let hand = RoundHand(selectedNumbers: [1, 2, 3, 4, 5, 6, 7])
-        var round = PlayerRound(state: .banked, hand: hand, manualScoreOverride: 25)
+        let round = PlayerRound(state: .banked, hand: hand, manualScoreOverride: 25)
         let score = ScoreEngine.calculateRoundScore(round: round)
-        #expect(score == 25) // Manual override ignores Flip 7 bonus
+        #expect(score == 25) // Manual override ignores the seven-card bonus
     }
     
     @Test func testPlayerRoundResetClearsManualOverride() {
@@ -317,21 +317,19 @@ struct ScoreEngineTests {
         #expect(round.hand.selectedNumbers.isEmpty)
     }
     
-    @Test func testFrozenStateWithManualOverride() {
+    @Test func testHeldStateWithManualOverride() {
         let hand = RoundHand(selectedNumbers: [5, 6])
-        var round = PlayerRound(state: .frozen, hand: hand, manualScoreOverride: 75)
+        let round = PlayerRound(state: .frozen, hand: hand, manualScoreOverride: 75)
         let score = ScoreEngine.calculateRoundScore(round: round)
-        #expect(score == 75) // Frozen state respects manual override
+        #expect(score == 75) // Held state respects manual override
     }
     
     @Test func testInRoundStateWithManualOverride() {
         let hand = RoundHand(selectedNumbers: [5, 6])
-        var round = PlayerRound(state: .inRound, hand: hand, manualScoreOverride: 42)
+        let round = PlayerRound(state: .inRound, hand: hand, manualScoreOverride: 42)
         let score = ScoreEngine.calculateRoundScore(round: round)
         #expect(score == 42) // In-round state respects manual override
     }
 }
-
-
 
 

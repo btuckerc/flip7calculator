@@ -11,6 +11,12 @@ struct InlineBustBanner: View {
     let duplicateNumber: Int
     let onConfirmBust: () -> Void
     let onUndo: () -> Void
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var accentColor: Color {
+        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+    }
     
     var body: some View {
         HStack(spacing: 12) {
@@ -29,12 +35,12 @@ struct InlineBustBanner: View {
             }) {
                 Text("Undo")
                     .font(.system(size: 14, weight: .medium, design: .rounded))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(accentColor)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(
                         RoundedRectangle(cornerRadius: 8)
-                            .fill(.blue.opacity(0.1))
+                            .fill(accentColor.opacity(0.1))
                     )
             }
             
@@ -66,7 +72,6 @@ struct InlineBustBanner: View {
         .transition(.move(edge: .top).combined(with: .opacity))
     }
 }
-
 
 
 

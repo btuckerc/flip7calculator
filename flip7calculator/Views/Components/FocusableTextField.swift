@@ -169,8 +169,13 @@ struct FocusableTextFieldRepresentable: UIViewRepresentable {
     
     func makeUIView(context: Context) -> UITextField {
         let textField = UITextField()
-        textField.placeholder = placeholder
-        textField.font = UIFont.rounded(ofSize: 17, weight: .regular)
+        textField.attributedPlaceholder = NSAttributedString(
+            string: placeholder,
+            attributes: [.foregroundColor: UIColor.placeholderText]
+        )
+        textField.font = UIFont.rounded(ofSize: 17, weight: .medium)
+        textField.textColor = .label
+        textField.backgroundColor = .clear
         textField.delegate = context.coordinator
         textField.returnKeyType = isLast ? .done : .next
         textField.autocapitalizationType = .words
@@ -200,8 +205,11 @@ struct FocusableTextFieldRepresentable: UIViewRepresentable {
             uiView.text = text
         }
         uiView.returnKeyType = isLast ? .done : .next
-        uiView.placeholder = placeholder
-        
+        uiView.attributedPlaceholder = NSAttributedString(
+            string: placeholder,
+            attributes: [.foregroundColor: UIColor.placeholderText]
+        )
+
         // Update registration in case view was recycled
         coordinator.register(id: id, textField: uiView)
     }
@@ -262,4 +270,3 @@ extension UIFont {
         return systemFont
     }
 }
-

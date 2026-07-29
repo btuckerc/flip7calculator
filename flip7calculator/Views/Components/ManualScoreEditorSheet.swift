@@ -16,6 +16,8 @@ struct ManualScoreSheetContent: View {
     let onSave: (Int) -> Void
     let onClearManualScore: () -> Void
     let onDismiss: () -> Void
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
     
     @State private var inputText: String
     
@@ -59,6 +61,10 @@ struct ManualScoreSheetContent: View {
             onSave(max(0, min(maxScore, score)))
         }
     }
+
+    private var accentColor: Color {
+        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+    }
     
     var body: some View {
         NavigationStack {
@@ -92,7 +98,7 @@ struct ManualScoreSheetContent: View {
                         }) {
                             Text("Use from cards")
                                 .font(.system(size: 13, weight: .medium, design: .rounded))
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(accentColor)
                         }
                     }
                 }
@@ -101,7 +107,7 @@ struct ManualScoreSheetContent: View {
             }
             .padding(.top, 12)
             .frame(maxWidth: .infinity)
-            .background(Color(.systemBackground))
+            .background(DesignColor.color(.surfacePrimary, theme: visualTheme, colorScheme: colorScheme))
             .navigationTitle("Manual Score")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -109,7 +115,7 @@ struct ManualScoreSheetContent: View {
                     Button(action: submitScore) {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 24))
-                            .foregroundStyle(isValidInput ? .blue : .gray.opacity(0.4))
+                            .foregroundStyle(isValidInput ? accentColor : .gray.opacity(0.4))
                     }
                     .disabled(!isValidInput)
                 }
@@ -130,6 +136,8 @@ struct ManualScorePopover: View {
     let onSave: (Int) -> Void
     let onClearManualScore: () -> Void
     let onDismiss: () -> Void
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
     
     @State private var inputText: String
     
@@ -181,7 +189,7 @@ struct ManualScorePopover: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Color(.systemBackground))
+        .background(DesignColor.color(.surfacePrimary, theme: visualTheme, colorScheme: colorScheme))
         .clipShape(RoundedRectangle(cornerRadius: 14))
     }
 }
@@ -192,16 +200,35 @@ struct ScoreInputField: UIViewRepresentable {
     @Binding var text: String
     let isValid: Bool
     let onSubmit: () -> Void
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var backgroundColor: UIColor {
+        UIColor(
+            visualTheme == .v2
+                ? AppBrandPalette.panelFill(colorScheme: colorScheme)
+                : Color(.systemGray6)
+        )
+    }
+
+    private var borderColor: UIColor {
+        UIColor(
+            visualTheme == .v2
+                ? AppBrandPalette.brandBlue.opacity(0.45)
+                : AppBrandPalette.brandBlue.opacity(0.5)
+        )
+    }
     
     func makeUIView(context: Context) -> UITextField {
         let textField = UITextField()
         textField.keyboardType = .numberPad
         textField.font = UIFont.rounded(ofSize: 28, weight: .bold)
         textField.textAlignment = .center
-        textField.backgroundColor = UIColor.systemGray6
+        textField.textColor = UIColor(DesignColor.color(.textPrimary, theme: visualTheme, colorScheme: colorScheme))
+        textField.backgroundColor = backgroundColor
         textField.layer.cornerRadius = 10
         textField.layer.borderWidth = 1.5
-        textField.layer.borderColor = UIColor.systemBlue.withAlphaComponent(0.5).cgColor
+        textField.layer.borderColor = borderColor.cgColor
         textField.delegate = context.coordinator
         textField.addTarget(context.coordinator, action: #selector(Coordinator.textChanged(_:)), for: .editingChanged)
         
@@ -217,6 +244,9 @@ struct ScoreInputField: UIViewRepresentable {
         if uiView.text != text {
             uiView.text = text
         }
+        uiView.textColor = UIColor(DesignColor.color(.textPrimary, theme: visualTheme, colorScheme: colorScheme))
+        uiView.backgroundColor = backgroundColor
+        uiView.layer.borderColor = borderColor.cgColor
     }
     
     func makeCoordinator() -> Coordinator {
@@ -253,6 +283,8 @@ struct ManualScoreEditorSheet: View {
     let onSave: (Int) -> Void
     let onClearManualScore: () -> Void
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
     
     @State private var inputText: String
     @FocusState private var isTextFieldFocused: Bool
@@ -278,6 +310,10 @@ struct ManualScoreEditorSheet: View {
     private var isValidInput: Bool {
         parsedScore != nil && !inputText.isEmpty
     }
+
+    private var accentColor: Color {
+        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+    }
     
     var body: some View {
         NavigationStack {
@@ -296,11 +332,11 @@ struct ManualScoreEditorSheet: View {
                     .padding(.vertical, 16)
                     .background(
                         RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(.systemGray6))
+                            .fill(DesignColor.color(.surfaceSecondary, theme: visualTheme, colorScheme: colorScheme))
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
-                            .stroke(isTextFieldFocused ? Color.orange : Color.clear, lineWidth: 2)
+                            .stroke(isTextFieldFocused ? accentColor : Color.clear, lineWidth: 2)
                     )
                     .toolbar {
                         ToolbarItemGroup(placement: .keyboard) {
@@ -331,7 +367,7 @@ struct ManualScoreEditorSheet: View {
                             dismiss()
                         }
                         .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(accentColor)
                     }
                 }
                 
@@ -339,6 +375,7 @@ struct ManualScoreEditorSheet: View {
             }
             .padding(.horizontal, 24)
             .padding(.top, 32)
+            .background(DesignColor.color(.surfacePrimary, theme: visualTheme, colorScheme: colorScheme))
             .navigationTitle("Manual Score")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

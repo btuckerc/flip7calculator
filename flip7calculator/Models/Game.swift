@@ -7,7 +7,7 @@
 
 import Foundation
 
-/// Represents a complete Flip 7 game
+/// Represents a complete score-tracking game session.
 struct Game: Codable, Equatable {
     var players: [Player]
     var currentRoundIndex: Int
@@ -142,9 +142,9 @@ struct RoundResult: Equatable {
         return roundScore == 0
     }
     
-    /// Whether this round achieved Flip7 bonus
-    var hasFlip7: Bool {
-        handSnapshot?.hasFlip7Bonus ?? false
+    /// Whether this round earned the seven-card bonus
+    var hasSevenCardBonus: Bool {
+        handSnapshot?.hasSevenCardBonus ?? false
     }
     
     /// Number of x2 multipliers used
@@ -194,4 +194,3 @@ extension RoundResult: Codable {
         try container.encodeIfPresent(autoScore, forKey: .autoScore)
     }
 }
-
