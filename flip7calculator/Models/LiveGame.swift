@@ -623,6 +623,8 @@ struct LiveGameReducer {
         case .action(let action):
             let prompt = LiveActionPrompt(action: action, sourcePlayerID: playerID, cardID: card.id)
             if let forcedSequenceID, action != .shield {
+                // Classic 3.1 resolves nested Hold/Draw 3 actions only after the
+                // current three-card sequence, and only if its recipient survives.
                 guard let sequenceIndex = session.forcedSequences.firstIndex(where: { $0.id == forcedSequenceID }) else {
                     throw LiveGameError.commandNotAllowed
                 }

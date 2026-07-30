@@ -283,15 +283,10 @@ private struct SetupPlayStyleCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSpacing.sm) {
-            HStack {
-                Text("How are you playing?")
-                    .font(DesignTypography.font(.label))
-                    .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
-                    .textCase(.uppercase)
-                Spacer()
-                Text("Dealer Preview")
-                    .pillBadge(.info)
-            }
+            Text("How are you playing?")
+                .font(DesignTypography.font(.label))
+                .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
+                .textCase(.uppercase)
 
             Group {
                 if dynamicTypeSize.isAccessibilitySize {
@@ -306,16 +301,6 @@ private struct SetupPlayStyleCard: View {
                     }
                 }
             }
-
-            Text(
-                dealerEnabled || selectedIntent == .scoreCalculator
-                    ? selectedIntent.detail
-                    : "Dealer preview currently supports Classic games."
-            )
-            .font(.system(size: 12, weight: .medium, design: .rounded))
-            .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
-            .fixedSize(horizontal: false, vertical: true)
-            .contentTransition(.opacity)
         }
         .padding(DesignSpacing.md)
         .cardSurface(cornerRadius: 22)
@@ -329,15 +314,18 @@ private struct SetupPlayStyleCard: View {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : intent.icon)
                     .font(.system(size: 15, weight: .semibold))
                 Text(intent.title)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.82)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                    .minimumScaleFactor(0.72)
             }
+            .frame(maxWidth: .infinity)
+            .frame(height: dynamicTypeSize.isAccessibilitySize ? nil : 28)
         }
         .buttonStyle(SelectionCardButtonStyle(isSelected: isSelected))
         .disabled(!isEnabled)
         .accessibilityLabel(intent.title)
         .accessibilityValue(isSelected ? "Selected" : "Not selected")
-        .accessibilityHint(intent.detail)
+        .accessibilityHint(isEnabled ? intent.detail : "Available for Classic games")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
         .accessibilityIdentifier("setup.entry.\(intent.rawValue)")
     }
 }

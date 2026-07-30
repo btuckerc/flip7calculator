@@ -90,6 +90,28 @@ struct LiveGameReducerTests {
         #expect(game.players[0].currentRound.state == .inRound)
     }
 
+    @Test func stayedHeldAndBustedPlayersAreNotEligibleActionTargets() throws {
+        var game = try makeGame(
+            drawOrder: [],
+            playerNames: ["Maya", "Leo", "Nia", "Owen"]
+        )
+        let sourceID = game.players[0].id
+        game.players[1].currentRound.state = .banked
+        game.players[2].currentRound.state = .frozen
+        game.players[3].currentRound.state = .busted
+        let prompt = LiveActionPrompt(
+            action: .drawThree,
+            sourcePlayerID: sourceID,
+            cardID: UUID()
+        )
+        game.liveSession?.tasks = [.chooseTarget(prompt)]
+
+        #expect(LiveGameReducer.eligibleTargets(in: game).map(\.id) == [sourceID])
+        #expect(throws: LiveGameError.invalidTarget) {
+            try LiveGameReducer.apply(.chooseTarget(game.players[1].id), to: &game)
+        }
+    }
+
     @Test func drawThreeRevealsThreeCardsAndThenResumesTurnOrder() throws {
         var game = try makeGame(drawOrder: [
             .action(.drawThree), .number(1), .addModifier(4), .number(2)
@@ -138,12 +160,63 @@ struct LiveGameReducerTests {
         #expect(prompt.sourcePlayerID == targetID)
     }
 
+    @Test func nestedDrawThreeFinishesTheOriginalSequenceThenCanMoveToAnotherPlayer() throws {
+        var game = try makeGame(
+            drawOrder: [
+                .action(.drawThree),
+                .number(1), .action(.drawThree), .number(2),
+                .number(3), .number(4), .number(5)
+            ],
+            playerNames: ["Maya", "Leo", "Nia"]
+        )
+        let originalSourceID = game.players[0].id
+        let originalTargetID = game.players[1].id
+        let nestedTargetID = game.players[2].id
+        game.liveSession?.tasks = [.awaitDecision(playerID: originalSourceID)]
+
+        try LiveGameReducer.apply(.draw, to: &game)
+        try LiveGameReducer.apply(.chooseTarget(originalTargetID), to: &game)
+        try LiveGameReducer.apply(.draw, to: &game)
+        try LiveGameReducer.apply(.draw, to: &game)
+
+        guard case .forcedDraw(_, let forcedPlayerID, 3, 3)? = game.liveSession?.currentTask else {
+            Issue.record("The nested Draw 3 interrupted the original sequence")
+            return
+        }
+        #expect(forcedPlayerID == originalTargetID)
+
+        try LiveGameReducer.apply(.draw, to: &game)
+        #expect(game.players[1].currentRound.hand.selectedNumbers == [1, 2])
+
+        guard case .chooseTarget(let prompt)? = game.liveSession?.currentTask else {
+            Issue.record("The nested Draw 3 was not presented after the original sequence")
+            return
+        }
+        #expect(prompt.action == .drawThree)
+        #expect(prompt.sourcePlayerID == originalTargetID)
+
+        try LiveGameReducer.apply(.chooseTarget(nestedTargetID), to: &game)
+        guard case .forcedDraw(_, let recipientID, 1, 3)? = game.liveSession?.currentTask else {
+            Issue.record("The nested Draw 3 did not start for the selected player")
+            return
+        }
+        #expect(recipientID == nestedTargetID)
+
+        try LiveGameReducer.apply(.draw, to: &game)
+        try LiveGameReducer.apply(.draw, to: &game)
+        try LiveGameReducer.apply(.draw, to: &game)
+
+        #expect(game.players[2].currentRound.hand.selectedNumbers == [3, 4, 5])
+        #expect(game.liveSession?.currentTask == .awaitDecision(playerID: originalTargetID))
+    }
+
     @Test func bustDuringDrawThreeCancelsRemainingCardsAndDeferredActions() throws {
         var game = try makeGame(drawOrder: [
-            .action(.drawThree), .number(6), .number(6), .action(.hold)
+            .action(.drawThree), .action(.hold), .number(6), .number(2)
         ])
         let sourceID = game.players[0].id
         let targetID = game.players[1].id
+        game.players[1].currentRound.hand.selectedNumbers = [6]
         game.liveSession?.tasks = [.awaitDecision(playerID: sourceID)]
 
         try LiveGameReducer.apply(.draw, to: &game)
@@ -153,7 +226,7 @@ struct LiveGameReducerTests {
 
         #expect(game.players[1].currentRound.state == .busted)
         #expect(game.liveSession?.forcedSequences.isEmpty == true)
-        #expect(game.liveSession?.drawPile.last?.content == .action(.hold))
+        #expect(game.liveSession?.drawPile.last?.content == .number(2))
         #expect(game.liveSession?.currentTask == .awaitDecision(playerID: sourceID))
     }
 
@@ -266,8 +339,11 @@ struct LiveGameReducerTests {
         #expect(game.liveSession?.currentTask == .openingDraw(playerID: nextDealer))
     }
 
-    private func makeGame(drawOrder: [LiveCardContent]) throws -> Game {
-        let players = [Player(name: "Maya"), Player(name: "Leo")]
+    private func makeGame(
+        drawOrder: [LiveCardContent],
+        playerNames: [String] = ["Maya", "Leo"]
+    ) throws -> Game {
+        let players = playerNames.map { Player(name: $0) }
         var game = Game(
             players: players,
             targetScore: 200,
@@ -289,6 +365,10 @@ struct LiveGameReducerTests {
 
 @MainActor
 struct ProbabilityServiceTests {
+    @Test func riskInsightsMakesTheDefaultExplicit() {
+        #expect(RiskInsightsMode.off.displayName == "Off (Default)")
+    }
+
     @Test func calculatorEstimateMatchesHandCalculatedExample() {
         let players = [
             Player(

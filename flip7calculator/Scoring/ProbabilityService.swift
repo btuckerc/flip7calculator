@@ -14,7 +14,7 @@ enum RiskInsightsMode: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .off: return "Off"
+        case .off: return "Off (Default)"
         case .heat: return "Heat only"
         case .percentage: return "Percentage"
         }

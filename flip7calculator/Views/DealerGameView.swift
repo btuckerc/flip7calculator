@@ -11,12 +11,17 @@ private enum DealerConfirmation {
     case newGame
 }
 
+private struct DealerHandSelection: Identifiable {
+    let id: UUID
+}
+
 struct DealerGameView: View {
     @Bindable var viewModel: GameViewModel
     @State private var showingHistory = false
     @State private var showingHelp = false
     @State private var showingRisk = false
     @State private var showingGameOver = false
+    @State private var handSelection: DealerHandSelection?
     @State private var confirmation: DealerConfirmation?
 
     @AppStorage("riskInsightsMode") private var riskInsightsModeRaw: String = RiskInsightsMode.off.rawValue
@@ -45,7 +50,8 @@ struct DealerGameView: View {
                                 game: game,
                                 session: session,
                                 colors: PlayerColorResolver.colors(count: game.players.count, palette: selectedPalette),
-                                layout: .grid
+                                layout: .grid,
+                                onShowHand: showHand
                             )
                             .frame(maxWidth: 390)
 
@@ -56,7 +62,8 @@ struct DealerGameView: View {
                                 riskMode: riskMode,
                                 centersContent: true,
                                 onChooseTarget: chooseTarget,
-                                onShowRisk: { showingRisk = true }
+                                onShowRisk: { showingRisk = true },
+                                onShowHand: showHand
                             )
                             .frame(maxWidth: 680, maxHeight: 780)
                         }
@@ -67,7 +74,8 @@ struct DealerGameView: View {
                                 game: game,
                                 session: session,
                                 colors: PlayerColorResolver.colors(count: game.players.count, palette: selectedPalette),
-                                layout: .strip
+                                layout: .strip,
+                                onShowHand: showHand
                             )
                             .frame(maxHeight: 124)
 
@@ -78,7 +86,8 @@ struct DealerGameView: View {
                                 riskMode: riskMode,
                                 centersContent: false,
                                 onChooseTarget: chooseTarget,
-                                onShowRisk: { showingRisk = true }
+                                onShowRisk: { showingRisk = true },
+                                onShowHand: showHand
                             )
                             .frame(maxHeight: .infinity)
                         }
@@ -146,6 +155,14 @@ struct DealerGameView: View {
                        let insight = ProbabilityService.exactDigitalRisk(for: playerID, in: game) {
                         RiskInsightSheet(insight: insight)
                     }
+                }
+                .sheet(item: $handSelection) { selection in
+                    DealerHandsSheet(
+                        game: game,
+                        session: session,
+                        colors: PlayerColorResolver.colors(count: game.players.count, palette: selectedPalette),
+                        focusedPlayerID: selection.id
+                    )
                 }
                 .overlay {
                     if let confirmation {
@@ -232,6 +249,10 @@ struct DealerGameView: View {
         }
     }
 
+    private func showHand(_ playerID: UUID) {
+        handSelection = DealerHandSelection(id: playerID)
+    }
+
     private func completeRound() {
         guard let game = viewModel.game else { return }
         if game.previewHasUniqueWinner {
@@ -277,6 +298,7 @@ private struct DealerPlayerBoard: View {
     let session: LiveSession
     let colors: [Color]
     let layout: DealerPlayerBoardLayout
+    let onShowHand: (UUID) -> Void
 
     var body: some View {
         Group {
@@ -308,15 +330,20 @@ private struct DealerPlayerBoard: View {
     @ViewBuilder
     private var playerTiles: some View {
         ForEach(Array(game.players.enumerated()), id: \.element.id) { index, player in
-            DealerPlayerTile(
-                player: player,
-                rules: game.scoringRules,
-                cards: session.cards(for: player.id),
-                color: colors[safe: index] ?? .accentColor,
-                isCurrent: session.currentTask?.focusPlayerID == player.id,
-                isDealer: session.dealerPlayerID == player.id
-            )
-            .frame(width: layout == .strip ? 142 : nil)
+            Button(action: { onShowHand(player.id) }) {
+                DealerPlayerTile(
+                    player: player,
+                    rules: game.scoringRules,
+                    cards: session.cards(for: player.id),
+                    color: colors[safe: index] ?? .accentColor,
+                    isCurrent: session.currentTask?.focusPlayerID == player.id,
+                    isDealer: session.dealerPlayerID == player.id
+                )
+            }
+            .buttonStyle(.plain)
+            .frame(width: layout == .strip ? 154 : nil)
+            .accessibilityHint("Shows this hand and every hand at the table")
+            .accessibilityIdentifier("dealer.hand.\(player.id.uuidString)")
         }
     }
 }
@@ -332,7 +359,7 @@ private struct DealerPlayerTile: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 5) {
                 Circle()
                     .fill(color)
@@ -348,7 +375,7 @@ private struct DealerPlayerTile: View {
                 }
             }
 
-            HStack(alignment: .firstTextBaseline) {
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
                 Text("\(player.totalScore)")
                     .font(.system(size: 22, weight: .black, design: .rounded))
                     .monospacedDigit()
@@ -362,27 +389,34 @@ private struct DealerPlayerTile: View {
                         .foregroundStyle(DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme))
                         .accessibilityLabel("Shield protected")
                 }
+                Text(statusLabel)
+                    .font(.system(size: 9, weight: .black, design: .rounded))
+                    .tracking(0.3)
+                    .foregroundStyle(statusColor)
             }
 
-            HStack {
-                Text(statusLabel)
-                    .font(.system(size: 10, weight: .black, design: .rounded))
-                    .tracking(0.4)
-                Spacer()
+            HStack(spacing: 6) {
+                DealerMiniHand(cards: cards, maximumVisibleCards: 4)
+
+                Spacer(minLength: 2)
+
+                Image(systemName: "eye.fill")
+                    .font(.system(size: 9, weight: .bold))
+                    .accessibilityHidden(true)
                 Text("\(player.currentRound.hand.numberCardCount)/7")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
             }
-            .foregroundStyle(statusColor)
+            .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
         }
         .padding(DesignSpacing.sm)
-        .frame(maxWidth: .infinity, minHeight: 104, alignment: .topLeading)
+        .frame(maxWidth: .infinity, minHeight: 106, alignment: .topLeading)
         .cardSurface(cornerRadius: DesignRadius.md)
         .overlay(
             RoundedRectangle(cornerRadius: DesignRadius.md)
                 .stroke(isCurrent ? color : .clear, lineWidth: 3)
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(player.name), \(player.totalScore) total, \(ScoreEngine.calculateRoundScore(round: player.currentRound, rules: rules)) this round, \(statusLabel)")
+        .accessibilityLabel("\(player.name), \(player.totalScore) total, \(ScoreEngine.calculateRoundScore(round: player.currentRound, rules: rules)) this round, \(statusLabel), \(cards.count) cards")
     }
 
     private var statusLabel: String {
@@ -412,6 +446,7 @@ private struct DealerStage: View {
     let centersContent: Bool
     let onChooseTarget: (UUID) -> Void
     let onShowRisk: () -> Void
+    let onShowHand: (UUID) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.visualTheme) private var visualTheme
     @Environment(\.colorScheme) private var colorScheme
@@ -419,13 +454,25 @@ private struct DealerStage: View {
     var body: some View {
         VStack(spacing: DesignSpacing.md) {
             HStack(spacing: DesignSpacing.xs) {
-                Label("\(session.drawPile.count)", systemImage: "rectangle.stack.fill")
-                    .pillBadge(.info)
-                Label("\(session.discardPile.count)", systemImage: "tray.full.fill")
-                    .pillBadge(.neutral)
+                DealerPileCounter(
+                    title: "Deck",
+                    count: session.drawPile.count,
+                    symbol: "rectangle.stack.fill",
+                    role: .brandPrimary
+                )
+                DealerPileCounter(
+                    title: "Discard",
+                    count: session.discardPile.count,
+                    symbol: "tray.full.fill",
+                    role: .textSecondary
+                )
                 if session.shuffleCount > 1 {
-                    Label("\(session.shuffleCount)", systemImage: "shuffle")
-                        .pillBadge(.warning)
+                    DealerPileCounter(
+                        title: "Shuffle",
+                        count: session.shuffleCount,
+                        symbol: "arrow.triangle.2.circlepath",
+                        role: .stateWarning
+                    )
                 }
             }
             .accessibilityElement(children: .combine)
@@ -444,10 +491,17 @@ private struct DealerStage: View {
             }
             .frame(minHeight: 50)
 
+            if let queuedActionNotice {
+                Label(queuedActionNotice, systemImage: "clock.arrow.2.circlepath")
+                    .pillBadge(.warning)
+                    .accessibilityLabel(queuedActionNotice)
+            }
+
             if case .chooseTarget? = session.currentTask {
                 DealerTargetChooser(
                     players: eligibleTargets,
                     game: game,
+                    session: session,
                     onChoose: onChooseTarget
                 )
             } else {
@@ -458,7 +512,15 @@ private struct DealerStage: View {
             }
 
             if let playerID = session.currentTask?.focusPlayerID {
-                DealerHandStrip(cards: session.cards(for: playerID))
+                HStack(spacing: DesignSpacing.xs) {
+                    DealerHandStrip(cards: session.cards(for: playerID))
+                    Button(action: { onShowHand(playerID) }) {
+                        Image(systemName: "eye.circle.fill")
+                            .font(.system(size: 22, weight: .semibold))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("View \(name(playerID))'s hand and all table hands")
+                }
 
                 if riskMode != .off,
                    session.currentTask?.riskPlayerID != nil,
@@ -498,7 +560,7 @@ private struct DealerStage: View {
         case .forcedDraw(_, let playerID, _, _):
             return "Continue for \(name(playerID))"
         case .chooseTarget(let prompt):
-            return "\(name(prompt.sourcePlayerID)), choose a player"
+            return "\(name(prompt.sourcePlayerID)), choose an active player"
         case .roundComplete(let reason):
             if reason.kind == .sevenCards, let playerID = reason.playerID {
                 return "\(name(playerID)) reached seven"
@@ -511,6 +573,19 @@ private struct DealerStage: View {
 
     private func name(_ playerID: UUID) -> String {
         game.players.first(where: { $0.id == playerID })?.name ?? "Player"
+    }
+
+    private var queuedActionNotice: String? {
+        guard case .forcedDraw(let sequenceID, _, _, _)? = session.currentTask,
+              let sequence = session.forcedSequences.first(where: { $0.id == sequenceID }),
+              !sequence.deferredPrompts.isEmpty else {
+            return nil
+        }
+        if sequence.deferredPrompts.count == 1,
+           let action = sequence.deferredPrompts.first?.action {
+            return "\(action.displayName) queued until this Draw 3 ends"
+        }
+        return "\(sequence.deferredPrompts.count) actions queued until this Draw 3 ends"
     }
 }
 
@@ -590,23 +665,34 @@ private struct DealerCardFace: View {
 private struct DealerTargetChooser: View {
     let players: [Player]
     let game: Game
+    let session: LiveSession
     let onChoose: (UUID) -> Void
 
     var body: some View {
         ScrollView {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 118), spacing: DesignSpacing.xs)], spacing: DesignSpacing.xs) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 142), spacing: DesignSpacing.xs)], spacing: DesignSpacing.xs) {
                 ForEach(players) { player in
                     Button(action: { onChoose(player.id) }) {
-                        VStack(spacing: 5) {
-                            Text(player.name)
-                                .font(.system(size: 16, weight: .bold, design: .rounded))
-                                .lineLimit(1)
-                            Text("\(ScoreEngine.calculateRoundScore(round: player.currentRound, rules: game.scoringRules)) this round")
-                                .font(.system(size: 11, weight: .medium, design: .rounded))
+                        VStack(alignment: .leading, spacing: 7) {
+                            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                                Text(player.name)
+                                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                                    .lineLimit(1)
+                                Spacer(minLength: 2)
+                                Text("+\(ScoreEngine.calculateRoundScore(round: player.currentRound, rules: game.scoringRules))")
+                                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                                    .foregroundStyle(.secondary)
+                            }
+                            DealerMiniHand(
+                                cards: session.cards(for: player.id),
+                                maximumVisibleCards: 5
+                            )
                         }
                         .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(SelectionCardButtonStyle(isSelected: false))
+                    .accessibilityLabel(targetAccessibilityLabel(for: player))
+                    .accessibilityHint("Selects \(player.name) for this action")
                     .accessibilityIdentifier("dealer.target.\(player.id.uuidString)")
                 }
             }
@@ -615,6 +701,15 @@ private struct DealerTargetChooser: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Eligible targets")
     }
+
+    private func targetAccessibilityLabel(for player: Player) -> String {
+        let cards = session.cards(for: player.id)
+        let hand = cards.isEmpty
+            ? "no cards"
+            : cards.map(\.content.accessibilityLabel).joined(separator: ", ")
+        let score = ScoreEngine.calculateRoundScore(round: player.currentRound, rules: game.scoringRules)
+        return "\(player.name), \(score) this round, \(hand)"
+    }
 }
 
 private struct DealerHandStrip: View {
@@ -622,25 +717,239 @@ private struct DealerHandStrip: View {
 
     var body: some View {
         ScrollView(.horizontal) {
-            HStack(spacing: 6) {
+            HStack(spacing: 7) {
                 if cards.isEmpty {
                     Text("No cards yet")
                         .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(cards) { card in
-                        Text(card.content.shortLabel)
-                            .font(.system(size: 12, weight: .bold, design: .rounded))
-                            .padding(.horizontal, 9)
-                            .padding(.vertical, 6)
-                            .background(Capsule().fill(Color(.tertiarySystemFill)))
-                            .accessibilityLabel(card.content.accessibilityLabel)
+                        DealerCardToken(card: card, size: .hand)
                     }
                 }
             }
+            .padding(.vertical, 2)
         }
         .scrollIndicators(.hidden)
-        .frame(minHeight: 29)
+        .frame(minHeight: 58)
+    }
+}
+
+private struct DealerMiniHand: View {
+    let cards: [LiveCardInstance]
+    let maximumVisibleCards: Int
+
+    var body: some View {
+        HStack(spacing: 3) {
+            if cards.isEmpty {
+                Text("No cards")
+                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.secondary)
+            } else {
+                HStack(spacing: -5) {
+                    ForEach(Array(cards.prefix(maximumVisibleCards))) { card in
+                        DealerCardToken(card: card, size: .mini)
+                    }
+                }
+                if cards.count > maximumVisibleCards {
+                    Text("+\(cards.count - maximumVisibleCards)")
+                        .font(.system(size: 9, weight: .black, design: .rounded))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .frame(height: 32, alignment: .leading)
+        .accessibilityHidden(true)
+    }
+}
+
+private enum DealerCardTokenSize: Equatable {
+    case mini
+    case hand
+
+    var width: CGFloat { self == .mini ? 24 : 48 }
+    var height: CGFloat { self == .mini ? 32 : 58 }
+    var cornerRadius: CGFloat { self == .mini ? 5 : 9 }
+}
+
+private struct DealerCardToken: View {
+    let card: LiveCardInstance
+    let size: DealerCardTokenSize
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: size.cornerRadius)
+                .fill(DesignColor.color(.surfaceRaised, theme: visualTheme, colorScheme: colorScheme))
+                .overlay(
+                    RoundedRectangle(cornerRadius: size.cornerRadius)
+                        .stroke(accent.opacity(0.72), lineWidth: size == .mini ? 1.25 : 2)
+                )
+
+            tokenContent
+                .foregroundStyle(accent)
+                .padding(size == .mini ? 2 : 4)
+        }
+        .frame(width: size.width, height: size.height)
+        .accessibilityLabel(card.content.accessibilityLabel)
+    }
+
+    @ViewBuilder
+    private var tokenContent: some View {
+        if case .action(let action) = card.content {
+            VStack(spacing: size == .mini ? 0 : 3) {
+                Image(systemName: action.icon)
+                    .font(.system(size: size == .mini ? 10 : 15, weight: .bold))
+                if size == .hand {
+                    Text(action.displayName)
+                        .font(.system(size: 8, weight: .black, design: .rounded))
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.7)
+                        .multilineTextAlignment(.center)
+                }
+            }
+        } else {
+            Text(card.content.shortLabel)
+                .font(.system(size: size == .mini ? 10 : 19, weight: .black, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+    }
+
+    private var accent: Color {
+        switch card.content {
+        case .number:
+            return DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+        case .addModifier, .multiplier:
+            return DesignColor.color(.brandSecondary, theme: visualTheme, colorScheme: colorScheme)
+        case .action(.hold):
+            return DesignColor.color(.stateWarning, theme: visualTheme, colorScheme: colorScheme)
+        case .action(.drawThree):
+            return DesignColor.color(.stateDanger, theme: visualTheme, colorScheme: colorScheme)
+        case .action(.shield):
+            return DesignColor.color(.stateSuccess, theme: visualTheme, colorScheme: colorScheme)
+        }
+    }
+}
+
+private struct DealerPileCounter: View {
+    let title: String
+    let count: Int
+    let symbol: String
+    let role: DesignColor.Role
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        let accent = DesignColor.color(role, theme: visualTheme, colorScheme: colorScheme)
+        return HStack(spacing: 5) {
+            Image(systemName: symbol)
+                .font(.system(size: 11, weight: .bold))
+            Text(title)
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+            Text("\(count)")
+                .font(.system(size: 11, weight: .black, design: .monospaced))
+        }
+        .foregroundStyle(accent)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 6)
+        .background(Capsule().fill(accent.opacity(0.12)))
+        .overlay(Capsule().stroke(accent.opacity(0.18), lineWidth: 1))
+    }
+}
+
+private struct DealerHandsSheet: View {
+    let game: Game
+    let session: LiveSession
+    let colors: [Color]
+    let focusedPlayerID: UUID
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var orderedPlayers: [Player] {
+        guard let focused = game.players.first(where: { $0.id == focusedPlayerID }) else {
+            return game.players
+        }
+        return [focused] + game.players.filter { $0.id != focusedPlayerID }
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVStack(spacing: DesignSpacing.sm) {
+                    Text("All revealed cards stay visible here. Only active players can receive Hold or Draw 3; stayed, held, and busted players cannot be selected.")
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.bottom, DesignSpacing.xs)
+
+                    ForEach(orderedPlayers) { player in
+                        handRow(for: player)
+                    }
+                }
+                .padding(DesignSpacing.md)
+            }
+            .navigationTitle("Table Hands")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+            .appChromeBackground()
+        }
+    }
+
+    private func handRow(for player: Player) -> some View {
+        let playerIndex = game.players.firstIndex(where: { $0.id == player.id }) ?? 0
+        let color = colors[safe: playerIndex] ?? .accentColor
+        let cards = session.cards(for: player.id)
+        return VStack(alignment: .leading, spacing: DesignSpacing.sm) {
+            HStack(spacing: 7) {
+                Circle()
+                    .fill(color)
+                    .frame(width: 10, height: 10)
+                Text(player.name)
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                Text(statusLabel(for: player))
+                    .font(.system(size: 10, weight: .black, design: .rounded))
+                    .foregroundStyle(statusColor(for: player, playerColor: color))
+                Spacer()
+                Text("+\(ScoreEngine.calculateRoundScore(round: player.currentRound, rules: game.scoringRules))")
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
+            }
+
+            DealerHandStrip(cards: cards)
+        }
+        .padding(DesignSpacing.md)
+        .cardSurface(cornerRadius: DesignRadius.md)
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignRadius.md)
+                .stroke(player.id == focusedPlayerID ? color : .clear, lineWidth: 2)
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(player.name), \(statusLabel(for: player)), \(cards.count) cards")
+    }
+
+    private func statusLabel(for player: Player) -> String {
+        switch player.currentRound.state {
+        case .inRound: return "ACTIVE"
+        case .banked: return "STAYED"
+        case .busted: return "BUSTED"
+        case .frozen: return "HELD"
+        }
+    }
+
+    private func statusColor(for player: Player, playerColor: Color) -> Color {
+        switch player.currentRound.state {
+        case .inRound: return playerColor
+        case .banked: return DesignColor.color(.stateSuccess, theme: visualTheme, colorScheme: colorScheme)
+        case .busted: return DesignColor.color(.stateDanger, theme: visualTheme, colorScheme: colorScheme)
+        case .frozen: return DesignColor.color(.stateWarning, theme: visualTheme, colorScheme: colorScheme)
+        }
     }
 }
 

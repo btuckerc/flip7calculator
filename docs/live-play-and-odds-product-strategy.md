@@ -11,12 +11,13 @@ Product strategy and implementation outline for expanding Flipping Seven Calcula
 
 The first slice deliberately proves the riskiest offline and recovery mechanics without exposing an unapproved public route:
 
-- `GameSetupView` remains the sole starting surface. In Debug, it presents equal `Score Calculator` and `Play with Dealer` choices; Score Calculator is selected for every legacy/default state and still starts in one tap from the pinned action.
+- `GameSetupView` remains the sole starting surface. In Debug, it presents equal-height `Score Calculator` and `Play with Dealer` choices without a second descriptive row; Score Calculator is selected for every legacy/default state and still starts in one tap from the pinned action.
 - Release builds hide Dealer discovery. Persisted `digitalDealer` payloads still decode so feature gating can never destroy an existing session.
 - `Game.playStyle` separates calculator, future physical tracking, and digital dealer truth. Missing values decode to `scorekeeper`.
 - `LiveSession` persists the exact ordered draw pile, discard pile, per-player table zones, dealer, task queue, forced sequences, shuffle seed, last reveal, and bounded table log.
 - `LiveGameReducer` is the pure command boundary for opening deals, ordinary draws, staying, Hold, Draw 3, Shield, nested actions, busts, seven-number completion, dealer rotation, scoring, and discard-only reshuffles.
-- `DealerGameView` is a separate play surface with one dominant context-aware action, an explicit target chooser, visible shoe/discard/shuffle state, full undo/redo snapshots, help, table log, keep-awake behavior, and an irreversible emergency fallback to the calculator.
+- `DealerGameView` is a separate play surface with one dominant context-aware action, an explicit target chooser, plainly labeled deck/discard/shuffle state, compact visible cards on each player tile, a full-table hand sheet, full undo/redo snapshots, help, table log, keep-awake behavior, and an irreversible emergency fallback to the calculator.
+- Classic target selection includes active players only. Stayed, held, and busted players remain visible in the table-hands view but cannot receive Hold or Draw 3. A nested Hold or Draw 3 is queued until the original Draw 3 completes, may then be assigned to any active player, and does not resolve if the forced recipient busts.
 - `ProbabilityService` exposes shared next-card risk math. Dealer results are exact immediate-bust risk from its owned pile; calculator results are duplicate-number estimates because physical protection effects and earlier action discards are unknown. The preference defaults to Off.
 - Classic is the only Dealer ruleset in this slice. Selecting Vengeance returns setup to Score Calculator rather than creating a disabled or partially supported game.
 - Original presentation labels (`Hold`, `Draw 3`, and `Shield`) and app-native card faces avoid third-party trade dress. Public enablement still requires the product/legal gate below.

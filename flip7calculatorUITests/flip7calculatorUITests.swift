@@ -106,13 +106,15 @@ final class flip7calculatorUITests: XCTestCase {
         let classic = app.buttons["Classic"]
         let vengeance = app.buttons["Vengeance"]
         let setupScrollView = app.scrollViews.firstMatch
+        let startButton = app.buttons["setup.startGame"]
 
         XCTAssertTrue(setupScrollView.waitForExistence(timeout: 2))
-        for _ in 0..<4 where !classic.isHittable {
+        for _ in 0..<4 where vengeance.frame.maxY >= startButton.frame.minY {
             setupScrollView.swipeUp()
         }
         XCTAssertTrue(classic.exists)
         XCTAssertTrue(classic.isHittable)
+        XCTAssertLessThan(vengeance.frame.maxY, startButton.frame.minY)
 
         XCTAssertTrue(
             app.staticTexts[
@@ -126,13 +128,16 @@ final class flip7calculatorUITests: XCTestCase {
             accuracy: 1
         )
 
+        XCTAssertTrue(vengeance.isHittable)
+        classic.tap() // Settles any final scroll deceleration without changing the mode.
         vengeance.tap()
-        setupScrollView.swipeUp()
-        XCTAssertTrue(
-            app.staticTexts[
-                "NOTE: Requires additional cards. Please be sure to use the 'With a Vengeance' expansion pack for this mode."
-            ].waitForExistence(timeout: 1)
-        )
+        let expansionNote = app.staticTexts[
+            "NOTE: Requires additional cards. Please be sure to use the 'With a Vengeance' expansion pack for this mode."
+        ]
+        if !expansionNote.waitForExistence(timeout: 1) {
+            setupScrollView.swipeUp()
+        }
+        XCTAssertTrue(expansionNote.waitForExistence(timeout: 1))
         XCTAssertTrue(
             app.staticTexts[
                 "More twists: special numbers, take-that actions, and negative modifiers."
@@ -170,6 +175,10 @@ final class flip7calculatorUITests: XCTestCase {
         XCTAssertTrue(calculator.waitForExistence(timeout: 2))
         XCTAssertEqual(calculator.value as? String, "Selected")
         XCTAssertEqual(dealer.value as? String, "Not selected")
+        XCTAssertEqual(calculator.frame.height, dealer.frame.height, accuracy: 1)
+        XCTAssertFalse(app.staticTexts["Dealer Preview"].exists)
+        XCTAssertFalse(app.staticTexts["Use your physical cards. Enter cards or round scores."].exists)
+        XCTAssertFalse(app.staticTexts["Draw and play from the deck on this device."].exists)
         XCTAssertTrue(start.exists)
         XCTAssertEqual(start.label, "Start Scoring")
 
@@ -225,6 +234,20 @@ final class flip7calculatorUITests: XCTestCase {
         screenshot.name = "Dealer - Active Turn"
         screenshot.lifetime = .keepAlways
         add(screenshot)
+
+        let peterHand = app.buttons["dealer.hand.00000000-0000-0000-0000-000000000001"]
+        XCTAssertTrue(peterHand.isHittable)
+        peterHand.tap()
+        XCTAssertTrue(app.navigationBars["Table Hands"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["Peter"].exists)
+        XCTAssertTrue(app.staticTexts["Ned"].exists)
+        XCTAssertTrue(app.staticTexts["Mary"].exists)
+        XCTAssertTrue(app.staticTexts["Gwen"].exists)
+
+        let handsScreenshot = XCTAttachment(screenshot: app.screenshot())
+        handsScreenshot.name = "Dealer - Table Hands"
+        handsScreenshot.lifetime = .keepAlways
+        add(handsScreenshot)
     }
 
     @MainActor
