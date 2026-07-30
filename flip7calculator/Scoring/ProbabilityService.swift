@@ -119,9 +119,9 @@ struct ProbabilityService {
         let effectivePile = session.drawPile.isEmpty ? session.discardPile : session.drawPile
         guard !effectivePile.isEmpty else { return nil }
 
-        let hasShield = session.hasShield(playerID: playerID)
+        let hasSecondChance = session.hasSecondChance(playerID: playerID)
         var dangerous: [Int: Int] = [:]
-        if !hasShield {
+        if !hasSecondChance {
             for card in effectivePile {
                 guard case .number(let number) = card.content,
                       player.currentRound.hand.selectedNumbers.contains(number) else {

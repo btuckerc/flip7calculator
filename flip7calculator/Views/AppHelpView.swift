@@ -37,8 +37,8 @@ struct AppHelpView: View {
                             color: AppBrandPalette.brandBlueSky,
                             bullets: [
                                 "Score Calculator keeps your physical cards in charge and preserves the familiar fast-entry flow.",
-                                "Play with Dealer draws from an app-owned Classic deck, guides turns and actions, and reshuffles automatically.",
-                                "Each game has one source of truth. Dealer can fall back to the calculator, but a calculator game never invents an exact deck order."
+                                "Simulator draws from an app-owned Classic deck, guides turns and actions, and reshuffles automatically.",
+                                "Each game has one source of truth. Simulator can fall back to the calculator, but a calculator game never invents an exact deck order."
                             ]
                         )
                     }
@@ -87,7 +87,7 @@ struct AppHelpView: View {
                             "Manual Score lets you override the automatic math for edge cases.",
                             "Undo and Redo work from the bottom action bar.",
                             "Deck Profile controls how many numbers, modifiers, and extras are available.",
-                            "Risk Insights are optional. Calculator odds are labeled estimates; Dealer odds are exact for its current draw pile.",
+                            "Risk Insights are optional. Calculator odds are labeled estimates; Simulator odds are exact for its current draw pile.",
                             "Game Stats summarizes trends, bonus rounds, busts, and score progression."
                         ]
                     )

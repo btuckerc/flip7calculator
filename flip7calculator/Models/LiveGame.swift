@@ -32,7 +32,7 @@ enum GameEntryIntent: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .scoreCalculator: return "plus.forwardslash.minus"
-        case .playWithDealer: return "rectangle.stack.fill"
+        case .playWithDealer: return "rectangle.portrait.on.rectangle.portrait.fill"
         }
     }
 
@@ -66,18 +66,18 @@ enum LiveAction: String, Codable, CaseIterable, Hashable {
     case shield
 
     var displayName: String {
-        switch self {
-        case .hold: return "Hold"
-        case .drawThree: return "Draw 3"
-        case .shield: return "Shield"
-        }
+        profileAction.displayName
     }
 
     var icon: String {
+        profileAction.icon
+    }
+
+    private var profileAction: DeckProfile.ActionCard {
         switch self {
-        case .hold: return "pause.fill"
-        case .drawThree: return "square.stack.3d.up.fill"
-        case .shield: return "shield.fill"
+        case .hold: return .freeze
+        case .drawThree: return .flipThree
+        case .shield: return .secondChance
         }
     }
 
@@ -158,6 +158,7 @@ enum LiveTask: Codable, Equatable {
     case openingDraw(playerID: UUID)
     case awaitDecision(playerID: UUID)
     case forcedDraw(sequenceID: UUID, playerID: UUID, drawNumber: Int, total: Int)
+    case acknowledgeReveal(playerID: UUID)
     case completeForced(sequenceID: UUID, playerID: UUID)
     case chooseTarget(LiveActionPrompt)
     case beginTurns(startPlayerID: UUID)
@@ -273,7 +274,7 @@ struct LiveSession: Codable, Equatable {
         tableCards[playerID.uuidString] ?? []
     }
 
-    func hasShield(playerID: UUID) -> Bool {
+    func hasSecondChance(playerID: UUID) -> Bool {
         cards(for: playerID).contains { $0.content == .action(.shield) }
     }
 
@@ -284,6 +285,7 @@ struct LiveSession: Codable, Equatable {
 
 enum LiveCommand: Equatable {
     case draw
+    case acknowledgeReveal
     case stay
     case chooseTarget(UUID)
     case startNextRound
@@ -303,13 +305,13 @@ enum LiveGameError: Error, Equatable, LocalizedError {
     var errorDescription: String? {
         switch self {
         case .noPlayers: return "At least one player is required."
-        case .unsupportedRuleset: return "Dealer currently supports the Classic score profile only."
-        case .unsupportedCard(let name): return "Dealer does not yet support \(name)."
-        case .noLiveSession: return "This game does not have an active dealer session."
+        case .unsupportedRuleset: return "Simulator currently supports the Classic score profile only."
+        case .unsupportedCard(let name): return "Simulator does not yet support \(name)."
+        case .noLiveSession: return "This game does not have an active simulator session."
         case .commandNotAllowed: return "That action is not available right now."
         case .invalidTarget: return "Choose an eligible active player."
         case .noCardsAvailable: return "No cards are available to draw."
-        case .playerMissing: return "A player in the dealer session is no longer available."
+        case .playerMissing: return "A player in the simulator session is no longer available."
         }
     }
 }
@@ -365,6 +367,8 @@ struct LiveGameReducer {
         switch command {
         case .draw:
             try draw(game: &game, session: &session)
+        case .acknowledgeReveal:
+            try acknowledgeReveal(session: &session)
         case .stay:
             try stay(game: &game, session: &session)
         case .chooseTarget(let playerID):
@@ -437,6 +441,15 @@ struct LiveGameReducer {
             game: &game,
             session: &session
         )
+        session.tasks.insert(.acknowledgeReveal(playerID: playerID), at: 0)
+    }
+
+    private static func acknowledgeReveal(session: inout LiveSession) throws {
+        guard case .acknowledgeReveal? = session.currentTask else {
+            throw LiveGameError.commandNotAllowed
+        }
+        session.tasks.removeFirst()
+        session.lastReveal = nil
     }
 
     private static func stay(game: inout Game, session: inout LiveSession) throws {
@@ -478,15 +491,23 @@ struct LiveGameReducer {
 
         switch prompt.action {
         case .hold:
+            guard let card = removeCard(prompt.cardID, from: prompt.sourcePlayerID, session: &session) else {
+                throw LiveGameError.commandNotAllowed
+            }
+            session.discardPile.append(card)
             game.players[targetIndex].currentRound.state = .frozen
             appendEvent(
                 .held,
-                "\(sourceName) held \(targetName)",
+                "\(sourceName) froze \(targetName)",
                 playerID: targetPlayerID,
                 cardID: prompt.cardID,
                 session: &session
             )
         case .drawThree:
+            guard let card = removeCard(prompt.cardID, from: prompt.sourcePlayerID, session: &session) else {
+                throw LiveGameError.commandNotAllowed
+            }
+            session.discardPile.append(card)
             let sequenceID = UUID()
             session.forcedSequences.append(
                 LiveForcedSequence(id: sequenceID, recipientPlayerID: targetPlayerID, deferredPrompts: [])
@@ -500,7 +521,7 @@ struct LiveGameReducer {
             )
             appendEvent(
                 .action,
-                "\(sourceName) sent Draw 3 to \(targetName)",
+                "\(sourceName) sent Flip Three to \(targetName)",
                 playerID: targetPlayerID,
                 cardID: prompt.cardID,
                 session: &session
@@ -512,7 +533,7 @@ struct LiveGameReducer {
             session.tableCards[targetPlayerID.uuidString, default: []].append(card)
             appendEvent(
                 .action,
-                "\(sourceName) passed a Shield to \(targetName)",
+                "\(sourceName) passed a Second Chance to \(targetName)",
                 playerID: targetPlayerID,
                 cardID: prompt.cardID,
                 session: &session
@@ -577,7 +598,7 @@ struct LiveGameReducer {
                 }
                 appendEvent(
                     .protected,
-                    "\(game.players[playerIndex].name)'s Shield stopped a duplicate \(number)",
+                    "\(game.players[playerIndex].name)'s Second Chance stopped a duplicate \(number)",
                     playerID: playerID,
                     cardID: card.id,
                     session: &session
@@ -623,7 +644,7 @@ struct LiveGameReducer {
         case .action(let action):
             let prompt = LiveActionPrompt(action: action, sourcePlayerID: playerID, cardID: card.id)
             if let forcedSequenceID, action != .shield {
-                // Classic 3.1 resolves nested Hold/Draw 3 actions only after the
+                // Classic 3.1 resolves nested Freeze/Flip Three actions only after the
                 // current three-card sequence, and only if its recipient survives.
                 guard let sequenceIndex = session.forcedSequences.firstIndex(where: { $0.id == forcedSequenceID }) else {
                     throw LiveGameError.commandNotAllowed
@@ -637,7 +658,7 @@ struct LiveGameReducer {
                     }
                     appendEvent(
                         .action,
-                        "Extra Shield discarded · no eligible player",
+                        "Extra Second Chance discarded · no eligible player",
                         playerID: playerID,
                         cardID: card.id,
                         session: &session
@@ -655,6 +676,15 @@ struct LiveGameReducer {
         var safetyCounter = 0
         while safetyCounter < 100 {
             safetyCounter += 1
+
+            if case .acknowledgeReveal? = session.currentTask {
+                return
+            }
+
+            // Sessions saved before reveal acknowledgment existed can contain a
+            // stale last reveal beside an already-advanced task. Never surface it
+            // to the next player.
+            session.lastReveal = nil
 
             if game.players.allSatisfy({ $0.currentRound.state != .inRound }) {
                 if case .roundComplete? = session.currentTask { return }
@@ -716,7 +746,7 @@ struct LiveGameReducer {
                     return
                 }
 
-            case .openingDraw, .awaitDecision, .forcedDraw, .roundComplete:
+            case .openingDraw, .awaitDecision, .forcedDraw, .acknowledgeReveal, .roundComplete:
                 return
             }
         }
@@ -762,7 +792,7 @@ struct LiveGameReducer {
             return activePlayers
         case .shield:
             return activePlayers.filter {
-                $0.id != prompt.sourcePlayerID && !session.hasShield(playerID: $0.id)
+                $0.id != prompt.sourcePlayerID && !session.hasSecondChance(playerID: $0.id)
             }
         }
     }

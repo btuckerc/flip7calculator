@@ -102,6 +102,7 @@ struct DealerGameView: View {
                         canUndo: viewModel.canUndo,
                         canRedo: viewModel.canRedo,
                         onDraw: draw,
+                        onAcknowledgeReveal: acknowledgeReveal,
                         onStay: stay,
                         onRoundComplete: completeRound,
                         onUndo: {
@@ -114,7 +115,7 @@ struct DealerGameView: View {
                         }
                     )
                 }
-                .navigationTitle("Round \(game.currentRoundNumber) · Dealer")
+                .navigationTitle("Round \(game.currentRoundNumber) · Simulator")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar(showingGameOver ? .hidden : .visible, for: .navigationBar)
                 .toolbar {
@@ -127,7 +128,7 @@ struct DealerGameView: View {
 
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Menu {
-                            Button("How Dealer Works", systemImage: "questionmark.circle") {
+                            Button("How Simulator Works", systemImage: "questionmark.circle") {
                                 showingHelp = true
                             }
                             Toggle("Keep Screen Awake", isOn: $keepScreenAwake)
@@ -141,7 +142,7 @@ struct DealerGameView: View {
                         } label: {
                             Image(systemName: "ellipsis.circle")
                         }
-                        .accessibilityLabel("Dealer options")
+                        .accessibilityLabel("Simulator options")
                     }
                 }
                 .sheet(isPresented: $showingHistory) {
@@ -191,7 +192,7 @@ struct DealerGameView: View {
                         )
                     }
                 }
-                .alert("Dealer Paused", isPresented: liveErrorBinding) {
+                .alert("Simulator Paused", isPresented: liveErrorBinding) {
                     Button("OK", role: .cancel) { viewModel.liveErrorMessage = nil }
                 } message: {
                     Text(viewModel.liveErrorMessage ?? "The requested action could not be completed.")
@@ -204,7 +205,7 @@ struct DealerGameView: View {
             .onChange(of: scenePhase) { _, _ in updateIdleTimer() }
         } else {
             ContentUnavailableView {
-                Label("Dealer Session Unavailable", systemImage: "exclamationmark.triangle")
+                Label("Simulator Session Unavailable", systemImage: "exclamationmark.triangle")
             } description: {
                 Text("The saved deck could not be restored. Return to setup to begin a new game.")
             } actions: {
@@ -243,6 +244,12 @@ struct DealerGameView: View {
         }
     }
 
+    private func acknowledgeReveal() {
+        if viewModel.acknowledgeLiveReveal() {
+            HapticFeedback.light()
+        }
+    }
+
     private func chooseTarget(_ playerID: UUID) {
         if viewModel.chooseLiveTarget(playerID) {
             HapticFeedback.light()
@@ -268,7 +275,7 @@ struct DealerGameView: View {
     private func confirmationMessage(_ confirmation: DealerConfirmation) -> String {
         switch confirmation {
         case .continueAsCalculator:
-            return "Scores and score-relevant cards stay in place. The exact shoe and dealer history will be abandoned, and this game cannot return to Dealer."
+            return "Scores and score-relevant cards stay in place. The exact shoe and simulator history will be abandoned, and this game cannot return to Simulator."
         case .newGame:
             return "This ends the current game and returns to setup."
         }
@@ -384,10 +391,10 @@ private struct DealerPlayerTile: View {
                     .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
                 Spacer()
                 if cards.contains(where: { $0.content == .action(.shield) }) {
-                    Image(systemName: "shield.fill")
+                    Image(systemName: DeckProfile.ActionCard.secondChance.icon)
                         .font(.system(size: 12))
                         .foregroundStyle(DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme))
-                        .accessibilityLabel("Shield protected")
+                        .accessibilityLabel("Second Chance available")
                 }
                 Text(statusLabel)
                     .font(.system(size: 9, weight: .black, design: .rounded))
@@ -424,7 +431,7 @@ private struct DealerPlayerTile: View {
         case .inRound: return isCurrent ? "CURRENT" : "ACTIVE"
         case .banked: return "STAYED"
         case .busted: return "BUSTED"
-        case .frozen: return "HELD"
+        case .frozen: return "FROZEN"
         }
     }
 
@@ -457,14 +464,8 @@ private struct DealerStage: View {
                 DealerPileCounter(
                     title: "Deck",
                     count: session.drawPile.count,
-                    symbol: "rectangle.stack.fill",
+                    symbol: "rectangle.portrait.on.rectangle.portrait.fill",
                     role: .brandPrimary
-                )
-                DealerPileCounter(
-                    title: "Discard",
-                    count: session.discardPile.count,
-                    symbol: "tray.full.fill",
-                    role: .textSecondary
                 )
                 if session.shuffleCount > 1 {
                     DealerPileCounter(
@@ -476,7 +477,7 @@ private struct DealerStage: View {
                 }
             }
             .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(session.drawPile.count) cards in draw pile, \(session.discardPile.count) discarded, \(session.shuffleCount) shuffles")
+            .accessibilityLabel("\(session.drawPile.count) cards in deck, \(session.shuffleCount) shuffles")
 
             VStack(spacing: 5) {
                 Text(taskEyebrow)
@@ -505,10 +506,10 @@ private struct DealerStage: View {
                     onChoose: onChooseTarget
                 )
             } else {
-                DealerCardFace(card: session.lastReveal?.card)
-                    .id(session.lastReveal?.card.id)
+                DealerCardFace(card: presentedCard, compact: !centersContent)
+                    .id(presentedCard?.id)
                     .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.94)))
-                    .animation(reduceMotion ? nil : DesignMotion.animation(.normal), value: session.lastReveal?.card.id)
+                    .animation(reduceMotion ? nil : DesignMotion.animation(.normal), value: presentedCard?.id)
             }
 
             if let playerID = session.currentTask?.focusPlayerID {
@@ -539,19 +540,20 @@ private struct DealerStage: View {
     }
 
     private var taskEyebrow: String {
-        guard let task = session.currentTask else { return "DEALER" }
+        guard let task = session.currentTask else { return "SIMULATOR" }
         switch task {
         case .openingDraw: return "OPENING DEAL"
         case .awaitDecision: return "PUSH OR STAY"
         case .forcedDraw(_, _, let drawNumber, let total): return "FORCED DRAW \(drawNumber) OF \(total)"
+        case .acknowledgeReveal: return "CARD REVEALED"
         case .chooseTarget(let prompt): return prompt.action.displayName.uppercased()
         case .roundComplete: return "ROUND COMPLETE"
-        case .completeForced, .beginTurns, .advanceTurn: return "DEALER"
+        case .completeForced, .beginTurns, .advanceTurn: return "SIMULATOR"
         }
     }
 
     private var taskInstruction: String {
-        guard let task = session.currentTask else { return "Dealer paused" }
+        guard let task = session.currentTask else { return "Simulator paused" }
         switch task {
         case .openingDraw(let playerID):
             return "Deal to \(name(playerID))"
@@ -559,6 +561,8 @@ private struct DealerStage: View {
             return "\(name(playerID)), draw or stay?"
         case .forcedDraw(_, let playerID, _, _):
             return "Continue for \(name(playerID))"
+        case .acknowledgeReveal(let playerID):
+            return "\(name(playerID)), review your card"
         case .chooseTarget(let prompt):
             return "\(name(prompt.sourcePlayerID)), choose an active player"
         case .roundComplete(let reason):
@@ -576,21 +580,38 @@ private struct DealerStage: View {
     }
 
     private var queuedActionNotice: String? {
-        guard case .forcedDraw(let sequenceID, _, _, _)? = session.currentTask,
+        guard let sequenceID = activeForcedSequenceID,
               let sequence = session.forcedSequences.first(where: { $0.id == sequenceID }),
               !sequence.deferredPrompts.isEmpty else {
             return nil
         }
         if sequence.deferredPrompts.count == 1,
            let action = sequence.deferredPrompts.first?.action {
-            return "\(action.displayName) queued until this Draw 3 ends"
+            return "\(action.displayName) queued until this Flip Three ends"
         }
-        return "\(sequence.deferredPrompts.count) actions queued until this Draw 3 ends"
+        return "\(sequence.deferredPrompts.count) actions queued until this Flip Three ends"
+    }
+
+    private var presentedCard: LiveCardInstance? {
+        guard case .acknowledgeReveal? = session.currentTask else { return nil }
+        return session.lastReveal?.card
+    }
+
+    private var activeForcedSequenceID: UUID? {
+        if case .forcedDraw(let sequenceID, _, _, _)? = session.currentTask {
+            return sequenceID
+        }
+        if case .acknowledgeReveal? = session.currentTask,
+           case .forcedDraw(let sequenceID, _, _, _)? = session.tasks.dropFirst().first {
+            return sequenceID
+        }
+        return nil
     }
 }
 
 private struct DealerCardFace: View {
     let card: LiveCardInstance?
+    let compact: Bool
     @Environment(\.visualTheme) private var visualTheme
     @Environment(\.colorScheme) private var colorScheme
 
@@ -618,20 +639,13 @@ private struct DealerCardFace: View {
                 .padding(12)
                 .accessibilityElement(children: .combine)
                 .accessibilityLabel(card.content.accessibilityLabel)
-            } else {
-                VStack(spacing: 10) {
-                    Image(systemName: "rectangle.stack.fill")
-                        .font(.system(size: 42, weight: .bold))
-                    Text("READY")
-                        .font(.system(size: 16, weight: .black, design: .rounded))
-                        .tracking(1.4)
-                }
-                .foregroundStyle(accent)
-                .accessibilityLabel("Dealer ready")
             }
         }
         .aspectRatio(0.72, contentMode: .fit)
-        .frame(minHeight: 160, maxHeight: 240)
+        .frame(minHeight: compact ? 130 : 160, maxHeight: compact ? 205 : 240)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(card?.content.accessibilityLabel ?? "Face-down card ready to draw")
+        .accessibilityIdentifier(card == nil ? "simulator.card.faceDown" : "simulator.card.revealed")
     }
 
     private var accent: Color {
@@ -879,7 +893,7 @@ private struct DealerHandsSheet: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: DesignSpacing.sm) {
-                    Text("All revealed cards stay visible here. Only active players can receive Hold or Draw 3; stayed, held, and busted players cannot be selected.")
+                    Text("Cards still in front of every player stay visible here. Only active players can receive Freeze or Flip Three; stayed, frozen, and busted players cannot be selected.")
                         .font(.system(size: 13, weight: .medium, design: .rounded))
                         .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -939,7 +953,7 @@ private struct DealerHandsSheet: View {
         case .inRound: return "ACTIVE"
         case .banked: return "STAYED"
         case .busted: return "BUSTED"
-        case .frozen: return "HELD"
+        case .frozen: return "FROZEN"
         }
     }
 
@@ -959,6 +973,7 @@ private struct DealerActionBar: View {
     let canUndo: Bool
     let canRedo: Bool
     let onDraw: () -> Void
+    let onAcknowledgeReveal: () -> Void
     let onStay: () -> Void
     let onRoundComplete: () -> Void
     let onUndo: () -> Void
@@ -980,6 +995,9 @@ private struct DealerActionBar: View {
 
             case .openingDraw, .forcedDraw:
                 primaryButton(title: primaryTitle, action: onDraw)
+
+            case .acknowledgeReveal:
+                primaryButton(title: "Hide Card & Continue", action: onAcknowledgeReveal)
 
             case .roundComplete:
                 primaryButton(title: game.previewHasUniqueWinner ? "Finish Game" : "Start Next Round", action: onRoundComplete)
@@ -1016,6 +1034,8 @@ private struct DealerActionBar: View {
             return "Draw for \(name(playerID))"
         case .forcedDraw(_, let playerID, let number, let total):
             return "Draw \(number) of \(total) for \(name(playerID))"
+        case .acknowledgeReveal:
+            return "Hide Card & Continue"
         default:
             return "Continue"
         }
@@ -1081,10 +1101,10 @@ private struct DealerTableLogView: View {
         switch kind {
         case .shuffled: return "shuffle"
         case .revealed: return "rectangle.portrait"
-        case .protected: return "shield.fill"
+        case .protected: return DeckProfile.ActionCard.secondChance.icon
         case .busted: return "exclamationmark.triangle.fill"
         case .stayed: return "hand.raised.fill"
-        case .held: return "pause.fill"
+        case .held: return DeckProfile.ActionCard.freeze.icon
         case .action: return "bolt.fill"
         case .round: return "flag.fill"
         }
@@ -1108,6 +1128,7 @@ private struct DealerHelpView: View {
                 Section("At the table") {
                     Label("Use the large bottom action for every deal and draw.", systemImage: "hand.tap.fill")
                     Label("The named player chooses whether to draw or stay.", systemImage: "person.fill.questionmark")
+                    Label("After each reveal, hide the card before handing the device to the next player.", systemImage: "eye.slash.fill")
                     Label("When an action appears, that player chooses an eligible target.", systemImage: "scope")
                 }
                 Section("Deck trust") {
@@ -1115,10 +1136,10 @@ private struct DealerHelpView: View {
                     Label("Completed-round cards stay discarded until the draw pile runs out.", systemImage: "tray.full.fill")
                     Label("A reshuffle never includes cards still on the table.", systemImage: "shuffle")
                 }
-                Section("Original action labels") {
-                    Label("Hold makes an active player stay immediately.", systemImage: "pause.fill")
-                    Label("Draw 3 gives an active player three forced cards.", systemImage: "square.stack.3d.up.fill")
-                    Label("Shield cancels one duplicate number, then is discarded.", systemImage: "shield.fill")
+                Section("Classic action cards") {
+                    Label("Freeze makes an active player stay immediately.", systemImage: DeckProfile.ActionCard.freeze.icon)
+                    Label("Flip Three gives an active player three forced cards.", systemImage: DeckProfile.ActionCard.flipThree.icon)
+                    Label("Second Chance cancels one duplicate number, then is discarded.", systemImage: DeckProfile.ActionCard.secondChance.icon)
                 }
                 Section {
                     Text(AppBrand.independenceNotice)
@@ -1126,7 +1147,7 @@ private struct DealerHelpView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .navigationTitle("How Dealer Works")
+            .navigationTitle("How Simulator Works")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -1143,6 +1164,8 @@ private extension LiveTask {
         case .openingDraw(let playerID), .awaitDecision(let playerID):
             return playerID
         case .forcedDraw(_, let playerID, _, _), .completeForced(_, let playerID):
+            return playerID
+        case .acknowledgeReveal(let playerID):
             return playerID
         case .chooseTarget(let prompt):
             return prompt.sourcePlayerID

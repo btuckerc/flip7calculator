@@ -29,7 +29,7 @@ flowchart LR
 - `GameViewModel` is `@Observable`. It owns the active `Game?`, mutation APIs, deck availability, game lifecycle, and in-memory undo/redo stacks.
 - Assigning `game` triggers persistence. Mutations generally copy the value-type game, call `saveStateForUndo()`, mutate the copy, then assign it back.
 - `Game` owns players, current round index, target score, completed history, active deck profile, active scoring rules, per-mode current-round snapshots, play style, and an optional exact live session.
-- `LiveSession` is the dealer source of truth: ordered draw/discard zones, cards on each player, task queue, forced sequences, dealer rotation, deterministic reshuffle state, and audit log. `LiveGameReducer` is the only rules mutation boundary for that state.
+- `LiveSession` is the simulator source of truth: ordered draw/discard zones, cards on each player, task queue, forced sequences, dealer rotation, deterministic reshuffle state, and audit log. Every draw inserts a persisted reveal-acknowledgment task; the reducer clears `lastReveal` before normalizing the next task so a resumed or shared-device session cannot expose the prior card to the next player. `LiveGameReducer` is the only rules mutation boundary for that state.
 - `ProbabilityService` is pure and shared. Calculator calls return an explicitly estimated duplicate-number metric because physical protection is unknown; digital-dealer calls return exact immediate-bust risk from the owned draw pool.
 - Views should request mutations from `GameViewModel`; they should not independently persist or duplicate scoring rules.
 
@@ -69,7 +69,7 @@ The verified Vengeance composition, scoring order, compatibility decisions, and 
 
 - `GameSetupView`: roster, target, mode, and game start
 - `GameView`: live round orchestration and sheets
-- `DealerGameView`: app-owned Classic deck, turn/action guidance, target selection, exact shoe status, and dealer recovery tools
+- `DealerGameView`: user-facing Simulator with an app-owned Classic deck, reveal/hide handoff, turn/action guidance, target selection, exact shoe status, and recovery tools
 - `RiskInsightView`: compact optional risk disclosure and its explainability sheet
 - `PlayerGrid` and scoring components: rapid card/modifier/state entry
 - `DeckManagementView`: mode-aware deck customization and active-game mode changes

@@ -239,6 +239,21 @@ struct DeckProfile: Codable, Equatable {
             }
         }
 
+        /// Original, app-native symbols that preserve each card's concept without
+        /// reproducing the physical deck's artwork or trade dress.
+        var icon: String {
+            switch self {
+            case .freeze: return "snowflake"
+            case .flipThree: return "rectangle.stack.fill"
+            case .secondChance: return "heart.circle.fill"
+            case .justOneMore: return "plus.rectangle.on.rectangle"
+            case .flipFour: return "square.stack.3d.up.fill"
+            case .swap: return "arrow.left.arrow.right"
+            case .steal: return "hand.raised.fill"
+            case .discard: return "trash.fill"
+            }
+        }
+
         static func cards(for mode: GameMode) -> [ActionCard] {
             mode == .classic ? classicCards : vengeanceCards
         }

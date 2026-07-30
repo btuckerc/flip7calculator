@@ -817,6 +817,11 @@ class GameViewModel {
     }
 
     @discardableResult
+    func acknowledgeLiveReveal() -> Bool {
+        applyLiveCommand(.acknowledgeReveal)
+    }
+
+    @discardableResult
     func stayLivePlayer() -> Bool {
         applyLiveCommand(.stay)
     }

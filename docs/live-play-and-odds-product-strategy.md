@@ -2,7 +2,7 @@
 
 Product strategy and implementation outline for expanding Flipping Seven Calculator beyond end-of-round score entry.
 
-- Status: Classic Digital Dealer implemented as a Debug-only product preview; calculator Risk Insights implemented and default off; public Dealer discovery remains gated
+- Status: Classic Simulator implemented as a Debug-only product preview; calculator Risk Insights implemented and default off; public Simulator discovery remains gated
 - Prepared: July 29, 2026; navigation and storyboard refinement: July 30, 2026; implementation checkpoint: July 30, 2026
 - Scope: product shape, user experience, rules model, architecture, reliability, rollout, and research evidence
 - Change scope: durable product plan plus the first implementation slice; it does not supersede the in-progress Vengeance, rebrand, UI, or release work
@@ -11,16 +11,17 @@ Product strategy and implementation outline for expanding Flipping Seven Calcula
 
 The first slice deliberately proves the riskiest offline and recovery mechanics without exposing an unapproved public route:
 
-- `GameSetupView` remains the sole starting surface. In Debug, it presents equal-height `Score Calculator` and `Play with Dealer` choices without a second descriptive row; Score Calculator is selected for every legacy/default state and still starts in one tap from the pinned action.
-- Release builds hide Dealer discovery. Persisted `digitalDealer` payloads still decode so feature gating can never destroy an existing session.
+- `GameSetupView` remains the sole starting surface. In Debug, it presents equal-height `Score Calculator` and `Simulator` choices without a second descriptive row; Score Calculator is selected for every legacy/default state and still starts in one tap from the pinned action.
+- Release builds hide Simulator discovery. Persisted `digitalDealer` payloads still decode so feature gating can never destroy an existing session.
 - `Game.playStyle` separates calculator, future physical tracking, and digital dealer truth. Missing values decode to `scorekeeper`.
 - `LiveSession` persists the exact ordered draw pile, discard pile, per-player table zones, dealer, task queue, forced sequences, shuffle seed, last reveal, and bounded table log.
-- `LiveGameReducer` is the pure command boundary for opening deals, ordinary draws, staying, Hold, Draw 3, Shield, nested actions, busts, seven-number completion, dealer rotation, scoring, and discard-only reshuffles.
-- `DealerGameView` is a separate play surface with one dominant context-aware action, an explicit target chooser, plainly labeled deck/discard/shuffle state, compact visible cards on each player tile, a full-table hand sheet, full undo/redo snapshots, help, table log, keep-awake behavior, and an irreversible emergency fallback to the calculator.
-- Classic target selection includes active players only. Stayed, held, and busted players remain visible in the table-hands view but cannot receive Hold or Draw 3. A nested Hold or Draw 3 is queued until the original Draw 3 completes, may then be assigned to any active player, and does not resolve if the forced recipient busts.
+- `LiveGameReducer` is the pure command boundary for opening deals, ordinary draws, staying, Freeze, Flip Three, Second Chance, nested actions, reveal acknowledgment, busts, seven-number completion, dealer rotation, scoring, and discard-only reshuffles.
+- `DealerGameView` is a separate Simulator surface with one dominant context-aware action, an explicit target chooser, a compact deck/shuffle indicator, compact visible cards on each player tile, a full-table hand sheet, full undo/redo snapshots, help, table log, keep-awake behavior, and an irreversible emergency fallback to the calculator. The discard count remains modeled but is not shown because it is inferable and added visual noise.
+- Every successful draw enters a persisted reveal-acknowledgment task. The recipient can review the card, then must choose `Hide Card & Continue`; only then is the reveal cleared and the next task normalized. A stale pre-acknowledgment save never presents its last reveal beside an already-advanced task.
+- Classic target selection includes active players only. Stayed, frozen, and busted players remain visible in the table-hands view but cannot receive Freeze or Flip Three. A nested Freeze or Flip Three is queued until the original Flip Three completes, may then be assigned to any active player, and does not resolve if the forced recipient busts.
 - `ProbabilityService` exposes shared next-card risk math. Dealer results are exact immediate-bust risk from its owned pile; calculator results are duplicate-number estimates because physical protection effects and earlier action discards are unknown. The preference defaults to Off.
-- Classic is the only Dealer ruleset in this slice. Selecting Vengeance returns setup to Score Calculator rather than creating a disabled or partially supported game.
-- Original presentation labels (`Hold`, `Draw 3`, and `Shield`) and app-native card faces avoid third-party trade dress. Public enablement still requires the product/legal gate below.
+- Classic is the only Simulator ruleset in this slice. Selecting Vengeance returns setup to Score Calculator rather than creating a disabled or partially supported game.
+- Official functional names (`Freeze`, `Flip Three`, and `Second Chance`) are paired with original SF Symbol-based imagery so the rules remain recognizable without reproducing third-party card art or trade dress. Vengeance profile names remain `Just One More`, `Flip Four`, `Swap`, `Steal`, and `Discard`. Public enablement still requires the product/legal gate below.
 
 Deferred from this checkpoint: physical Deck Tracker, public Dealer enablement, Vengeance dealer rules, nearby-device display, sound design, and any networked or account-based feature.
 
@@ -29,7 +30,7 @@ Deferred from this checkpoint: physical Deck Tracker, public Dealer enablement, 
 Build one app with **two obvious entry lanes** backed by three explicit internal play styles. Players should make one simple choice—score a physical game or play with the app as dealer—while the data model keeps the sources of truth separate:
 
 1. **Score Calculator** — the current fast calculator and default. The physical table remains authoritative. An optional `Track physical deck` capability can promote the session to the internal Deck Tracker play style after a confirmed fresh shuffle.
-2. **Play with Dealer** — the app is the deck and dealer, reveals cards, advances turns, resolves action sequences, scores rounds, and reshuffles automatically.
+2. **Simulator** — the app is the deck and dealer, reveals cards, advances turns, resolves action sequences, scores rounds, and reshuffles automatically.
 
 Internally, retain `scorekeeper`, `physicalDeckTracker`, and `digitalDealer` because they have different truth and recovery rules. Do not present all three as equal setup choices: Deck Tracker is an advanced form of scoring a physical game, not a third reason to open the app.
 
@@ -183,7 +184,7 @@ First-class does not mean identical. Scorekeeper owns fast entry; Dealer owns dr
 Keep `GameSetupView` as the single starting surface. Add a compact, always-visible `How are you playing?` choice near the top, before lane-specific configuration:
 
 - **Score Calculator** — “Use your physical cards. Enter cards or round scores.”
-- **Play with Dealer** — “Draw and play from the deck on this device.”
+- **Simulator** — “Draw and play from an app-owned deck on this device.”
 
 The control may be two equal-width selection cards on wide layouts and a compact two-option picker on iPhone. On compact width, show one short explanation for the selected choice below the picker instead of repeating paragraphs inside both choices. It is not a tab bar: it chooses what will be created. Both choices use the same card surface, type scale, and semantic selection treatment so Dealer does not look like the premium future while Scorekeeper looks like a legacy utility. Keep `Game Mode` for Classic/Vengeance rules; do not reuse “mode” for this entry choice.
 
@@ -191,9 +192,9 @@ Below the choice:
 
 - Keep player setup, ruleset, and winning score as shared controls.
 - When `Score Calculator` is selected, preserve the current setup order and controls. Add one compact `Deck & Odds` row for optional `Risk Insights` and `Track physical deck`; do not add a third large mode card.
-- When `Play with Dealer` is selected, replace only that optional row with dealer-specific settings such as sound/haptics and supported-deck disclosure.
+- When `Simulator` is selected, replace only that optional row with simulator-specific settings such as sound/haptics and supported-deck disclosure.
 - Use one reserved conditional region so switching choices does not cause a large vertical jump.
-- Change the single primary button label to `Start Scoring` or `Start Dealer Game`.
+- Change the single primary button label to `Start Scoring` or `Start Simulator`.
 - Give the two choices explicit accessibility labels and a selected-state trait; color cannot be the only differentiator.
 - Hide the public Dealer choice behind a build/feature gate until its rules, recovery, rights, and accessibility release gates pass. Production must never show a dead or “coming soon” primary route.
 
@@ -203,7 +204,7 @@ Compact setup order, grounded in the current pinned-start-button layout:
 [ Existing hero ]
 
 How are you playing?
-[ Score Calculator ✓ ] [ Play with Dealer ]
+[ Score Calculator ✓ ] [ Simulator ]
 Use your physical cards. Enter cards or round scores.
 
 [ Existing Players card ]
@@ -232,7 +233,7 @@ flowchart TD
     Active -->|Yes| Resume["Resume its persisted play style"]
     Active -->|No| Setup["Existing Game Setup"]
     Setup --> Score["Score Calculator"]
-    Setup --> Dealer["Play with Dealer"]
+    Setup --> Dealer["Simulator"]
     Score --> Calculator["Existing GameView"]
     Score --> Tracker["Optional: confirm fresh shuffle and track deck"]
     Tracker --> Calculator
@@ -248,7 +249,7 @@ flowchart TD
 #### 1. Existing scorekeeper after updating
 
 1. Launch into the familiar setup; `Score Calculator` is already selected.
-2. See a dismissible, non-modal `New: Play with Dealer` callout at most once. It never covers or disables setup.
+2. See a dismissible, non-modal `New: Simulator` callout at most once. It never covers or disables setup.
 3. Add players and choose the same rules and target as before.
 4. Tap `Start Scoring` in the same place and at the same tap count as the current start action.
 5. Enter the unchanged scorekeeper surface. No dealer controls or persistent promotion compete with scoring.
@@ -268,9 +269,9 @@ flowchart TD
 
 #### 4. New player using the device as dealer
 
-1. Select `Play with Dealer`; shared setup remains in place while only the conditional options change.
+1. Select `Simulator`; shared setup remains in place while only the conditional options change.
 2. Configure players, rules, target, and dealer feedback.
-3. Tap `Start Dealer Game`; opening deal establishes the first player and visible shoe state.
+3. Tap `Start Simulator`; opening deal establishes the first player and visible shoe state.
 4. Repeatedly use the single contextual action: draw, choose a target, continue a forced sequence, stay, or pass.
 5. Review a concise round summary, then start the next round. The app performs the documented drawdown and reshuffle boundary automatically.
 
@@ -296,7 +297,7 @@ flowchart TD
 
 ### Screen composition and clutter budget
 
-| Surface | Shared or stable content | Score Calculator only | Play with Dealer only |
+| Surface | Shared or stable content | Score Calculator only | Simulator only |
 |---|---|---|---|
 | Setup | Brand hero, two entry choices, roster, ruleset, target, one CTA | Current configuration plus compact `Deck & Odds` row | Dealer feedback and supported-deck options |
 | Active play | Scores, current player, round state, history/help/settings access | Existing number/modifier grid, card picker, manual score, bank/bust | Last card, shoe/discard status, Draw/Stay, guided resolution |
@@ -959,7 +960,7 @@ Exit: single-device play remains complete; connectivity never blocks or corrupts
 Decisions recommended now:
 
 - Preserve Scorekeeper as the default and fastest line.
-- Expose `Score Calculator` and `Play with Dealer` as the two setup choices.
+- Expose `Score Calculator` and `Simulator` as the two setup choices.
 - Name and model Deck Tracker separately from Digital Dealer internally, but expose tracking inside `Deck & Odds` rather than as a third primary choice.
 - Extend the existing setup instead of adding a new home screen or permanent tab bar.
 - Remember the last intentionally used lane while retaining Scorekeeper as every legacy/default decode path.

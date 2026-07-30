@@ -21,6 +21,13 @@ struct LiveDeckTests {
         }
     }
 
+    @Test func classicLiveCardsUseOfficialNamesAndSemanticSymbols() {
+        #expect(LiveAction.allCases.map(\.displayName) == ["Freeze", "Flip Three", "Second Chance"])
+        #expect(LiveAction.hold.icon == "snowflake")
+        #expect(LiveAction.drawThree.icon == "rectangle.stack.fill")
+        #expect(LiveAction.shield.icon == "heart.circle.fill")
+    }
+
     @Test func unsupportedRulesetAndUnknownActionsAreRejected() throws {
         let players = [Player(name: "Maya"), Player(name: "Leo")]
         #expect(throws: LiveGameError.unsupportedRuleset) {
@@ -44,6 +51,7 @@ struct LiveGameReducerTests {
 
         #expect(game.players[0].currentRound.hand.selectedNumbers == [4])
         #expect(game.liveSession?.lastReveal?.card.content == .number(4))
+        #expect(game.liveSession?.currentTask == .acknowledgeReveal(playerID: game.players[0].id))
         #expect(game.liveSession?.allCards.count == 1)
         #expect(game.liveSession?.hasUniqueCardIDs == true)
     }
@@ -52,13 +60,37 @@ struct LiveGameReducerTests {
         var game = try makeGame(drawOrder: [.number(6), .number(6)])
         game.liveSession?.tasks = [.awaitDecision(playerID: game.players[0].id)]
 
-        try LiveGameReducer.apply(.draw, to: &game)
+        try drawAndAcknowledge(&game)
         game.liveSession?.tasks = [.awaitDecision(playerID: game.players[0].id)]
         try LiveGameReducer.apply(.draw, to: &game)
 
         #expect(game.players[0].currentRound.state == .busted)
         #expect(game.players[0].currentRound.hand.selectedNumbers == [6])
         #expect(game.liveSession?.cards(for: game.players[0].id).count == 2)
+    }
+
+    @Test func revealMustBeHiddenBeforeTheNextPlayerCanDraw() throws {
+        var game = try makeGame(drawOrder: [.number(4), .number(8)])
+        let firstPlayerID = game.players[0].id
+        let secondPlayerID = game.players[1].id
+        game.liveSession?.tasks = [
+            .openingDraw(playerID: firstPlayerID),
+            .openingDraw(playerID: secondPlayerID),
+            .beginTurns(startPlayerID: firstPlayerID)
+        ]
+
+        try LiveGameReducer.apply(.draw, to: &game)
+
+        #expect(game.liveSession?.lastReveal?.card.content == .number(4))
+        #expect(game.liveSession?.currentTask == .acknowledgeReveal(playerID: firstPlayerID))
+        #expect(throws: LiveGameError.commandNotAllowed) {
+            try LiveGameReducer.apply(.draw, to: &game)
+        }
+
+        try LiveGameReducer.apply(.acknowledgeReveal, to: &game)
+
+        #expect(game.liveSession?.lastReveal == nil)
+        #expect(game.liveSession?.currentTask == .openingDraw(playerID: secondPlayerID))
     }
 
     @Test func shieldConsumesItselfAndDuplicateWithoutEndingTurnEarly() throws {
@@ -82,12 +114,16 @@ struct LiveGameReducerTests {
         game.liveSession?.tasks = [.awaitDecision(playerID: game.players[0].id)]
 
         try LiveGameReducer.apply(.draw, to: &game)
+        #expect(LiveGameReducer.eligibleTargets(in: game).isEmpty)
+        try LiveGameReducer.apply(.acknowledgeReveal, to: &game)
         #expect(LiveGameReducer.eligibleTargets(in: game).map(\.id) == game.players.map(\.id))
 
         try LiveGameReducer.apply(.chooseTarget(game.players[1].id), to: &game)
 
         #expect(game.players[1].currentRound.state == .frozen)
         #expect(game.players[0].currentRound.state == .inRound)
+        #expect(game.liveSession?.cards(for: game.players[0].id).isEmpty == true)
+        #expect(game.liveSession?.discardPile.contains { $0.content == .action(.hold) } == true)
     }
 
     @Test func stayedHeldAndBustedPlayersAreNotEligibleActionTargets() throws {
@@ -120,11 +156,13 @@ struct LiveGameReducerTests {
         let targetID = game.players[1].id
         game.liveSession?.tasks = [.awaitDecision(playerID: sourceID)]
 
-        try LiveGameReducer.apply(.draw, to: &game)
+        try drawAndAcknowledge(&game)
         try LiveGameReducer.apply(.chooseTarget(targetID), to: &game)
-        try LiveGameReducer.apply(.draw, to: &game)
-        try LiveGameReducer.apply(.draw, to: &game)
-        try LiveGameReducer.apply(.draw, to: &game)
+        #expect(game.liveSession?.cards(for: sourceID).isEmpty == true)
+        #expect(game.liveSession?.discardPile.contains { $0.content == .action(.drawThree) } == true)
+        try drawAndAcknowledge(&game)
+        try drawAndAcknowledge(&game)
+        try drawAndAcknowledge(&game)
 
         #expect(game.players[1].currentRound.hand.selectedNumbers == [1, 2])
         #expect(game.players[1].currentRound.hand.addMods[4] == 1)
@@ -139,10 +177,10 @@ struct LiveGameReducerTests {
         let targetID = game.players[1].id
         game.liveSession?.tasks = [.awaitDecision(playerID: sourceID)]
 
-        try LiveGameReducer.apply(.draw, to: &game)
+        try drawAndAcknowledge(&game)
         try LiveGameReducer.apply(.chooseTarget(targetID), to: &game)
-        try LiveGameReducer.apply(.draw, to: &game)
-        try LiveGameReducer.apply(.draw, to: &game)
+        try drawAndAcknowledge(&game)
+        try drawAndAcknowledge(&game)
 
         guard case .forcedDraw(_, let forcedPlayerID, 3, 3)? = game.liveSession?.currentTask else {
             Issue.record("The nested action interrupted the forced sequence")
@@ -150,10 +188,10 @@ struct LiveGameReducerTests {
         }
         #expect(forcedPlayerID == targetID)
 
-        try LiveGameReducer.apply(.draw, to: &game)
+        try drawAndAcknowledge(&game)
 
         guard case .chooseTarget(let prompt)? = game.liveSession?.currentTask else {
-            Issue.record("The deferred Hold action was not presented after the sequence")
+            Issue.record("The deferred Freeze action was not presented after the sequence")
             return
         }
         #expect(prompt.action == .hold)
@@ -174,22 +212,22 @@ struct LiveGameReducerTests {
         let nestedTargetID = game.players[2].id
         game.liveSession?.tasks = [.awaitDecision(playerID: originalSourceID)]
 
-        try LiveGameReducer.apply(.draw, to: &game)
+        try drawAndAcknowledge(&game)
         try LiveGameReducer.apply(.chooseTarget(originalTargetID), to: &game)
-        try LiveGameReducer.apply(.draw, to: &game)
-        try LiveGameReducer.apply(.draw, to: &game)
+        try drawAndAcknowledge(&game)
+        try drawAndAcknowledge(&game)
 
         guard case .forcedDraw(_, let forcedPlayerID, 3, 3)? = game.liveSession?.currentTask else {
-            Issue.record("The nested Draw 3 interrupted the original sequence")
+            Issue.record("The nested Flip Three interrupted the original sequence")
             return
         }
         #expect(forcedPlayerID == originalTargetID)
 
-        try LiveGameReducer.apply(.draw, to: &game)
+        try drawAndAcknowledge(&game)
         #expect(game.players[1].currentRound.hand.selectedNumbers == [1, 2])
 
         guard case .chooseTarget(let prompt)? = game.liveSession?.currentTask else {
-            Issue.record("The nested Draw 3 was not presented after the original sequence")
+            Issue.record("The nested Flip Three was not presented after the original sequence")
             return
         }
         #expect(prompt.action == .drawThree)
@@ -197,14 +235,14 @@ struct LiveGameReducerTests {
 
         try LiveGameReducer.apply(.chooseTarget(nestedTargetID), to: &game)
         guard case .forcedDraw(_, let recipientID, 1, 3)? = game.liveSession?.currentTask else {
-            Issue.record("The nested Draw 3 did not start for the selected player")
+            Issue.record("The nested Flip Three did not start for the selected player")
             return
         }
         #expect(recipientID == nestedTargetID)
 
-        try LiveGameReducer.apply(.draw, to: &game)
-        try LiveGameReducer.apply(.draw, to: &game)
-        try LiveGameReducer.apply(.draw, to: &game)
+        try drawAndAcknowledge(&game)
+        try drawAndAcknowledge(&game)
+        try drawAndAcknowledge(&game)
 
         #expect(game.players[2].currentRound.hand.selectedNumbers == [3, 4, 5])
         #expect(game.liveSession?.currentTask == .awaitDecision(playerID: originalTargetID))
@@ -219,14 +257,15 @@ struct LiveGameReducerTests {
         game.players[1].currentRound.hand.selectedNumbers = [6]
         game.liveSession?.tasks = [.awaitDecision(playerID: sourceID)]
 
-        try LiveGameReducer.apply(.draw, to: &game)
+        try drawAndAcknowledge(&game)
         try LiveGameReducer.apply(.chooseTarget(targetID), to: &game)
-        try LiveGameReducer.apply(.draw, to: &game)
+        try drawAndAcknowledge(&game)
         try LiveGameReducer.apply(.draw, to: &game)
 
         #expect(game.players[1].currentRound.state == .busted)
         #expect(game.liveSession?.forcedSequences.isEmpty == true)
         #expect(game.liveSession?.drawPile.last?.content == .number(2))
+        try LiveGameReducer.apply(.acknowledgeReveal, to: &game)
         #expect(game.liveSession?.currentTask == .awaitDecision(playerID: sourceID))
     }
 
@@ -240,6 +279,7 @@ struct LiveGameReducerTests {
         game.liveSession?.tasks = [.awaitDecision(playerID: sourceID)]
 
         try LiveGameReducer.apply(.draw, to: &game)
+        try LiveGameReducer.apply(.acknowledgeReveal, to: &game)
         #expect(LiveGameReducer.eligibleTargets(in: game).map(\.id) == [targetID])
 
         try LiveGameReducer.apply(.chooseTarget(targetID), to: &game)
@@ -258,6 +298,8 @@ struct LiveGameReducerTests {
 
         #expect(game.players[0].currentRound.hand.hasSevenCardBonus)
         #expect(game.players[0].currentRound.state == .banked)
+        #expect(game.liveSession?.currentTask == .acknowledgeReveal(playerID: playerID))
+        try LiveGameReducer.apply(.acknowledgeReveal, to: &game)
         #expect(
             game.liveSession?.currentTask
                 == .roundComplete(LiveRoundEndReason(kind: .sevenCards, playerID: playerID))
@@ -360,6 +402,11 @@ struct LiveGameReducerTests {
         session.eventLog = []
         game.liveSession = session
         return game
+    }
+
+    private func drawAndAcknowledge(_ game: inout Game) throws {
+        try LiveGameReducer.apply(.draw, to: &game)
+        try LiveGameReducer.apply(.acknowledgeReveal, to: &game)
     }
 }
 

@@ -125,7 +125,7 @@ struct GameSetupView: View {
                         HapticFeedback.success()
                         startGame()
                     }) {
-                        Text(effectiveEntryIntent == .playWithDealer ? "Start Dealer Game" : "Start Scoring")
+                        Text(effectiveEntryIntent == .playWithDealer ? "Start Simulator" : "Start Scoring")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(PrimaryButtonStyle())

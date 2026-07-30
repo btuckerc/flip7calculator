@@ -184,11 +184,22 @@ final class flip7calculatorUITests: XCTestCase {
 
         dealer.tap()
         XCTAssertEqual(dealer.value as? String, "Selected")
-        XCTAssertEqual(start.label, "Start Dealer Game")
+        XCTAssertEqual(dealer.label, "Simulator")
+        XCTAssertEqual(start.label, "Start Simulator")
         start.tap()
 
         XCTAssertTrue(app.buttons["dealer.primaryAction"].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.navigationBars["Round 1 · Dealer"].exists)
+        XCTAssertTrue(app.navigationBars["Round 1 · Simulator"].exists)
+        XCTAssertTrue(app.otherElements["simulator.card.faceDown"].exists)
+
+        app.buttons["dealer.primaryAction"].tap()
+        XCTAssertEqual(app.buttons["dealer.primaryAction"].label, "Hide Card & Continue")
+        XCTAssertTrue(app.otherElements["simulator.card.revealed"].waitForExistence(timeout: 1))
+
+        app.buttons["dealer.primaryAction"].tap()
+        XCTAssertEqual(app.buttons["dealer.primaryAction"].label, "Deal to Ned")
+        XCTAssertTrue(app.otherElements["simulator.card.faceDown"].waitForExistence(timeout: 1))
+        XCTAssertFalse(app.otherElements["simulator.card.revealed"].exists)
 
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Dealer - Opening Deal"
@@ -222,6 +233,8 @@ final class flip7calculatorUITests: XCTestCase {
         XCTAssertTrue(primaryAction.isHittable)
         XCTAssertTrue(app.staticTexts["Peter, draw or stay?"].exists)
         XCTAssertTrue(app.staticTexts["88"].exists, "The draw-pile count should remain visible")
+        XCTAssertFalse(app.staticTexts["Discard"].exists)
+        XCTAssertTrue(app.otherElements["simulator.card.faceDown"].exists)
         let risk = app.buttons["Next-card bust risk"]
         XCTAssertTrue(risk.exists)
         XCTAssertEqual(risk.value as? String, "10% next-card risk · Exact")

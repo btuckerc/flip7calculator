@@ -157,6 +157,7 @@ struct DeckManagementView: View {
             ForEach(DeckProfile.ActionCard.cards(for: mode), id: \.rawValue) { actionCard in
                 cardCountRow(
                     label: actionCard.displayName,
+                    icon: actionCard.icon,
                     count: binding(forAction: actionCard),
                     range: 0...10
                 )
@@ -182,8 +183,19 @@ struct DeckManagementView: View {
         }
     }
 
-    private func cardCountRow(label: String, count: Binding<Int>, range: ClosedRange<Int>) -> some View {
+    private func cardCountRow(
+        label: String,
+        icon: String? = nil,
+        count: Binding<Int>,
+        range: ClosedRange<Int>
+    ) -> some View {
         HStack {
+            if let icon {
+                Image(systemName: icon)
+                    .foregroundStyle(.tint)
+                    .frame(width: 24)
+                    .accessibilityHidden(true)
+            }
             Text(label)
                 .font(.system(size: 17, weight: .medium, design: .rounded))
             Spacer()

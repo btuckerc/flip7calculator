@@ -38,6 +38,10 @@ struct VengeanceDeckProfileTests {
         #expect(profile.divideByTwoCount == 1)
         #expect(profile.actionCardCounts.values.reduce(0, +) == 10)
         #expect(DeckProfile.ActionCard.vengeanceCards.allSatisfy { profile.actionCardCounts[$0.rawValue] == 2 })
+        #expect(
+            DeckProfile.ActionCard.vengeanceCards.map(\.displayName)
+                == ["Just One More", "Flip Four", "Swap", "Steal", "Discard"]
+        )
         #expect(profile.isDefaultProfile)
     }
 
@@ -87,6 +91,8 @@ struct VengeanceDeckProfileTests {
     @Test func modeIconsResolveToSystemSymbols() {
         #expect(UIImage(systemName: GameMode.classic.icon) != nil)
         #expect(UIImage(systemName: GameMode.vengeance.icon) != nil)
+        #expect(UIImage(systemName: GameEntryIntent.playWithDealer.icon) != nil)
+        #expect(DeckProfile.ActionCard.allCases.allSatisfy { UIImage(systemName: $0.icon) != nil })
     }
 
     @MainActor @Test func legacyGameDecodesWithClassicRules() throws {

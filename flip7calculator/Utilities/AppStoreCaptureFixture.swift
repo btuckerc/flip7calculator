@@ -161,9 +161,7 @@ enum AppStoreCaptureFixture: String {
         }
         let focusPlayerID = players[0].id
         session.tasks = [.awaitDecision(playerID: focusPlayerID)]
-        session.lastReveal = session.cards(for: focusPlayerID).last.map {
-            LiveReveal(card: $0, playerID: focusPlayerID)
-        }
+        session.lastReveal = nil
         session.eventLog.append(
             LiveEvent(
                 id: 1,
