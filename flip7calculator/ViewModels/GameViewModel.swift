@@ -20,6 +20,7 @@ class GameViewModel {
     private var redoStack: [Game] = []
     private let maxUndoStackSize = 50
     private let defaults: UserDefaults
+    var liveErrorMessage: String?
     
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -28,22 +29,41 @@ class GameViewModel {
     
     // MARK: - Game Management
     
+    @discardableResult
     func startNewGame(
         players: [String],
         targetScore: Int = 200,
-        scoringRules: ScoringRules = .classic
-    ) {
+        scoringRules: ScoringRules = .classic,
+        playStyle: PlayStyle = .scorekeeper
+    ) -> Bool {
         let gamePlayers = players.map { Player(name: $0) }
         let deckProfile = PersistedDeckProfile.load(for: scoringRules.mode, defaults: defaults).deckProfile
-        game = Game(
+        var newGame = Game(
             players: gamePlayers,
             targetScore: targetScore,
             deckProfile: deckProfile,
-            scoringRules: scoringRules
+            scoringRules: scoringRules,
+            playStyle: playStyle
         )
+
+        if playStyle == .digitalDealer {
+            do {
+                newGame.liveSession = try LiveSession.makeClassic(
+                    profile: deckProfile,
+                    players: gamePlayers
+                )
+            } catch {
+                liveErrorMessage = error.localizedDescription
+                return false
+            }
+        }
+
+        game = newGame
         undoStack.removeAll()
         redoStack.removeAll()
+        liveErrorMessage = nil
         saveGame()
+        return true
     }
     
     func endGame() {
@@ -62,19 +82,34 @@ class GameViewModel {
         let targetScore = currentGame.targetScore
         let deckProfile = currentGame.deckProfile
         let scoringRules = currentGame.scoringRules
+        let playStyle = currentGame.playStyle
         
         // Create fresh players with the same names
         let freshPlayers = playerNames.map { Player(name: $0) }
         
         // Start new game with preserved settings
-        game = Game(
+        var restartedGame = Game(
             players: freshPlayers,
             targetScore: targetScore,
             deckProfile: deckProfile,
-            scoringRules: scoringRules
+            scoringRules: scoringRules,
+            playStyle: playStyle
         )
+        if playStyle == .digitalDealer {
+            do {
+                restartedGame.liveSession = try LiveSession.makeClassic(
+                    profile: deckProfile,
+                    players: freshPlayers
+                )
+            } catch {
+                liveErrorMessage = error.localizedDescription
+                return
+            }
+        }
+        game = restartedGame
         undoStack.removeAll()
         redoStack.removeAll()
+        liveErrorMessage = nil
         saveGame()
     }
 
@@ -83,6 +118,7 @@ class GameViewModel {
         brutalMode: Bool = ScoringRules.defaultBrutalMode
     ) {
         guard var currentGame = game,
+              currentGame.playStyle == .scorekeeper,
               currentGame.scoringRules.mode != newMode else {
             return
         }
@@ -161,6 +197,7 @@ class GameViewModel {
 
     func setBrutalMode(_ enabled: Bool) {
         guard var currentGame = game,
+              currentGame.playStyle == .scorekeeper,
               currentGame.scoringRules.mode == .vengeance,
               currentGame.scoringRules.brutalMode != enabled else {
             return
@@ -175,14 +212,14 @@ class GameViewModel {
     // MARK: - Round Management
     
     func startNewRound() {
-        guard var currentGame = game else { return }
+        guard var currentGame = game, currentGame.playStyle == .scorekeeper else { return }
         saveStateForUndo()
         currentGame.startNewRound()
         game = currentGame
     }
     
     func endRound() {
-        guard var currentGame = game else { return }
+        guard var currentGame = game, currentGame.playStyle == .scorekeeper else { return }
         saveStateForUndo()
         currentGame.endRound()
         game = currentGame
@@ -319,6 +356,7 @@ class GameViewModel {
     
     func addCardToPlayer(_ playerId: UUID, number: Int) -> Bool {
         guard var currentGame = game,
+              currentGame.playStyle == .scorekeeper,
               let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
             return false
         }
@@ -342,6 +380,7 @@ class GameViewModel {
     
     func removeCardFromPlayer(_ playerId: UUID, number: Int) {
         guard var currentGame = game,
+              currentGame.playStyle == .scorekeeper,
               let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
             return
         }
@@ -357,6 +396,7 @@ class GameViewModel {
 
     func addSpecialNumberToPlayer(_ playerId: UUID, card: SpecialNumberCard) {
         guard var currentGame = game,
+              currentGame.playStyle == .scorekeeper,
               let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }),
               canAddSpecialNumber(card, toPlayer: playerId) else {
             return
@@ -370,6 +410,7 @@ class GameViewModel {
 
     func removeSpecialNumberFromPlayer(_ playerId: UUID, card: SpecialNumberCard) {
         guard var currentGame = game,
+              currentGame.playStyle == .scorekeeper,
               let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }),
               currentGame.players[playerIndex].currentRound.hand.specialNumbers.contains(card) else {
             return
@@ -383,6 +424,7 @@ class GameViewModel {
     
     func addModifierToPlayer(_ playerId: UUID, value: Int) {
         guard var currentGame = game,
+              currentGame.playStyle == .scorekeeper,
               let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
             return
         }
@@ -399,6 +441,7 @@ class GameViewModel {
     
     func removeModifierFromPlayer(_ playerId: UUID, value: Int) {
         guard var currentGame = game,
+              currentGame.playStyle == .scorekeeper,
               let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
             return
         }
@@ -410,6 +453,7 @@ class GameViewModel {
 
     func addSubtractModifierToPlayer(_ playerId: UUID, value: Int) {
         guard var currentGame = game,
+              currentGame.playStyle == .scorekeeper,
               let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }),
               canAddSubtractModifier(value) else {
             return
@@ -422,6 +466,7 @@ class GameViewModel {
 
     func removeSubtractModifierFromPlayer(_ playerId: UUID, value: Int) {
         guard var currentGame = game,
+              currentGame.playStyle == .scorekeeper,
               let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
             return
         }
@@ -433,6 +478,7 @@ class GameViewModel {
     
     func addX2ToPlayer(_ playerId: UUID) {
         guard var currentGame = game,
+              currentGame.playStyle == .scorekeeper,
               let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
             return
         }
@@ -449,6 +495,7 @@ class GameViewModel {
     
     func removeX2FromPlayer(_ playerId: UUID) {
         guard var currentGame = game,
+              currentGame.playStyle == .scorekeeper,
               let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
             return
         }
@@ -460,6 +507,7 @@ class GameViewModel {
 
     func addDivideByTwoToPlayer(_ playerId: UUID) {
         guard var currentGame = game,
+              currentGame.playStyle == .scorekeeper,
               let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }),
               canAddDivideByTwo() else {
             return
@@ -472,6 +520,7 @@ class GameViewModel {
 
     func removeDivideByTwoFromPlayer(_ playerId: UUID) {
         guard var currentGame = game,
+              currentGame.playStyle == .scorekeeper,
               let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
             return
         }
@@ -483,6 +532,7 @@ class GameViewModel {
     
     func setPlayerState(_ playerId: UUID, state: PlayerRoundState) {
         guard var currentGame = game,
+              currentGame.playStyle == .scorekeeper,
               let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
             return
         }
@@ -506,6 +556,7 @@ class GameViewModel {
     
     func clearPlayerRound(_ playerId: UUID) {
         guard var currentGame = game,
+              currentGame.playStyle == .scorekeeper,
               let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
             return
         }
@@ -520,6 +571,7 @@ class GameViewModel {
     /// This is used by the "Clear" button in the calculator
     func clearPlayerRoundEntry(_ playerId: UUID) {
         guard var currentGame = game,
+              currentGame.playStyle == .scorekeeper,
               let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
             return
         }
@@ -547,6 +599,7 @@ class GameViewModel {
     /// Sets a manual score override for the player's current round
     func setManualScoreOverride(_ playerId: UUID, score: Int) {
         guard var currentGame = game,
+              currentGame.playStyle == .scorekeeper,
               let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
             return
         }
@@ -561,6 +614,7 @@ class GameViewModel {
     /// Clears the manual score override for the player's current round
     func clearManualScoreOverride(_ playerId: UUID) {
         guard var currentGame = game,
+              currentGame.playStyle == .scorekeeper,
               let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
             return
         }
@@ -588,7 +642,7 @@ class GameViewModel {
     
     /// Updates the deck profile for the active game
     func updateDeckProfile(_ newProfile: DeckProfile) {
-        guard var currentGame = game else { return }
+        guard var currentGame = game, currentGame.playStyle == .scorekeeper else { return }
         saveStateForUndo()
         currentGame.deckProfile = newProfile
         game = currentGame
@@ -596,6 +650,7 @@ class GameViewModel {
 
     func setSevenCardBonusTarget(sourcePlayerId: UUID, targetPlayerId: UUID?) {
         guard var currentGame = game,
+              currentGame.playStyle == .scorekeeper,
               currentGame.scoringRules.brutalMode,
               let sourceIndex = currentGame.players.firstIndex(where: { $0.id == sourcePlayerId }),
               currentGame.players[sourceIndex].currentRound.hand.hasSevenCardBonus,
@@ -626,7 +681,7 @@ class GameViewModel {
     // MARK: - Target Score Management
     
     func updateTargetScore(_ newScore: Int) {
-        guard var currentGame = game else { return }
+        guard var currentGame = game, currentGame.playStyle == .scorekeeper else { return }
         saveStateForUndo()
         currentGame.targetScore = max(50, min(5000, newScore))
         game = currentGame
@@ -636,7 +691,7 @@ class GameViewModel {
     
     /// Reorders players in the active game based on the provided order of player IDs
     func reorderPlayers(playerIds: [UUID]) {
-        guard var currentGame = game else { return }
+        guard var currentGame = game, currentGame.playStyle == .scorekeeper else { return }
         saveStateForUndo()
         
         // Create a dictionary mapping player IDs to players
@@ -666,7 +721,7 @@ class GameViewModel {
     
     /// Updates player names in the active game based on the provided mapping
     func updatePlayerNames(nameMap: [UUID: String]) {
-        guard var currentGame = game else { return }
+        guard var currentGame = game, currentGame.playStyle == .scorekeeper else { return }
         saveStateForUndo()
         
         for index in currentGame.players.indices {
@@ -680,7 +735,7 @@ class GameViewModel {
     
     /// Updates players in the active game: reorders, updates names, adds new players, removes players
     func updatePlayers(playerRows: [PlayerNameRow]) {
-        guard var currentGame = game else { return }
+        guard var currentGame = game, currentGame.playStyle == .scorekeeper else { return }
         saveStateForUndo()
         
         // Create maps for lookup
@@ -751,6 +806,67 @@ class GameViewModel {
             if let targetIndex = game.players.firstIndex(where: { $0.id == targetId }) {
                 game.players[targetIndex].currentRound.scoreAdjustment -= ScoreEngine.sevenCardBonus
             }
+        }
+    }
+
+    // MARK: - Live Dealer
+
+    @discardableResult
+    func drawLiveCard() -> Bool {
+        applyLiveCommand(.draw)
+    }
+
+    @discardableResult
+    func stayLivePlayer() -> Bool {
+        applyLiveCommand(.stay)
+    }
+
+    @discardableResult
+    func chooseLiveTarget(_ playerID: UUID) -> Bool {
+        applyLiveCommand(.chooseTarget(playerID))
+    }
+
+    @discardableResult
+    func startNextLiveRound() -> Bool {
+        applyLiveCommand(.startNextRound)
+    }
+
+    @discardableResult
+    func finishLiveGameRound() -> Bool {
+        applyLiveCommand(.finishGame)
+    }
+
+    var liveEligibleTargets: [Player] {
+        guard let game else { return [] }
+        return LiveGameReducer.eligibleTargets(in: game)
+    }
+
+    func continueDealerAsScorekeeper() {
+        guard var currentGame = game, currentGame.playStyle == .digitalDealer else { return }
+        currentGame.playStyle = .scorekeeper
+        currentGame.liveSession = nil
+        game = currentGame
+        undoStack.removeAll()
+        redoStack.removeAll()
+        liveErrorMessage = nil
+    }
+
+    @discardableResult
+    private func applyLiveCommand(_ command: LiveCommand) -> Bool {
+        guard var updatedGame = game, updatedGame.playStyle == .digitalDealer else {
+            liveErrorMessage = LiveGameError.noLiveSession.localizedDescription
+            return false
+        }
+
+        do {
+            try LiveGameReducer.apply(command, to: &updatedGame)
+            saveStateForUndo()
+            game = updatedGame
+            liveErrorMessage = nil
+            return true
+        } catch {
+            liveErrorMessage = error.localizedDescription
+            return false
         }
     }
     

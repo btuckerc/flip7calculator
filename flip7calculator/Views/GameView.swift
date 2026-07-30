@@ -62,9 +62,7 @@ struct GameView: View {
     /// Checks if finalizing the current round would produce at least one winner
     private var wouldProduceWinner: Bool {
         guard let game = viewModel.game else { return false }
-        return game.players.contains { player in
-            ScoreEngine.previewTotalScore(player: player, rules: game.scoringRules) >= game.targetScore
-        }
+        return game.previewHasUniqueWinner
     }
     
     /// Checks if the game currently has a winner (scores already banked)
@@ -477,6 +475,8 @@ struct SelectedPlayerPanel: View {
     let onNumberTap: (UUID, Int) -> Void
     @Environment(\.visualTheme) private var visualTheme
     @Environment(\.colorScheme) private var colorScheme
+    @AppStorage("riskInsightsMode") private var riskInsightsModeRaw: String = RiskInsightsMode.off.rawValue
+    @State private var showingRiskInsight = false
     
     /// Falls back to first player for layout measurement when no selection
     private var effectivePlayer: Player {
@@ -502,6 +502,10 @@ struct SelectedPlayerPanel: View {
 
     private var bonusColor: Color {
         colorScheme == .dark ? AppBrandPalette.gold : AppBrandPalette.brandBlueDeep
+    }
+
+    private var riskInsightsMode: RiskInsightsMode {
+        RiskInsightsMode(rawValue: riskInsightsModeRaw) ?? .off
     }
     
     var body: some View {
@@ -547,6 +551,19 @@ struct SelectedPlayerPanel: View {
                 .accessibilityHidden(!player.currentRound.hand.hasSevenCardBonus)
             }
             .padding(.horizontal)
+
+            if riskInsightsMode != .off,
+               let insight = ProbabilityService.calculatorEstimate(for: selectedId, in: game) {
+                HStack {
+                    RiskPillButton(
+                        insight: insight,
+                        mode: riskInsightsMode,
+                        action: { showingRiskInsight = true }
+                    )
+                    Spacer()
+                }
+                .padding(.horizontal)
+            }
             
             // Action buttons - use fixed height container to prevent layout shifts between states
             PlayerActionButtons(
@@ -721,6 +738,11 @@ struct SelectedPlayerPanel: View {
                 hasOnlyOneOfEachModifier: hasOnlyOneOfEachModifier
             )
             .padding(.horizontal)
+        }
+        .sheet(isPresented: $showingRiskInsight) {
+            if let insight = ProbabilityService.calculatorEstimate(for: selectedId, in: game) {
+                RiskInsightSheet(insight: insight)
+            }
         }
         .padding(.vertical, 8)
         .background(

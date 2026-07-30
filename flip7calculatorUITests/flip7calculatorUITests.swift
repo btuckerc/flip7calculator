@@ -107,11 +107,11 @@ final class flip7calculatorUITests: XCTestCase {
         let vengeance = app.buttons["Vengeance"]
         let setupScrollView = app.scrollViews.firstMatch
 
-        XCTAssertTrue(classic.waitForExistence(timeout: 2))
-        for _ in 0..<3 where !classic.isHittable {
-            XCTAssertTrue(setupScrollView.exists)
+        XCTAssertTrue(setupScrollView.waitForExistence(timeout: 2))
+        for _ in 0..<4 where !classic.isHittable {
             setupScrollView.swipeUp()
         }
+        XCTAssertTrue(classic.exists)
         XCTAssertTrue(classic.isHittable)
 
         XCTAssertTrue(
@@ -153,6 +153,76 @@ final class flip7calculatorUITests: XCTestCase {
 
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Game Mode Selector"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
+    @MainActor
+    func testSetupKeepsCalculatorFirstClassAndCanStartDealer() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-appStoreCapture", "setup"]
+        app.launch()
+
+        let calculator = app.buttons["setup.entry.scoreCalculator"]
+        let dealer = app.buttons["setup.entry.playWithDealer"]
+        let start = app.buttons["setup.startGame"]
+
+        XCTAssertTrue(calculator.waitForExistence(timeout: 2))
+        XCTAssertEqual(calculator.value as? String, "Selected")
+        XCTAssertEqual(dealer.value as? String, "Not selected")
+        XCTAssertTrue(start.exists)
+        XCTAssertEqual(start.label, "Start Scoring")
+
+        dealer.tap()
+        XCTAssertEqual(dealer.value as? String, "Selected")
+        XCTAssertEqual(start.label, "Start Dealer Game")
+        start.tap()
+
+        XCTAssertTrue(app.buttons["dealer.primaryAction"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.navigationBars["Round 1 · Dealer"].exists)
+
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Dealer - Opening Deal"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
+    @MainActor
+    func testCalculatorPathStillStartsWithoutAnExtraStep() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-appStoreCapture", "setup"]
+        app.launch()
+
+        let start = app.buttons["setup.startGame"]
+        XCTAssertTrue(start.waitForExistence(timeout: 2))
+        XCTAssertEqual(start.label, "Start Scoring")
+        start.tap()
+
+        XCTAssertTrue(app.buttons["Peter"].waitForExistence(timeout: 2))
+        XCTAssertFalse(app.buttons["dealer.primaryAction"].exists)
+    }
+
+    @MainActor
+    func testDealerFixtureFitsTheVisibleWindow() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-appStoreCapture", "dealer"]
+        app.launch()
+
+        let primaryAction = app.buttons["dealer.primaryAction"]
+        XCTAssertTrue(primaryAction.waitForExistence(timeout: 2))
+        XCTAssertTrue(primaryAction.isHittable)
+        XCTAssertTrue(app.staticTexts["Peter, draw or stay?"].exists)
+        XCTAssertTrue(app.staticTexts["88"].exists, "The draw-pile count should remain visible")
+        let risk = app.buttons["Next-card bust risk"]
+        XCTAssertTrue(risk.exists)
+        XCTAssertEqual(risk.value as? String, "10% next-card risk · Exact")
+        XCTAssertTrue(
+            app.windows.firstMatch.frame.insetBy(dx: -1, dy: -1).contains(primaryAction.frame),
+            "The primary Dealer action is clipped"
+        )
+
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Dealer - Active Turn"
         screenshot.lifetime = .keepAlways
         add(screenshot)
     }

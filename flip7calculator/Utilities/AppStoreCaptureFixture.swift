@@ -4,6 +4,7 @@ import SwiftUI
 enum AppStoreCaptureFixture: String {
     case setup
     case live
+    case dealer
     case gameOver = "game-over"
     case stats
     case layoutAudit = "layout-audit"
@@ -50,6 +51,11 @@ enum AppStoreCaptureFixture: String {
         UserDefaults.standard.set(false, forKey: "showOpeningAnimation")
         UserDefaults.standard.set(GameMode.classic.rawValue, forKey: "defaultGameMode")
         UserDefaults.standard.set(ScoringRules.defaultBrutalMode, forKey: "defaultBrutalMode")
+        UserDefaults.standard.set(GameEntryIntent.scoreCalculator.rawValue, forKey: "lastGameEntryIntent")
+        UserDefaults.standard.set(
+            requested == .dealer ? RiskInsightsMode.percentage.rawValue : RiskInsightsMode.off.rawValue,
+            forKey: "riskInsightsMode"
+        )
         let names = requested == .layoutAudit
             ? Array(layoutAuditPlayerNames.prefix(layoutAuditPlayerCount))
             : playerNames
@@ -62,6 +68,8 @@ enum AppStoreCaptureFixture: String {
             return nil
         case .live:
             return liveGame()
+        case .dealer:
+            return dealerGame()
         case .gameOver, .stats:
             return completedGame()
         case .layoutAudit:
@@ -103,6 +111,69 @@ enum AppStoreCaptureFixture: String {
             state: .busted,
             hand: hand([4, 7, 8, 10, 12], modifiers: [4: 1, 8: 1])
         )
+        return game
+    }
+
+    private static func dealerGame() -> Game? {
+        let players = zip(playerIDs, playerNames).map { id, name in
+            Player(id: id, name: name)
+        }
+        var game = Game(
+            players: players,
+            targetScore: 200,
+            deckProfile: .standard,
+            scoringRules: .classic,
+            playStyle: .digitalDealer
+        )
+        guard var session = try? LiveSession.makeClassic(
+            profile: .standard,
+            players: players,
+            seed: 7
+        ) else {
+            return nil
+        }
+
+        let fixtureContents: [[LiveCardContent]] = [
+            [.number(2), .number(9)],
+            [.number(5)],
+            [.number(7), .addModifier(4)],
+            [.number(3)]
+        ]
+        for (playerIndex, contents) in fixtureContents.enumerated() {
+            for content in contents {
+                guard let cardIndex = session.drawPile.firstIndex(where: { $0.content == content }) else {
+                    continue
+                }
+                let card = session.drawPile.remove(at: cardIndex)
+                let playerID = players[playerIndex].id
+                session.tableCards[playerID.uuidString, default: []].append(card)
+                switch content {
+                case .number(let value):
+                    _ = game.players[playerIndex].currentRound.hand.addNumber(value)
+                case .addModifier(let value):
+                    game.players[playerIndex].currentRound.hand.addModifier(value)
+                case .multiplier:
+                    game.players[playerIndex].currentRound.hand.addX2()
+                case .action:
+                    break
+                }
+            }
+        }
+        let focusPlayerID = players[0].id
+        session.tasks = [.awaitDecision(playerID: focusPlayerID)]
+        session.lastReveal = session.cards(for: focusPlayerID).last.map {
+            LiveReveal(card: $0, playerID: focusPlayerID)
+        }
+        session.eventLog.append(
+            LiveEvent(
+                id: 1,
+                kind: .round,
+                message: "Opening deal complete",
+                playerID: focusPlayerID,
+                cardID: nil
+            )
+        )
+        game.liveSession = session
         return game
     }
 
@@ -211,9 +282,11 @@ struct AppStoreCaptureView: View {
         Group {
             switch fixture {
             case .setup:
-                GameSetupView(viewModel: $viewModel, animateTitle: false)
+                ActiveGameRoot(viewModel: $viewModel, animateSetupTitle: false)
             case .live:
                 GameView(viewModel: viewModel)
+            case .dealer:
+                DealerGameView(viewModel: viewModel)
             case .gameOver:
                 ZStack {
                     GameView(viewModel: viewModel)

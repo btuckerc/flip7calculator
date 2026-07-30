@@ -18,10 +18,15 @@ struct GameSetupView: View {
     @State private var showingTargetScoreEditor = false
     @State private var showingRules = false
     @State private var showingSettings = false
+    @State private var selectedEntryIntent: GameEntryIntent = .scoreCalculator
+    @State private var hasLoadedEntryIntent = false
+    @State private var showingStartError = false
     
     @AppStorage("defaultTargetScore") private var defaultTargetScore: Int = 200
     @AppStorage("defaultGameMode") private var defaultGameModeRaw: String = GameMode.classic.rawValue
     @AppStorage("defaultBrutalMode") private var defaultBrutalMode: Bool = ScoringRules.defaultBrutalMode
+    @AppStorage("lastGameEntryIntent") private var lastGameEntryIntentRaw: String = GameEntryIntent.scoreCalculator.rawValue
+    @AppStorage("riskInsightsMode") private var riskInsightsModeRaw: String = RiskInsightsMode.off.rawValue
     @AppStorage("appTheme") private var appTheme: String = "system"
     @Environment(\.visualTheme) private var visualTheme
     @Environment(\.colorScheme) private var colorScheme
@@ -43,11 +48,26 @@ struct GameSetupView: View {
         GameMode(rawValue: defaultGameModeRaw) ?? .classic
     }
 
+    private var effectiveEntryIntent: GameEntryIntent {
+        guard DealerAvailability.isPreviewEnabled, selectedGameMode == .classic else {
+            return .scoreCalculator
+        }
+        return selectedEntryIntent
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 18) {
                     SetupHeroCard(animateTitle: animateTitle)
+
+                    if DealerAvailability.isPreviewEnabled {
+                        SetupPlayStyleCard(
+                            selectedIntent: effectiveEntryIntent,
+                            dealerEnabled: selectedGameMode == .classic,
+                            onSelect: { selectedEntryIntent = $0 }
+                        )
+                    }
 
                     PlayersEditorCard(
                         playerRows: $playerRows,
@@ -75,6 +95,10 @@ struct GameSetupView: View {
                         showingTargetScoreEditor: $showingTargetScoreEditor
                     )
 
+                    if selectedGameMode == .classic {
+                        SetupRiskInsightsCard(riskInsightsModeRaw: $riskInsightsModeRaw)
+                    }
+
                     if targetScore != 200 {
                         Button(action: { targetScore = 200 }) {
                             Text("Reset to 200")
@@ -101,11 +125,12 @@ struct GameSetupView: View {
                         HapticFeedback.success()
                         startGame()
                     }) {
-                        Text("Start Game")
+                        Text(effectiveEntryIntent == .playWithDealer ? "Start Dealer Game" : "Start Scoring")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .disabled(!canStartGame)
+                    .accessibilityIdentifier("setup.startGame")
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
@@ -153,6 +178,11 @@ struct GameSetupView: View {
                     .tint(themeAccent)
                     .id(appTheme)
             }
+            .alert("Unable to Start", isPresented: $showingStartError) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(viewModel.liveErrorMessage ?? "Please review the game settings and try again.")
+            }
             .onAppear {
                 if !hasLoadedRoster {
                     loadPersistedRoster()
@@ -162,9 +192,21 @@ struct GameSetupView: View {
                     targetScore = defaultTargetScore
                     hasLoadedTargetScore = true
                 }
+                if !hasLoadedEntryIntent {
+                    selectedEntryIntent = GameEntryIntent(rawValue: lastGameEntryIntentRaw) ?? .scoreCalculator
+                    if selectedGameMode != .classic {
+                        selectedEntryIntent = .scoreCalculator
+                    }
+                    hasLoadedEntryIntent = true
+                }
             }
             .onChange(of: targetScore) { _, newValue in
                 defaultTargetScore = newValue
+            }
+            .onChange(of: defaultGameModeRaw) { _, newValue in
+                if GameMode(rawValue: newValue) != .classic {
+                    selectedEntryIntent = .scoreCalculator
+                }
             }
             .onChange(of: showingSettings) { _, isShowing in
                 // Sync state when Settings sheet dismisses
@@ -210,17 +252,150 @@ struct GameSetupView: View {
         }
         
         PersistedRoster(names: players).save()
-        viewModel.startNewGame(
+        let didStart = viewModel.startNewGame(
             players: players,
             targetScore: targetScore,
-            scoringRules: ScoringRules(mode: selectedGameMode, brutalMode: defaultBrutalMode)
+            scoringRules: ScoringRules(mode: selectedGameMode, brutalMode: defaultBrutalMode),
+            playStyle: effectiveEntryIntent.playStyle
         )
+        if didStart {
+            lastGameEntryIntentRaw = effectiveEntryIntent.rawValue
+        } else {
+            showingStartError = true
+        }
     }
     
     private func persistRosterOrder() {
         let names = playerRows.map { $0.name.trimmingCharacters(in: .whitespaces) }
         PersistedRoster(names: names).save()
         focusCoordinator.setOrder(playerRows.map { $0.id })
+    }
+}
+
+private struct SetupPlayStyleCard: View {
+    let selectedIntent: GameEntryIntent
+    let dealerEnabled: Bool
+    let onSelect: (GameEntryIntent) -> Void
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DesignSpacing.sm) {
+            HStack {
+                Text("How are you playing?")
+                    .font(DesignTypography.font(.label))
+                    .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
+                    .textCase(.uppercase)
+                Spacer()
+                Text("Dealer Preview")
+                    .pillBadge(.info)
+            }
+
+            Group {
+                if dynamicTypeSize.isAccessibilitySize {
+                    VStack(spacing: DesignSpacing.xs) {
+                        intentButton(.scoreCalculator, isEnabled: true)
+                        intentButton(.playWithDealer, isEnabled: dealerEnabled)
+                    }
+                } else {
+                    HStack(spacing: DesignSpacing.xs) {
+                        intentButton(.scoreCalculator, isEnabled: true)
+                        intentButton(.playWithDealer, isEnabled: dealerEnabled)
+                    }
+                }
+            }
+
+            Text(
+                dealerEnabled || selectedIntent == .scoreCalculator
+                    ? selectedIntent.detail
+                    : "Dealer preview currently supports Classic games."
+            )
+            .font(.system(size: 12, weight: .medium, design: .rounded))
+            .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
+            .fixedSize(horizontal: false, vertical: true)
+            .contentTransition(.opacity)
+        }
+        .padding(DesignSpacing.md)
+        .cardSurface(cornerRadius: 22)
+        .animation(reduceMotion ? nil : DesignMotion.animation(.fast), value: selectedIntent)
+    }
+
+    private func intentButton(_ intent: GameEntryIntent, isEnabled: Bool) -> some View {
+        let isSelected = selectedIntent == intent
+        return Button(action: { onSelect(intent) }) {
+            HStack(spacing: 7) {
+                Image(systemName: isSelected ? "checkmark.circle.fill" : intent.icon)
+                    .font(.system(size: 15, weight: .semibold))
+                Text(intent.title)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.82)
+            }
+        }
+        .buttonStyle(SelectionCardButtonStyle(isSelected: isSelected))
+        .disabled(!isEnabled)
+        .accessibilityLabel(intent.title)
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityHint(intent.detail)
+        .accessibilityIdentifier("setup.entry.\(intent.rawValue)")
+    }
+}
+
+private struct SetupRiskInsightsCard: View {
+    @Binding var riskInsightsModeRaw: String
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var selectedMode: RiskInsightsMode {
+        RiskInsightsMode(rawValue: riskInsightsModeRaw) ?? .off
+    }
+
+    var body: some View {
+        HStack(spacing: DesignSpacing.sm) {
+            Image(systemName: "gauge.with.dots.needle.33percent")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme))
+                .frame(width: 28)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Risk Insights")
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundStyle(DesignColor.color(.textPrimary, theme: visualTheme, colorScheme: colorScheme))
+                Text("Optional duplicate and bust context")
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
+            }
+
+            Spacer()
+
+            Menu {
+                ForEach(RiskInsightsMode.allCases) { mode in
+                    Button {
+                        riskInsightsModeRaw = mode.rawValue
+                    } label: {
+                        if mode == selectedMode {
+                            Label(mode.displayName, systemImage: "checkmark")
+                        } else {
+                            Text(mode.displayName)
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: 5) {
+                    Text(selectedMode.displayName)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 9, weight: .bold))
+                }
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .pillBadge(selectedMode == .off ? .neutral : .info)
+            }
+            .accessibilityLabel("Risk Insights")
+            .accessibilityValue(selectedMode.displayName)
+        }
+        .padding(.horizontal, DesignSpacing.md)
+        .padding(.vertical, DesignSpacing.sm)
+        .cardSurface(cornerRadius: DesignRadius.lg)
     }
 }
 

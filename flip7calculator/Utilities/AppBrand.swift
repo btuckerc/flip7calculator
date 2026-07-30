@@ -22,6 +22,10 @@ enum AppBrand {
     static let sevenCardBonusShortLabel = "7-Card"
     static let sevenCardBonusValue = ScoreEngine.sevenCardBonus
     static let setupHeroSummary = "Built for live tables: fast entry, clear scores, and low-friction round flow."
+    static let scoreCalculatorTitle = "Score Calculator"
+    static let scoreCalculatorDescription = "Use your physical cards. Enter cards or round scores."
+    static let dealerTitle = "Play with Dealer"
+    static let dealerDescription = "Draw and play from the deck on this device."
 
     static var versionSummary: String {
         let info = Bundle.main.infoDictionary ?? [:]

@@ -99,6 +99,38 @@ struct GhostButtonStyle: ButtonStyle {
     }
 }
 
+struct SelectionCardButtonStyle: ButtonStyle {
+    let isSelected: Bool
+    @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
+
+    func makeBody(configuration: Configuration) -> some View {
+        let brand = DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+        let surface = DesignColor.color(.surfaceInteractive, theme: visualTheme, colorScheme: colorScheme)
+        let text = DesignColor.color(.textPrimary, theme: visualTheme, colorScheme: colorScheme)
+
+        return configuration.label
+            .font(.system(size: 14, weight: .semibold, design: .rounded))
+            .foregroundStyle(isEnabled ? (isSelected ? brand : text) : Color(.systemGray3))
+            .padding(.horizontal, DesignSpacing.sm)
+            .padding(.vertical, 11)
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .background(
+                RoundedRectangle(cornerRadius: DesignRadius.md)
+                    .fill(isSelected ? brand.opacity(0.13) : surface.opacity(isEnabled ? 0.72 : 0.35))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignRadius.md)
+                    .stroke(isSelected ? brand : brand.opacity(0.10), lineWidth: isSelected ? 2 : 1)
+            )
+            .scaleEffect(configuration.isPressed ? 0.985 : 1)
+            .opacity(configuration.isPressed ? 0.94 : 1)
+            .animation(DesignMotion.animation(.fast), value: configuration.isPressed)
+            .animation(DesignMotion.animation(.fast), value: isSelected)
+    }
+}
+
 struct CardSurfaceStyle: ViewModifier {
     @Environment(\.visualTheme) private var visualTheme
     @Environment(\.colorScheme) private var colorScheme

@@ -9,21 +9,28 @@ flowchart LR
     A["FlippingSevenCalculatorApp"] --> B["RootView / splash"]
     B --> C["ContentView"]
     C -->|"no active game"| D["GameSetupView"]
-    C -->|"active game"| E["GameView"]
+    C -->|"scorekeeper game"| E["GameView"]
+    C -->|"digital dealer game"| K["DealerGameView"]
     D --> F["GameViewModel"]
     E --> F
+    K --> F
     F --> G["Game, Player, RoundHand, DeckProfile"]
     F --> H["ScoreEngine"]
+    F --> L["LiveGameReducer / LiveSession"]
+    E --> M["ProbabilityService"]
+    K --> M
     G --> I["UserDefaults"]
     G --> J["GameStats / history"]
 ```
 
 ## State Ownership
 
-- `ContentView` owns `@State private var viewModel = GameViewModel()` and switches between setup and live game based on `viewModel.game`.
+- `ContentView` owns `@State private var viewModel = GameViewModel()` and delegates routing to `ActiveGameRoot` by persisted `playStyle`. Legacy and scorekeeper games use `GameView`; digital dealer games use `DealerGameView`, including its non-destructive unavailable-session recovery state.
 - `GameViewModel` is `@Observable`. It owns the active `Game?`, mutation APIs, deck availability, game lifecycle, and in-memory undo/redo stacks.
 - Assigning `game` triggers persistence. Mutations generally copy the value-type game, call `saveStateForUndo()`, mutate the copy, then assign it back.
-- `Game` owns players, current round index, target score, completed history, active deck profile, active scoring rules, and per-mode current-round snapshots.
+- `Game` owns players, current round index, target score, completed history, active deck profile, active scoring rules, per-mode current-round snapshots, play style, and an optional exact live session.
+- `LiveSession` is the dealer source of truth: ordered draw/discard zones, cards on each player, task queue, forced sequences, dealer rotation, deterministic reshuffle state, and audit log. `LiveGameReducer` is the only rules mutation boundary for that state.
+- `ProbabilityService` is pure and shared. Calculator calls return an explicitly estimated duplicate-number metric because physical protection is unknown; digital-dealer calls return exact immediate-bust risk from the owned draw pool.
 - Views should request mutations from `GameViewModel`; they should not independently persist or duplicate scoring rules.
 
 ## Persistence Contract
@@ -37,6 +44,8 @@ flowchart LR
 | Legacy Classic deck fallback | `lastDeckProfile` | `PersistedDeckProfile` |
 | Preferences | Individual `@AppStorage` keys | Setup/settings/views |
 
+`Game.playStyle` and `Game.liveSession` are additive fields inside `currentGame`. Legacy payloads default to `scorekeeper` with no live session. The setup preference `lastGameEntryIntent` also defaults to the calculator. `riskInsightsMode` defaults to `off`; `keepScreenAwakeDuringDealer` affects device presentation only and never the shoe.
+
 Persisted model changes must be additive or explicitly migrated. A new non-optional property needs a custom decoder default for old payloads. Renamed enum cases or action keys need normalization. Add tests that decode representative old JSON; a successful build does not establish data compatibility.
 
 Undo/redo is intentionally session-only. It stores up to 50 `Game` snapshots and is not persisted across launches.
@@ -46,6 +55,8 @@ Undo/redo is intentionally session-only. It stores up to 50 `Game` snapshots and
 - `DeckProfile.swift` defines `GameMode`, `ScoringRules`, default deck composition, special numbers, and action-card identifiers.
 - `RoundHand.swift` represents selected score-relevant cards and mode-specific modifiers.
 - `ScoreEngine.swift` is the pure arithmetic boundary. Keep it independent from SwiftUI and persistence.
+- `LiveGame.swift` defines the versioned Classic deck factory, live task model, and deterministic reducer. Views issue commands; they never pop cards or resolve actions themselves.
+- Drawdown reshuffles only the discard pile. Cards still assigned to players remain outside the shoe. The next shuffle seed is persisted so undo and redraw cannot silently rerandomize the result.
 - `GameViewModel` enforces physical deck capacity and applies card/state mutations.
 - `Game.endRound()` snapshots enough information for history and statistics to remain correct after the current round resets.
 - `GameStats.swift` derives results from completed history; it must use the scoring rules recorded for each round in mixed-mode games.
@@ -58,6 +69,8 @@ The verified Vengeance composition, scoring order, compatibility decisions, and 
 
 - `GameSetupView`: roster, target, mode, and game start
 - `GameView`: live round orchestration and sheets
+- `DealerGameView`: app-owned Classic deck, turn/action guidance, target selection, exact shoe status, and dealer recovery tools
+- `RiskInsightView`: compact optional risk disclosure and its explainability sheet
 - `PlayerGrid` and scoring components: rapid card/modifier/state entry
 - `DeckManagementView`: mode-aware deck customization and active-game mode changes
 - `SettingsView`: persistent preferences and default rules

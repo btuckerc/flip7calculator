@@ -33,13 +33,7 @@ struct ContentView: View {
     }
     
     var body: some View {
-        Group {
-            if viewModel.game == nil {
-                GameSetupView(viewModel: $viewModel, animateTitle: animateSetupTitle)
-            } else {
-                GameView(viewModel: viewModel)
-            }
-        }
+        ActiveGameRoot(viewModel: $viewModel, animateSetupTitle: animateSetupTitle)
         .preferredColorScheme(selectedTheme.colorScheme)
         .tint(rootTint)
         .environment(\.visualTheme, visualTheme)
@@ -47,6 +41,23 @@ struct ContentView: View {
             if !didMigrateFlippingSevenThemeV2 {
                 visualThemeVersion = VisualTheme.v2.rawValue
                 didMigrateFlippingSevenThemeV2 = true
+            }
+        }
+    }
+}
+
+struct ActiveGameRoot: View {
+    @Binding var viewModel: GameViewModel
+    var animateSetupTitle = true
+
+    var body: some View {
+        Group {
+            if viewModel.game == nil {
+                GameSetupView(viewModel: $viewModel, animateTitle: animateSetupTitle)
+            } else if viewModel.game?.playStyle == .digitalDealer {
+                DealerGameView(viewModel: viewModel)
+            } else {
+                GameView(viewModel: viewModel)
             }
         }
     }

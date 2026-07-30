@@ -31,10 +31,11 @@ Debug builds accept `-appStoreCapture` with one of these values:
 
 - `setup`
 - `live`
+- `dealer` (internal product-preview QA only; not approved for the version 1.3 listing)
 - `game-over`
 - `stats`
 
-The capture harness is excluded from Release builds. It creates real `Game`, `GameRound`, and `RoundResult` values so the score engine, player states, history, and charts render through production views.
+The capture harness is excluded from Release builds. It creates real game, round, live-session, and result values so the score engine, player states, history, charts, and preview Dealer surface render through production views. The `dealer` fixture does not change the upload order and must not be treated as authorization to publish Dealer screenshots or enable Dealer discovery in Release.
 
 ## App Preview
 

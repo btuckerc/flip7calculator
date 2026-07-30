@@ -28,12 +28,16 @@ struct Game: Codable, Equatable {
     var deckProfile: DeckProfile
     var scoringRules: ScoringRules
     var modeRoundProgress: [ModeRoundProgress]
+    var playStyle: PlayStyle
+    var liveSession: LiveSession?
     
     init(
         players: [Player],
         targetScore: Int = 200,
         deckProfile: DeckProfile = .standard,
-        scoringRules: ScoringRules = .classic
+        scoringRules: ScoringRules = .classic,
+        playStyle: PlayStyle = .scorekeeper,
+        liveSession: LiveSession? = nil
     ) {
         self.players = players
         self.currentRoundIndex = 0
@@ -42,6 +46,8 @@ struct Game: Codable, Equatable {
         self.deckProfile = deckProfile
         self.scoringRules = scoringRules
         self.modeRoundProgress = []
+        self.playStyle = playStyle
+        self.liveSession = liveSession
     }
     
     /// Current round number (1-indexed)
@@ -51,12 +57,34 @@ struct Game: Codable, Equatable {
     
     /// Checks if any player has reached the target score
     var hasWinner: Bool {
-        players.contains { $0.totalScore >= targetScore }
+        hasUniqueWinner
     }
     
     /// Returns the winner(s) if any
     var winners: [Player] {
-        players.filter { $0.totalScore >= targetScore }
+        guard let highScore = players.map(\.totalScore).max(), highScore >= targetScore else {
+            return []
+        }
+        return players.filter { $0.totalScore == highScore }
+    }
+
+    /// The game ends only when the highest score at or above the target is unique.
+    /// Tied leaders continue for another round per the Classic rules FAQ.
+    var hasUniqueWinner: Bool {
+        guard let highScore = players.map(\.totalScore).max(), highScore >= targetScore else {
+            return false
+        }
+        return players.filter { $0.totalScore == highScore }.count == 1
+    }
+
+    var previewHasUniqueWinner: Bool {
+        let previewScores = players.map {
+            ScoreEngine.previewTotalScore(player: $0, rules: scoringRules)
+        }
+        guard let highScore = previewScores.max(), highScore >= targetScore else {
+            return false
+        }
+        return previewScores.filter { $0 == highScore }.count == 1
     }
     
     /// Finalizes the current round and starts a new one
@@ -148,6 +176,8 @@ struct Game: Codable, Equatable {
         case deckProfile
         case scoringRules
         case modeRoundProgress
+        case playStyle
+        case liveSession
     }
 
     init(from decoder: Decoder) throws {
@@ -161,6 +191,8 @@ struct Game: Codable, Equatable {
         scoringRules = try container.decodeIfPresent(ScoringRules.self, forKey: .scoringRules)
             ?? ScoringRules(mode: decodedDeck.mode)
         modeRoundProgress = try container.decodeIfPresent([ModeRoundProgress].self, forKey: .modeRoundProgress) ?? []
+        playStyle = try container.decodeIfPresent(PlayStyle.self, forKey: .playStyle) ?? .scorekeeper
+        liveSession = try container.decodeIfPresent(LiveSession.self, forKey: .liveSession)
     }
 }
 
