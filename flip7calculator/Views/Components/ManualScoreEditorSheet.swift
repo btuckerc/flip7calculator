@@ -15,6 +15,7 @@ struct ManualScoreSheetContent: View {
     let currentManualScore: Int?
     let onSave: (Int) -> Void
     let onClearManualScore: () -> Void
+    let allowsNegative: Bool
     let onDismiss: () -> Void
     @Environment(\.visualTheme) private var visualTheme
     @Environment(\.colorScheme) private var colorScheme
@@ -23,11 +24,19 @@ struct ManualScoreSheetContent: View {
     
     private let maxScore = 9999
     
-    init(autoScore: Int, currentManualScore: Int?, onSave: @escaping (Int) -> Void, onClearManualScore: @escaping () -> Void, onDismiss: @escaping () -> Void) {
+    init(
+        autoScore: Int,
+        currentManualScore: Int?,
+        onSave: @escaping (Int) -> Void,
+        onClearManualScore: @escaping () -> Void,
+        allowsNegative: Bool = false,
+        onDismiss: @escaping () -> Void
+    ) {
         self.autoScore = autoScore
         self.currentManualScore = currentManualScore
         self.onSave = onSave
         self.onClearManualScore = onClearManualScore
+        self.allowsNegative = allowsNegative
         self.onDismiss = onDismiss
         self._inputText = State(initialValue: currentManualScore.map { "\($0)" } ?? "")
     }
@@ -43,7 +52,7 @@ struct ManualScoreSheetContent: View {
     private func submitScore() {
         if isValidInput, let score = parsedScore {
             HapticFeedback.light()
-            onSave(max(0, min(maxScore, score)))
+            onSave(clamped(score))
             onDismiss()
         }
     }
@@ -51,14 +60,26 @@ struct ManualScoreSheetContent: View {
     /// Check if input differs from current saved value (to avoid unnecessary saves)
     private var hasChanges: Bool {
         guard let score = parsedScore else { return false }
-        let clampedScore = max(0, min(maxScore, score))
+        let clampedScore = clamped(score)
         return clampedScore != currentManualScore
     }
     
     /// Save valid input when sheet is dismissed
     private func saveIfValid() {
         if isValidInput && hasChanges, let score = parsedScore {
-            onSave(max(0, min(maxScore, score)))
+            onSave(clamped(score))
+        }
+    }
+
+    private func clamped(_ score: Int) -> Int {
+        max(allowsNegative ? -maxScore : 0, min(maxScore, score))
+    }
+
+    private func toggleSign() {
+        if inputText.hasPrefix("-") {
+            inputText.removeFirst()
+        } else if !inputText.isEmpty && inputText != "0" {
+            inputText = "-" + inputText
         }
     }
 
@@ -76,6 +97,14 @@ struct ManualScoreSheetContent: View {
                     onSubmit: submitScore
                 )
                 .frame(width: 140, height: 56)
+
+                if allowsNegative {
+                    Button(action: toggleSign) {
+                        Label("Toggle positive or negative", systemImage: "plus.forwardslash.minus")
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    }
+                    .buttonStyle(.bordered)
+                }
                 
                 // From cards score hint + revert button
                 HStack(spacing: 8) {

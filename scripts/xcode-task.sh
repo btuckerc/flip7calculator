@@ -17,6 +17,8 @@ SIMULATOR_OS="${SIMULATOR_OS:-latest}"
 CACHE_ROOT="${CACHE_ROOT:-$HOME/Library/Caches/FlippingSevenCalculator}"
 DERIVED_DATA="${DERIVED_DATA:-$CACHE_ROOT/DerivedData}"
 RESULT_BUNDLE="${RESULT_BUNDLE:-}"
+PARALLEL_TESTING="${PARALLEL_TESTING:-NO}"
+REQUIRE_TESTS="${REQUIRE_TESTS:-YES}"
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 destination="$("$script_dir/find-simulator.sh" "$SIMULATOR_NAME" "$SIMULATOR_OS" destination)"
@@ -38,6 +40,10 @@ if [[ "$action" == "test" && -n "$RESULT_BUNDLE" ]]; then
   cmd+=(-resultBundlePath "$RESULT_BUNDLE")
 fi
 
+if [[ "$action" == "test" ]]; then
+  cmd+=(-parallel-testing-enabled "$PARALLEL_TESTING")
+fi
+
 if [[ $# -gt 0 ]]; then
   cmd+=("$@")
 fi
@@ -52,3 +58,17 @@ echo "Running: ${cmd[*]}"
 
 set -o pipefail
 "${cmd[@]}" | "${formatter[@]}"
+
+if [[ "$action" == "test" && "$REQUIRE_TESTS" == "YES" && -n "$RESULT_BUNDLE" ]]; then
+  if ! command -v jq >/dev/null 2>&1; then
+    echo "jq is required to verify that the selected test filter ran tests." >&2
+    exit 1
+  fi
+
+  summary="$(xcrun xcresulttool get test-results summary --path "$RESULT_BUNDLE")"
+  total="$(jq -r '.totalTestCount // 0' <<<"$summary")"
+  if [[ ! "$total" =~ ^[0-9]+$ || "$total" -eq 0 ]]; then
+    echo "Test command matched zero tests. Run 'make list-tests' and use the exact identifier." >&2
+    exit 1
+  fi
+fi

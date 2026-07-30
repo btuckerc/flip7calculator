@@ -1,47 +1,55 @@
 ---
 name: table-tally-ios
-description: Use when working in this repository to build, review, or refine the Flipping Seven Calculator SwiftUI app. Covers product intent, rebrand constraints, UX quality bar, local simulator workflow, architecture anchors, and external iOS agent-skill research.
+description: Use for feature, bug, UI, rules, persistence, testing, Xcode, CI, screenshot, or release work in the Flipping Seven Calculator SwiftUI repository. Routes tasks to the smallest safe implementation and verification workflow while preserving rebrand, offline, accessibility, and App Store constraints.
 ---
 
 # Flipping Seven Calculator iOS
 
-Use this skill for any non-trivial work in this repository.
+Use this skill for non-trivial work in this repository. It is a router: load only the references required by the task instead of filling context with every historical document.
 
-## Quick Start
+## Start
 
-1. Read `README.md` and `AGENTS.md`.
-2. Use `make help` instead of reaching for raw `xcodebuild`.
-3. Load only the reference file that matches the task:
-   - `references/product.md` for product intent, rebrand constraints, and non-goals
-   - `references/experience-rubric.md` for UI, accessibility, and performance expectations
-   - `references/engineering.md` for build/test workflow, simulator handling, and file map
-   - `references/research.md` for external sources, optional global skill installs, and why this repo is set up this way
-4. Before changing branding, screenshots, rules/help content, App Store copy, or other visible product surfaces, also read `docs/APP264401-I-path-forward.md`.
+1. Run `git status --short`; preserve existing changes.
+2. Read `README.md` and root `AGENTS.md`.
+3. Run `make doctor` for build, simulator, test, signing, Xcode, or release tasks.
+4. Classify the task below and load the listed references.
+5. Reproduce or trace current behavior before editing.
 
-## Working Principles
+## Route The Task
 
-- Prefer small, validated changes. This repo already has active rebrand and design-token work in flight.
-- Keep visible product copy centralized in `flip7calculator/Utilities/AppBrand.swift` where reuse makes sense.
-- Preserve original visual authorship: do not restore third-party box-art colors, logos, card backs, modifier graphics, or other trade dress.
-- Preserve the app's strongest behavior: fast shared scorekeeping during live play.
-- When touching SwiftUI surfaces, optimize for correct state flow, stable identity, accessibility, and reduced-motion parity.
-- When touching tests or palette work, account for the current known palette failures rather than assuming a clean baseline.
+- Product behavior, feature shape, or prioritization: `references/product.md` and `docs/AGENT_PLAYBOOK.md`
+- SwiftUI, layout, animation, accessibility, or visual review: `references/experience-rubric.md` and relevant `docs/ui-overhaul/` specifications
+- Models, state, scoring, stats, persistence, undo/redo, or architecture: `docs/ARCHITECTURE.md`
+- Classic or Vengeance rules/deck behavior: `docs/vengeance-support.md` and its primary sources
+- Build, simulator, tests, Xcode, CI, or performance: `references/engineering.md`
+- Signing, TestFlight, upload, screenshots, metadata, App Review, or release: `docs/RELEASE_RUNBOOK.md`; also load the global `app-store-connect-ops` skill when available
+- Branding, icon, help/rules wording, screenshots, search discovery, or public metadata: `docs/APP264401-I-path-forward.md` plus the relevant strategy/listing record
+- External tool or workflow research: `references/research.md`
 
-## Architecture Anchors
+## Execute
 
-- App entry: `flip7calculator/flip7calculatorApp.swift`
-- Game orchestration and persistence: `flip7calculator/ViewModels/GameViewModel.swift`
-- Scoring: `flip7calculator/Scoring/ScoreEngine.swift`
-- Stats: `flip7calculator/Stats/GameStats.swift`
-- Rebrand constants: `flip7calculator/Utilities/AppBrand.swift`
-- Tokenized styling: `flip7calculator/Utilities/DesignTokens.swift`, `flip7calculator/Utilities/DesignStyles.swift`
+1. Identify invariants and all affected layers.
+2. Research unstable or uncertain facts from primary sources; record rule/release sources in durable docs.
+3. Implement at the correct boundary: models for shape, `ScoreEngine` for arithmetic, `GameViewModel` for undoable mutation/persistence, views for presentation, design tokens for shared styling.
+4. Run one relevant test or suite while iterating.
+5. Escalate to `make test-unit`, relevant UI coverage, `make test`, or `make verify` according to `docs/AGENT_PLAYBOOK.md`.
+6. Inspect real rendered UI for visual changes and report unperformed device/accessibility checks honestly.
 
-## Local Workflow
+## Product Guardrails
 
-- `make build`
-- `make test`
-- `make test-one TEST=flip7calculatorTests/PlayerPaletteTests`
-- `make ui-test`
-- `make launch`
+- Keep common live-score actions obvious and low-friction.
+- Keep the app offline-first unless the user explicitly changes the product direction.
+- Preserve Codable compatibility for existing games and settings.
+- Keep score math pure, mutations undoable, and completed history semantically stable.
+- Keep public copy centralized in `AppBrand` where reuse makes sense.
+- Extend semantic design tokens rather than adding isolated styles.
+- Do not restore the exact disputed mark or third-party logos, box art, card backs, or trade dress.
 
-The Makefile resolves a usable simulator automatically, disables code signing for simulator test runs, and uses `xcbeautify` when available.
+## Xcode And Release Boundaries
+
+- Prefer Make/xcodebuild for deterministic local and CI work.
+- Use Xcode UI for previews, visual inspection, debugger/Organizer data, signing-account diagnostics, and physical-device work.
+- Apple's external-agent MCP bridge is optional and requires Xcode 26.3+. Check `xcrun --find mcpbridge` before suggesting or configuring it.
+- On the maintainer Mac, verify App Store Connect access with `make asc-auth`; release scripts load the local Keychain credentials automatically without exposing values.
+- Archive, export, validate, upload, attach, submit, and release are separate consequential operations. Never collapse them into “deploy.”
+- Never commit Apple credentials or release artifacts.

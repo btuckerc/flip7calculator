@@ -1,6 +1,6 @@
 # APP264401-I — Flipping Seven Calculator Discovery and Listing Strategy
 
-Updated: July 28, 2026
+Updated: July 29, 2026
 
 This document records the approved product decision and the operational guardrails for implementing it. It is product and engineering guidance, not legal advice.
 
@@ -9,6 +9,8 @@ This document records the approved product decision and the operational guardrai
 The public product name for the next update is `Flipping Seven Calculator`.
 
 The owner accepts that this is a risk-tolerant position rather than a legally cleared safe harbor. The implementation must be transparent, independently designed, and limited to the approved name and generic mechanics. It must not quietly reconstruct the exact disputed mark or the physical game's visual identity elsewhere.
+
+Build 10 also adopts an original two-card icon with a dominant `7`. This is a deliberate visual association with scorekeeping and seven-card play, not a reproduction of third-party packaging, logos, card faces, or modifier artwork.
 
 ## Registration and Risk Context
 
@@ -60,6 +62,26 @@ Not approved for public product surfaces:
 - Third-party logos, packaging, rules pages, card artwork, or screenshots
 
 Private reviewer notes and legal correspondence may identify the former title and exact disputed mark when factually necessary. They are not discovery surfaces.
+
+## Exact Compatibility Reference Decision
+
+A narrow factual sentence identifying a compatible product can have a nominative-use argument under cases such as [New Kids on the Block v. News America Publishing](https://law.justia.com/cases/federal/appellate-courts/F2/971/302/72076/) and [Toyota Motor Sales v. Tabari](https://law.justia.com/cases/federal/appellate-courts/ca9/07-55344/07-55344-2011-02-25.html). Those cases do not make every compatibility reference safe, and a disclaimer is not automatic permission or a guarantee against confusion.
+
+For this release, do not add an exact-mark compatibility sentence to the description, keywords, subtitle, screenshots, or icon. The risk/reward is poor for this specific record:
+
+- The claimant's notice expressly objected to use in the title, description, and app images, so restoring the exact wording to the description would be within the stated dispute rather than outside it.
+- The developer already told the claimant that references would be removed unless a limited factual reference was acceptable; no written authorization is recorded in this repo.
+- Apple Guideline `2.3.7` warns against packing metadata with trademarked terms to influence discovery, while `5.2.1` places third-party-rights responsibility on the developer.
+- Apple identifies the title, subtitle, keywords, and primary category as the textual relevance inputs for search. Treating the description as a hidden keyword strategy has uncertain discovery value.
+- The publisher now links an official scoring web app from its own product page, increasing product overlap and the chance that a close title or compatibility statement is viewed as source-identifying or competitive rather than merely referential.
+
+The risk-tolerant line for `1.3` is therefore the approved name, original card motion, and original `7` icon, paired with a generic independence statement. If the owner later wants an exact compatibility claim, obtain a written response from the claimant or have trademark counsel review the proposed wording and complete presentation first.
+
+Sources:
+
+- [Apple App Review Guidelines](https://developer.apple.com/app-store/review/guidelines/)
+- [Apple App Store search](https://developer.apple.com/app-store/search/)
+- [The Op Games product page and official scoring web app link](https://theop.games/products/flip-7)
 
 ## Visual Rules
 
@@ -116,15 +138,36 @@ Record results after release without claiming that the app is entitled to rank f
 
 Capture the storefront, locale, date, result position, impressions, product-page views, conversion, and retention. Search results vary by region and user behavior, so one device is not a reliable ranking test.
 
+After release, validate the acquisition shelf from a device/account where the app has not been downloaded. When traffic is large enough to produce a useful result, use App Store Connect Product Page Optimization to test a screenshot order or alternate icon while holding the other variables stable. Do not upload the existing App Preview proof solely to occupy media space; a later 15–30 second preview should show continuous realistic play with no dead segment.
+
 ## Listing Conversion Strategy
 
 The first three screenshots should prove function rather than rely on name recognition:
 
-1. Setup and full wordmark: fast table setup.
-2. Live round entry: visible flips, modifiers, holds, and busts.
-3. History/stats: value beyond a paper score sheet.
+1. Setup: original product identity, real player roster, and immediate start path.
+2. Live round entry: visible cards, modifiers, and score controls.
+3. Stats highlights: value beyond a paper score sheet.
 
-Later screenshots can show undo/redo, deck profiles, target score, themes, accessibility, and offline persistence. Use fictional player names and no physical third-party cards or packaging.
+Later screenshots show game over and deeper charts. The separate player-states capture repeats information in the live-entry image and has too much empty space for the submitted gallery. The round-history capture is also excluded because scrolled content bleeds through its translucent status area. Use fictional player names and no physical third-party cards or packaging.
+
+### Why the supplied search result has no media
+
+The live `1.2` App Store version has complete 6.9-inch iPhone and 13-inch iPad screenshot sets, and the public product page serves them. The supplied search result displays `Open`, while nearby acquisition results display `Get`. Since iOS 15, the App Store has commonly collapsed installed-app search results to the icon/name row and hidden their screenshot shelf. This is user-state presentation, not evidence that media is detached.
+
+Apple says up to three screenshots or App Previews may appear depending on platform and orientation, and that the first one to three screenshots appear when no preview is available. It does not provide a developer control that forces expanded media for installed apps. Test the acquisition result from a device/account where the app has not been downloaded.
+
+The supplied examples are not special banner placements. Portrait-first listings can show three portrait images; landscape-first listings can show one wide image. Because the iPhone app's actual scorekeeping UI is portrait-first, three truthful portrait captures are preferable to manufacturing a landscape asset solely to imitate the wide treatment.
+
+Sources:
+
+- [Apple App Store search](https://developer.apple.com/app-store/search/)
+- [Apple product-page guidance](https://developer.apple.com/app-store/product-page/)
+- [Reported iOS 15 installed-app search behavior](https://www.macrumors.com/2021/06/09/ios-15-app-store-search-results/)
+
+Apple also announced Product Page Headers, new search-result creative, and Asset Library at WWDC26, with availability planned for fall 2026. That future capability is a true banner-like opportunity and should be adopted after Apple exposes it in App Store Connect; it is not a missing field in the current 1.3 record.
+
+- [Apple App Store What's New](https://developer.apple.com/app-store/whats-new/)
+- [WWDC26: What's new in App Store Connect](https://developer.apple.com/videos/play/wwdc2026/205/)
 
 ## Independence Statement
 

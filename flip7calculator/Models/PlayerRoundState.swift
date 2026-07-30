@@ -19,11 +19,10 @@ enum PlayerRoundState: String, Codable, CaseIterable {
         case .inRound: return "In Round"
         case .banked: return "Banked"
         case .busted: return "Busted"
-        case .frozen: return "On Hold"
+        case .frozen: return "Frozen"
         }
     }
 }
-
 
 
 

@@ -11,9 +11,12 @@ struct PlayerGrid: View {
     let players: [Player]
     let playerColors: [Color]
     let selectedPlayerId: UUID?
+    let scoringRules: ScoringRules
     let onSelect: (UUID) -> Void
     
     @AppStorage("showRoundScorePreview") private var showRoundScorePreview: Bool = true
+
+    private let minimumTileHeight: CGFloat = 82
     
     /// Number of columns based on player count
     private var columnCount: Int {
@@ -35,35 +38,48 @@ struct PlayerGrid: View {
         GeometryReader { geometry in
             let availableHeight = geometry.size.height
             let availableWidth = geometry.size.width
-            
-            // Calculate tile dimensions to fill available space
             let totalVerticalSpacing = gridSpacing * CGFloat(rowCount - 1)
-            let tileHeight = (availableHeight - totalVerticalSpacing) / CGFloat(rowCount)
-            
+            let fittedTileHeight = (availableHeight - totalVerticalSpacing) / CGFloat(rowCount)
+            let tileHeight = max(minimumTileHeight, fittedTileHeight)
+            let contentHeight = tileHeight * CGFloat(rowCount) + totalVerticalSpacing
             let totalHorizontalSpacing = gridSpacing * CGFloat(columnCount - 1)
-            let tileWidth = (availableWidth - totalHorizontalSpacing) / CGFloat(columnCount)
-            
-            VStack(spacing: gridSpacing) {
-                ForEach(0..<rowCount, id: \.self) { row in
-                    HStack(spacing: gridSpacing) {
-                        ForEach(0..<columnCount, id: \.self) { col in
-                            let index = row * columnCount + col
-                            if index < players.count {
-                                let player = players[index]
-                                PlayerTile(
-                                    player: player,
-                                    color: playerColors[safe: index] ?? AppBrandPalette.brandBlue,
-                                    isSelected: selectedPlayerId == player.id,
-                                    showScorePreview: showRoundScorePreview,
-                                    tileHeight: tileHeight,
-                                    onTap: { onSelect(player.id) }
-                                )
+            let tileWidth = max(
+                0,
+                (availableWidth - totalHorizontalSpacing) / CGFloat(columnCount)
+            )
+
+            if contentHeight > availableHeight {
+                ScrollView(.vertical) {
+                    playerRows(tileWidth: tileWidth, tileHeight: tileHeight)
+                }
+                .scrollBounceBehavior(.basedOnSize)
+            } else {
+                playerRows(tileWidth: tileWidth, tileHeight: tileHeight)
+            }
+        }
+    }
+
+    private func playerRows(tileWidth: CGFloat, tileHeight: CGFloat) -> some View {
+        VStack(spacing: gridSpacing) {
+            ForEach(0..<rowCount, id: \.self) { row in
+                HStack(spacing: gridSpacing) {
+                    ForEach(0..<columnCount, id: \.self) { column in
+                        let index = row * columnCount + column
+                        if index < players.count {
+                            let player = players[index]
+                            PlayerTile(
+                                player: player,
+                                color: playerColors[safe: index] ?? AppBrandPalette.brandBlue,
+                                isSelected: selectedPlayerId == player.id,
+                                showScorePreview: showRoundScorePreview,
+                                scoringRules: scoringRules,
+                                tileHeight: tileHeight,
+                                onTap: { onSelect(player.id) }
+                            )
+                            .frame(width: tileWidth, height: tileHeight)
+                        } else {
+                            Color.clear
                                 .frame(width: tileWidth, height: tileHeight)
-                            } else {
-                                // Empty space for incomplete rows
-                                Color.clear
-                                    .frame(width: tileWidth, height: tileHeight)
-                            }
                         }
                     }
                 }
@@ -77,6 +93,7 @@ struct PlayerTile: View {
     let color: Color
     let isSelected: Bool
     let showScorePreview: Bool
+    let scoringRules: ScoringRules
     var tileHeight: CGFloat = 120 // Default height, will be overridden by grid
     let onTap: () -> Void
     
@@ -186,11 +203,11 @@ struct PlayerTile: View {
     }
     
     private var roundScore: Int {
-        ScoreEngine.calculateRoundScore(round: player.currentRound)
+        ScoreEngine.calculateRoundScore(round: player.currentRound, rules: scoringRules)
     }
     
     private var potentialTotal: Int {
-        ScoreEngine.previewTotalScore(player: player)
+        ScoreEngine.previewTotalScore(player: player, rules: scoringRules)
     }
     
     private var hasManualOverride: Bool {
@@ -240,9 +257,9 @@ struct PlayerTile: View {
     private var stateLabel: String? {
         switch playerState {
         case .inRound: return nil
-        case .banked: return "BANKED"
+        case .banked: return scoringRules.mode == .vengeance ? "STAYED" : "BANKED"
         case .busted: return "BUSTED"
-        case .frozen: return "FROZEN"
+        case .frozen: return scoringRules.mode == .vengeance ? "FORCED" : "FROZEN"
         }
     }
     
@@ -250,15 +267,19 @@ struct PlayerTile: View {
     private var shouldShowRoundScorePreview: Bool {
         guard showScorePreview else { return false }
         guard playerState != .busted else { return false }
-        return roundScore > 0 || hasManualOverride
+        return roundScore != 0 || hasManualOverride
     }
     
     /// Preview text showing round delta and potential total
     private var roundScorePreviewText: String {
         if hasManualOverride {
-            return "+\(roundScore) ✎ → \(potentialTotal)"
+            return "\(signedScore(roundScore)) ✎ -> \(potentialTotal)"
         }
-        return "+\(roundScore) → \(potentialTotal)"
+        return "\(signedScore(roundScore)) -> \(potentialTotal)"
+    }
+
+    private func signedScore(_ score: Int) -> String {
+        score > 0 ? "+\(score)" : "\(score)"
     }
     
     /// Preview text color (subtle, doesn't compete with selection)

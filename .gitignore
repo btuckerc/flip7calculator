@@ -3,3 +3,16 @@
 *.xcresult
 xcuserdata/
 *.xcuserstate
+
+# Apple signing and distribution secrets/artifacts
+*.p8
+*.p12
+*.cer
+*.mobileprovision
+*.ipa
+*.xcarchive/
+
+# Local environment files may contain App Store Connect credentials
+.env
+.env.*
+!.env.example

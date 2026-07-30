@@ -176,7 +176,7 @@ struct PaletteAuditView: View {
                     Circle()
                         .fill(ReservedColors.freezeCyan)
                         .frame(width: 32, height: 32)
-                    Text("Hold")
+                    Text("Freeze")
                         .font(.caption)
                 }
                 

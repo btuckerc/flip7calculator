@@ -1,0 +1,56 @@
+name: iOS CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-tests:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+      - name: Resolve simulator
+        run: make doctor SIMULATOR_NAME=auto
+      - name: Unit tests
+        run: make test-unit SIMULATOR_NAME=auto
+      - name: Preserve test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: ~/Library/Caches/FlippingSevenCalculator/Results/unit-tests.xcresult
+          if-no-files-found: ignore
+          retention-days: 7
+
+  release-gate:
+    if: github.event_name != 'pull_request'
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: UI tests
+        run: make ui-test SIMULATOR_NAME=auto
+      - name: Release simulator build
+        run: make build CONFIGURATION=Release SIMULATOR_NAME=auto
+      - name: Preserve UI diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-test-results
+          path: ~/Library/Caches/FlippingSevenCalculator/Results/ui-tests.xcresult
+          if-no-files-found: ignore
+          retention-days: 7

@@ -15,6 +15,7 @@ struct OptionChips<T: Hashable & RawRepresentable>: View where T.RawValue == Str
     let iconForOption: (T) -> String
     let colorForOption: ((T) -> Color)?
     let previewColorsForOption: ((T) -> [Color])?
+    let fillsAvailableWidth: Bool
     @Environment(\.visualTheme) private var visualTheme
     @Environment(\.colorScheme) private var colorScheme
     
@@ -25,7 +26,8 @@ struct OptionChips<T: Hashable & RawRepresentable>: View where T.RawValue == Str
         labelForOption: @escaping (T) -> String,
         iconForOption: @escaping (T) -> String,
         colorForOption: ((T) -> Color)? = nil,
-        previewColorsForOption: ((T) -> [Color])? = nil
+        previewColorsForOption: ((T) -> [Color])? = nil,
+        fillsAvailableWidth: Bool = false
     ) {
         self.options = options
         self.selectedOption = selectedOption
@@ -34,36 +36,69 @@ struct OptionChips<T: Hashable & RawRepresentable>: View where T.RawValue == Str
         self.iconForOption = iconForOption
         self.colorForOption = colorForOption
         self.previewColorsForOption = previewColorsForOption
+        self.fillsAvailableWidth = fillsAvailableWidth
     }
     
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                ForEach(options, id: \.rawValue) { option in
-                    OptionChip(
-                        option: option,
-                        isSelected: option == selectedOption,
-                        label: labelForOption(option),
-                        icon: iconForOption(option),
-                        color: colorForOption?(option),
-                        previewColors: previewColorsForOption?(option),
-                        onTap: {
-                            HapticFeedback.light()
-                            onSelect(option)
-                        }
-                    )
+        Group {
+            if fillsAvailableWidth {
+                chipRow
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    chipRow
                 }
             }
-            .padding(10)
-            .background(
-                RoundedRectangle(cornerRadius: 18)
-                    .fill(DesignColor.color(.surfaceRaised, theme: visualTheme, colorScheme: colorScheme))
+        }
+    }
+
+    private var chipRow: some View {
+        Group {
+            if fillsAvailableWidth {
+                LazyVGrid(
+                    columns: Array(
+                        repeating: GridItem(.flexible(), spacing: 10),
+                        count: max(options.count, 1)
+                    ),
+                    spacing: 10
+                ) {
+                    optionChips
+                }
+            } else {
+                HStack(spacing: 10) {
+                    optionChips
+                }
+            }
+        }
+        .padding(10)
+        .frame(maxWidth: fillsAvailableWidth ? .infinity : nil)
+        .background(
+            RoundedRectangle(cornerRadius: 18)
+                .fill(DesignColor.color(.surfaceRaised, theme: visualTheme, colorScheme: colorScheme))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(AppBrandPalette.cardBorder(colorScheme: colorScheme), lineWidth: 1)
+        )
+        .padding(.horizontal, 2)
+    }
+
+    @ViewBuilder
+    private var optionChips: some View {
+        ForEach(options, id: \.rawValue) { option in
+            OptionChip(
+                option: option,
+                isSelected: option == selectedOption,
+                label: labelForOption(option),
+                icon: iconForOption(option),
+                color: colorForOption?(option),
+                previewColors: previewColorsForOption?(option),
+                fillsAvailableWidth: fillsAvailableWidth,
+                onTap: {
+                    HapticFeedback.light()
+                    onSelect(option)
+                }
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: 18)
-                    .stroke(AppBrandPalette.cardBorder(colorScheme: colorScheme), lineWidth: 1)
-            )
-            .padding(.horizontal, 2)
+            .frame(maxWidth: fillsAvailableWidth ? .infinity : nil)
         }
     }
 }
@@ -75,6 +110,7 @@ struct OptionChip: View {
     let icon: String
     let color: Color?
     let previewColors: [Color]?
+    let fillsAvailableWidth: Bool
     let onTap: () -> Void
     @Environment(\.visualTheme) private var visualTheme
     @Environment(\.colorScheme) private var colorScheme
@@ -110,71 +146,93 @@ struct OptionChip: View {
     private var secondaryText: Color {
         DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme)
     }
+
+    private var chipHeight: CGFloat {
+        previewColors?.isEmpty == false ? 58 : 40
+    }
     
     var body: some View {
-        Button(action: onTap) {
-            if let previewColors = previewColors, !previewColors.isEmpty {
-                // Vertical layout for palette options: label on top, swatches below
-                VStack(spacing: 6) {
-                    // Top row: Label and checkmark
-                    HStack(spacing: 4) {
-                        Text(label)
-                            .font(.system(size: 14, weight: isSelected ? .semibold : .regular, design: .rounded))
-                            .foregroundStyle(isSelected ? primaryText : secondaryText)
-                        
-                        if isSelected {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(accentColor)
-                        }
-                    }
-                    
-                    // Bottom row: Color swatches
-                    HStack(spacing: 3) {
-                        ForEach(Array(previewColors.prefix(6).enumerated()), id: \.offset) { _, color in
-                            Circle()
-                                .fill(color)
-                                .frame(width: 8, height: 8)
-                        }
-                    }
+        Group {
+            if fillsAvailableWidth {
+                GeometryReader { geometry in
+                    chipButton(width: max(0, geometry.size.width))
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .frame(height: chipHeight)
             } else {
-                // Horizontal layout for theme options: icon + label + checkmark
-                HStack(spacing: 6) {
-                    Image(systemName: icon)
-                        .font(.system(size: 12))
-                        .foregroundStyle(isSelected ? accentColor : (color ?? secondaryText))
-                        .frame(width: 24, height: 24)
-                    
+                chipButton(width: nil)
+            }
+        }
+    }
+
+    private func chipButton(width: CGFloat?) -> some View {
+        Button(action: onTap) {
+            chipLabel(width: width)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(chipFill)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(chipStroke, lineWidth: isSelected ? 1.5 : 1)
+                )
+                .shadow(
+                    color: accentColor.opacity(isSelected ? 0.12 : 0),
+                    radius: isSelected ? 8 : 0,
+                    y: isSelected ? 4 : 0
+                )
+                .contentShape(RoundedRectangle(cornerRadius: 10))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+
+    @ViewBuilder
+    private func chipLabel(width: CGFloat?) -> some View {
+        if let previewColors = previewColors, !previewColors.isEmpty {
+            VStack(spacing: 6) {
+                HStack(spacing: 4) {
                     Text(label)
                         .font(.system(size: 14, weight: isSelected ? .semibold : .regular, design: .rounded))
                         .foregroundStyle(isSelected ? primaryText : secondaryText)
-                    
+
                     if isSelected {
                         Image(systemName: "checkmark")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(accentColor)
                     }
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+
+                HStack(spacing: 3) {
+                    ForEach(Array(previewColors.prefix(6).enumerated()), id: \.offset) { _, color in
+                        Circle()
+                            .fill(color)
+                            .frame(width: 8, height: 8)
+                    }
+                }
             }
+            .padding(.horizontal, width == nil ? 12 : 0)
+            .padding(.vertical, 8)
+            .frame(width: width)
+        } else {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 12))
+                    .foregroundStyle(isSelected ? accentColor : (color ?? secondaryText))
+                    .frame(width: 24, height: 24)
+
+                Text(label)
+                    .font(.system(size: 14, weight: isSelected ? .semibold : .regular, design: .rounded))
+                    .foregroundStyle(isSelected ? primaryText : secondaryText)
+
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(accentColor)
+                }
+            }
+            .padding(.horizontal, width == nil ? 12 : 0)
+            .padding(.vertical, 8)
+            .frame(width: width)
         }
-        .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(chipFill)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(chipStroke, lineWidth: isSelected ? 1.5 : 1)
-        )
-        .shadow(
-            color: accentColor.opacity(isSelected ? 0.12 : 0),
-            radius: isSelected ? 8 : 0,
-            y: isSelected ? 4 : 0
-        )
-        .buttonStyle(.plain)
     }
 }

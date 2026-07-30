@@ -33,6 +33,7 @@ Use this checklist when designing, reviewing, or refactoring UI in this repo.
 - Avoid recomputing heavy view state in hot paths without a reason.
 - Keep animations meaningful and short; do not trade clarity for spectacle.
 - If a refactor complicates state flow, it should buy a measurable UX or maintainability win.
+- Measure build, animation, or runtime performance before claiming an optimization; smoother-looking code is not evidence of smoother frames.
 
 ## 6. Brand and Trust
 
@@ -49,3 +50,5 @@ Before closing a UI task, ask:
 - Did I improve or damage accessibility?
 - Does the change still make sense on iPad?
 - Did I add a new hard-coded style that should have been tokenized instead?
+- Did I inspect the rendered result on the device classes affected, rather than infer it from source?
+- Does insertion, deletion, swipe, focus, and edit state avoid flashing an impossible intermediate UI?

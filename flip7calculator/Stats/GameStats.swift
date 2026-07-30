@@ -164,8 +164,9 @@ struct GameStats {
         var closest: (roundNumber: Int, spread: Int)?
         
         for gameRound in game.gameHistory {
-            let scores = gameRound.results.map { $0.roundScore }
-            let nonBustScores = scores.filter { $0 > 0 }
+            let nonBustScores = gameRound.results
+                .filter { !$0.isBusted }
+                .map(\.roundScore)
             guard nonBustScores.count >= 2 else { continue }
             
             let spread = (nonBustScores.max() ?? 0) - (nonBustScores.min() ?? 0)
@@ -219,6 +220,30 @@ struct GameStats {
     var totalModifiersUsed: Int {
         game.gameHistory.reduce(0) { total, round in
             total + round.results.reduce(0) { $0 + $1.modifierTotal }
+        }
+    }
+
+    var totalNegativeModifierPoints: Int {
+        game.gameHistory.reduce(0) { total, round in
+            total + round.results.reduce(0) { $0 + $1.subtractModifierTotal }
+        }
+    }
+
+    var totalDivideByTwoUsed: Int {
+        game.gameHistory.reduce(0) { total, round in
+            total + round.results.reduce(0) { $0 + $1.divideByTwoCount }
+        }
+    }
+
+    var totalSpecialNumbersUsed: Int {
+        game.gameHistory.reduce(0) { total, round in
+            total + round.results.reduce(0) { $0 + $1.specialNumberCount }
+        }
+    }
+
+    var totalRedirectedSevenCardBonuses: Int {
+        game.gameHistory.reduce(0) { total, round in
+            total + round.results.filter(\.redirectedSevenCardBonus).count
         }
     }
     
@@ -390,6 +415,22 @@ struct PlayerGameStats {
     var totalModifiersUsed: Int {
         roundResults.reduce(0) { $0 + $1.modifierTotal }
     }
+
+    var totalNegativeModifierPoints: Int {
+        roundResults.reduce(0) { $0 + $1.subtractModifierTotal }
+    }
+
+    var totalDivideByTwoUsed: Int {
+        roundResults.reduce(0) { $0 + $1.divideByTwoCount }
+    }
+
+    var totalSpecialNumbersUsed: Int {
+        roundResults.reduce(0) { $0 + $1.specialNumberCount }
+    }
+
+    var redirectedSevenCardBonusCount: Int {
+        roundResults.filter(\.redirectedSevenCardBonus).count
+    }
     
     // MARK: - Score Breakdown
     
@@ -410,7 +451,7 @@ struct PlayerGameStats {
     
     /// Total seven-card bonus points earned
     var totalSevenCardBonusPoints: Int {
-        sevenCardBonusCount * ScoreEngine.sevenCardBonus
+        (sevenCardBonusCount - redirectedSevenCardBonusCount) * ScoreEngine.sevenCardBonus
     }
     
     // MARK: - Streaks

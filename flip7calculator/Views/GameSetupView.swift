@@ -20,6 +20,8 @@ struct GameSetupView: View {
     @State private var showingSettings = false
     
     @AppStorage("defaultTargetScore") private var defaultTargetScore: Int = 200
+    @AppStorage("defaultGameMode") private var defaultGameModeRaw: String = GameMode.classic.rawValue
+    @AppStorage("defaultBrutalMode") private var defaultBrutalMode: Bool = ScoringRules.defaultBrutalMode
     @AppStorage("appTheme") private var appTheme: String = "system"
     @Environment(\.visualTheme) private var visualTheme
     @Environment(\.colorScheme) private var colorScheme
@@ -37,6 +39,10 @@ struct GameSetupView: View {
         }
     }
 
+    private var selectedGameMode: GameMode {
+        GameMode(rawValue: defaultGameModeRaw) ?? .classic
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -49,6 +55,18 @@ struct GameSetupView: View {
                         onPersist: persistRosterOrder,
                         onReset: clearPlayers,
                         showsPlayerSummary: false
+                    )
+
+                    SetupGameModeCard(
+                        selectedMode: selectedGameMode,
+                        brutalMode: defaultBrutalMode,
+                        onSelectMode: { mode in
+                            defaultGameModeRaw = mode.rawValue
+                            if mode == .classic {
+                                defaultBrutalMode = ScoringRules.defaultBrutalMode
+                            }
+                        },
+                        onSetBrutalMode: { defaultBrutalMode = $0 }
                     )
 
                     SetupTargetScoreCard(
@@ -106,6 +124,7 @@ struct GameSetupView: View {
                     Button(action: { showingSettings = true }) {
                         Image(systemName: "gearshape")
                     }
+                    .accessibilityLabel("Settings")
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -191,13 +210,73 @@ struct GameSetupView: View {
         }
         
         PersistedRoster(names: players).save()
-        viewModel.startNewGame(players: players, targetScore: targetScore)
+        viewModel.startNewGame(
+            players: players,
+            targetScore: targetScore,
+            scoringRules: ScoringRules(mode: selectedGameMode, brutalMode: defaultBrutalMode)
+        )
     }
     
     private func persistRosterOrder() {
         let names = playerRows.map { $0.name.trimmingCharacters(in: .whitespaces) }
         PersistedRoster(names: names).save()
         focusCoordinator.setOrder(playerRows.map { $0.id })
+    }
+}
+
+private struct SetupGameModeCard: View {
+    let selectedMode: GameMode
+    let brutalMode: Bool
+    let onSelectMode: (GameMode) -> Void
+    let onSetBrutalMode: (Bool) -> Void
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Game Mode")
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
+                .textCase(.uppercase)
+
+            OptionChips(
+                options: GameMode.allCases,
+                selectedOption: selectedMode,
+                onSelect: onSelectMode,
+                labelForOption: { $0.displayName },
+                iconForOption: { $0.icon },
+                fillsAvailableWidth: true
+            )
+
+            VStack(alignment: .leading, spacing: 5) {
+                if let expansionRequirement = selectedMode.expansionRequirement {
+                    Text(expansionRequirement)
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundStyle(DesignColor.color(.textPrimary, theme: visualTheme, colorScheme: colorScheme))
+                }
+
+                Text(selectedMode.shortDescription)
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
+            }
+
+            if selectedMode == .vengeance {
+                Toggle(isOn: Binding(get: { brutalMode }, set: onSetBrutalMode)) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Brutal Mode")
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        Text(ScoringRules.brutalModeDescription)
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .accessibilityLabel("Brutal Mode")
+                .accessibilityHint("Changes scoring for the next game")
+            }
+        }
+        .padding(20)
+        .cardSurface(cornerRadius: 22)
+        .animation(DesignMotion.animation(.fast), value: selectedMode)
     }
 }
 

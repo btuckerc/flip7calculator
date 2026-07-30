@@ -9,7 +9,7 @@ import SwiftUI
 
 /// Player color palette themes - each with a unique curated 8-color set.
 /// Colors are carefully chosen to:
-/// - Stay distinct from action colors (Bank green, Bust red, Hold cyan)
+/// - Stay distinct from action colors (Bank green, Bust red, Freeze cyan)
 /// - Remain visually distinct from each other for up to 8 players
 /// - Feel comfortable and avoid harsh/ugly colors
 enum PlayerPalette: String, CaseIterable {

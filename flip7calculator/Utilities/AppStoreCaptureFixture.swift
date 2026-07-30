@@ -6,6 +6,7 @@ enum AppStoreCaptureFixture: String {
     case live
     case gameOver = "game-over"
     case stats
+    case layoutAudit = "layout-audit"
 
     static let requested: AppStoreCaptureFixture? = {
         let arguments = ProcessInfo.processInfo.arguments
@@ -18,18 +19,41 @@ enum AppStoreCaptureFixture: String {
 
     static let playerNames = ["Peter", "Ned", "Mary", "Gwen"]
 
+    static let layoutAuditPlayerNames = [
+        "Peter", "Ned", "Mary", "Gwen", "Miles", "May", "Ben", "Felicia"
+    ]
+
     private static let playerIDs = [
         UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
         UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
         UUID(uuidString: "00000000-0000-0000-0000-000000000003")!,
-        UUID(uuidString: "00000000-0000-0000-0000-000000000004")!
+        UUID(uuidString: "00000000-0000-0000-0000-000000000004")!,
+        UUID(uuidString: "00000000-0000-0000-0000-000000000005")!,
+        UUID(uuidString: "00000000-0000-0000-0000-000000000006")!,
+        UUID(uuidString: "00000000-0000-0000-0000-000000000007")!,
+        UUID(uuidString: "00000000-0000-0000-0000-000000000008")!
     ]
+
+    private static var layoutAuditPlayerCount: Int {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let flagIndex = arguments.firstIndex(of: "-capturePlayerCount"),
+              arguments.indices.contains(flagIndex + 1),
+              let requestedCount = Int(arguments[flagIndex + 1]) else {
+            return 4
+        }
+        return min(max(requestedCount, 4), layoutAuditPlayerNames.count)
+    }
 
     static func prepareDefaults() {
         UserDefaults.standard.set("dark", forKey: "appTheme")
         UserDefaults.standard.set(VisualTheme.v2.rawValue, forKey: "visualThemeVersion")
         UserDefaults.standard.set(false, forKey: "showOpeningAnimation")
-        PersistedRoster(names: playerNames).save()
+        UserDefaults.standard.set(GameMode.classic.rawValue, forKey: "defaultGameMode")
+        UserDefaults.standard.set(ScoringRules.defaultBrutalMode, forKey: "defaultBrutalMode")
+        let names = requested == .layoutAudit
+            ? Array(layoutAuditPlayerNames.prefix(layoutAuditPlayerCount))
+            : playerNames
+        PersistedRoster(names: names).save()
     }
 
     static func game(for fixture: AppStoreCaptureFixture) -> Game? {
@@ -40,7 +64,21 @@ enum AppStoreCaptureFixture: String {
             return liveGame()
         case .gameOver, .stats:
             return completedGame()
+        case .layoutAudit:
+            return layoutAuditGame()
         }
+    }
+
+    private static func layoutAuditGame() -> Game {
+        let players = zip(playerIDs, layoutAuditPlayerNames)
+            .prefix(layoutAuditPlayerCount)
+            .map { id, name in Player(id: id, name: name) }
+        return Game(
+            players: players,
+            targetScore: 200,
+            deckProfile: .vengeance,
+            scoringRules: .vengeance
+        )
     }
 
     private static func liveGame() -> Game {
@@ -190,6 +228,8 @@ struct AppStoreCaptureView: View {
                 if let game = viewModel.game {
                     GameOverStatsView(game: game)
                 }
+            case .layoutAudit:
+                GameView(viewModel: viewModel)
             }
         }
         .preferredColorScheme(.dark)

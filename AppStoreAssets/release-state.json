@@ -1,0 +1,9 @@
+{
+  "bundleId": "com.tcraig.flip7calculator.ios",
+  "lastUploaded": {
+    "version": "1.3",
+    "build": 11,
+    "recordedAt": "2026-07-29T13:47:36Z"
+  },
+  "note": "Dated local lower bound. Query App Store Connect before release and update this file after every successful upload."
+}

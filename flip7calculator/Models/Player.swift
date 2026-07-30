@@ -22,8 +22,8 @@ struct Player: Identifiable, Codable, Equatable {
     }
     
     /// Banks the current round's points and adds to total score
-    mutating func bankRound() {
-        let roundPoints = ScoreEngine.calculateRoundScore(round: currentRound)
+    mutating func bankRound(rules: ScoringRules = .classic) {
+        let roundPoints = ScoreEngine.calculateRoundScore(round: currentRound, rules: rules)
         totalScore += roundPoints
         currentRound.reset()
     }
@@ -33,7 +33,6 @@ struct Player: Identifiable, Codable, Equatable {
         currentRound.reset()
     }
 }
-
 
 
 

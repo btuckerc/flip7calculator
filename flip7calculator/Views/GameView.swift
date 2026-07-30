@@ -63,7 +63,7 @@ struct GameView: View {
     private var wouldProduceWinner: Bool {
         guard let game = viewModel.game else { return false }
         return game.players.contains { player in
-            ScoreEngine.previewTotalScore(player: player) >= game.targetScore
+            ScoreEngine.previewTotalScore(player: player, rules: game.scoringRules) >= game.targetScore
         }
     }
     
@@ -86,6 +86,7 @@ struct GameView: View {
                         players: game.players,
                         playerColors: playerColors,
                         selectedPlayerId: selectedPlayerId,
+                        scoringRules: game.scoringRules,
                         onSelect: { id in
                             // Animate only tile selection styling, not layout
                             selectedPlayerId = id
@@ -177,11 +178,13 @@ struct GameView: View {
                                 HStack(spacing: 6) {
                                     Text("Continue")
                                         .font(.system(size: 16, weight: .semibold, design: .rounded))
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.85)
                                     Image(systemName: "arrow.right.circle.fill")
                                         .font(.system(size: 18))
                                 }
                                 .foregroundStyle(.white)
-                                .padding(.horizontal, 16)
+                                .padding(.horizontal, 10)
                                 .padding(.vertical, 10)
                                 .background(
                                     Capsule()
@@ -202,6 +205,7 @@ struct GameView: View {
                         Button(action: { showingSettings = true }) {
                             Image(systemName: "gearshape")
                         }
+                        .accessibilityLabel("Settings")
                     }
                     
                     ToolbarItem(placement: .navigationBarTrailing) {
@@ -221,7 +225,7 @@ struct GameView: View {
                         .id(appTheme)
                 }
                 .sheet(isPresented: $showingRules) {
-                    AppHelpView()
+                    AppHelpView(scoringRules: game.scoringRules)
                         .preferredColorScheme(selectedTheme.colorScheme)
                         .tint(themeAccent)
                         .id(appTheme)
@@ -349,7 +353,9 @@ struct GameView: View {
         case .newRound:
             if wouldProduceWinner {
                 // Find the preview winner(s)
-                let previewScores = game.players.map { ($0.name, ScoreEngine.previewTotalScore(player: $0)) }
+                let previewScores = game.players.map {
+                    ($0.name, ScoreEngine.previewTotalScore(player: $0, rules: game.scoringRules))
+                }
                 let maxScore = previewScores.map { $0.1 }.max() ?? 0
                 let winners = previewScores.filter { $0.1 == maxScore && $0.1 >= game.targetScore }
                 
@@ -405,27 +411,43 @@ struct GameView: View {
         
         // Players who will score points
         let scoringPlayers = game.players.filter { player in
-            let score = ScoreEngine.calculateRoundScore(round: player.currentRound)
-            return score > 0
+            let score = ScoreEngine.calculateRoundScore(round: player.currentRound, rules: game.scoringRules)
+            return score != 0
         }
         
         if !scoringPlayers.isEmpty {
-            let names = scoringPlayers.map { "\($0.name) (+\(ScoreEngine.calculateRoundScore(round: $0.currentRound)))" }
-            parts.append("Banking: \(names.joined(separator: ", "))")
+            let names = scoringPlayers.map {
+                let score = ScoreEngine.calculateRoundScore(round: $0.currentRound, rules: game.scoringRules)
+                return "\($0.name) (\(score > 0 ? "+" : "")\(score))"
+            }
+            parts.append("Scoring: \(names.joined(separator: ", "))")
         }
         
         if !bustedPlayers.isEmpty {
-            let names = bustedPlayers.map { $0.name }
-            parts.append("Busted (0 pts): \(names.joined(separator: ", "))")
+            let names = bustedPlayers.map { player in
+                let score = ScoreEngine.calculateRoundScore(round: player.currentRound, rules: game.scoringRules)
+                return game.scoringRules.brutalMode ? "\(player.name) (\(score))" : player.name
+            }
+            parts.append("Busted\(game.scoringRules.brutalMode ? "" : " (0 pts)"): \(names.joined(separator: ", "))")
         }
         
         if !inRoundPlayers.isEmpty {
-            let inRoundWithCards = inRoundPlayers.filter { !$0.currentRound.hand.selectedNumbers.isEmpty || $0.currentRound.manualScoreOverride != nil }
-            let inRoundNoCards = inRoundPlayers.filter { $0.currentRound.hand.selectedNumbers.isEmpty && $0.currentRound.manualScoreOverride == nil }
+            let inRoundWithCards = inRoundPlayers.filter {
+                !$0.currentRound.hand.isEmpty || $0.currentRound.manualScoreOverride != nil
+            }
+            let inRoundNoCards = inRoundPlayers.filter {
+                $0.currentRound.hand.isEmpty && $0.currentRound.manualScoreOverride == nil
+            }
             
             if !inRoundWithCards.isEmpty {
-                let names = inRoundWithCards.map { "\($0.name) (+\(ScoreEngine.calculateRoundScore(round: $0.currentRound)))" }
-                parts.append("Still in round (will bank): \(names.joined(separator: ", "))")
+                let names = inRoundWithCards.map { player in
+                    let score = ScoreEngine.calculateRoundScore(
+                        round: player.currentRound,
+                        rules: game.scoringRules
+                    )
+                    return "\(player.name) (\(score > 0 ? "+" : "")\(score))"
+                }
+                parts.append("Still in round (will score): \(names.joined(separator: ", "))")
             }
             if !inRoundNoCards.isEmpty {
                 let names = inRoundNoCards.map { $0.name }
@@ -494,6 +516,14 @@ struct SelectedPlayerPanel: View {
                     .foregroundStyle(playerColor)
                     .lineLimit(1)
                     .truncationMode(.tail)
+
+                Text(game.scoringRules.brutalMode ? "BRUTAL" : game.scoringRules.mode.displayName.uppercased())
+                    .font(.system(size: 9, weight: .black, design: .rounded))
+                    .tracking(0.5)
+                    .foregroundStyle(game.scoringRules.brutalMode ? AppBrandPalette.copper : bonusColor)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(Capsule().fill((game.scoringRules.brutalMode ? AppBrandPalette.copper : bonusColor).opacity(0.14)))
                 
                 Spacer()
                 
@@ -522,24 +552,59 @@ struct SelectedPlayerPanel: View {
             PlayerActionButtons(
                 player: player,
                 selectedId: selectedId,
-                viewModel: viewModel
+                viewModel: viewModel,
+                scoringRules: game.scoringRules
             )
             .padding(.horizontal)
+
+            if game.scoringRules.brutalMode && player.currentRound.hand.hasSevenCardBonus {
+                BrutalBonusChoiceRow(
+                    sourcePlayer: player,
+                    players: game.players,
+                    onSelectTarget: { targetId in
+                        viewModel.setSevenCardBonusTarget(
+                            sourcePlayerId: selectedId,
+                            targetPlayerId: targetId
+                        )
+                    }
+                )
+                .padding(.horizontal)
+            }
             
             // Card picker - compute availability outside to help compiler
             // Editing is locked when: banked, frozen, busted, or manual score override is set
-            let isEditingLocked = player.currentRound.state != .inRound || player.currentRound.manualScoreOverride != nil
-            let isManualScoreLocked = player.currentRound.state != .inRound
-            let x2Enabled = !isEditingLocked && (player.currentRound.hand.x2Count > 0 || viewModel.canAddX2())
+            let hasManualOverride = player.currentRound.manualScoreOverride != nil
+            let allowsActionEdits = game.scoringRules.mode == .vengeance
+                && player.currentRound.state != .busted
+            let canEditCards = !hasManualOverride
+                && (player.currentRound.state == .inRound || allowsActionEdits)
+            let canEditBrutalModifiers = !hasManualOverride
+                && game.scoringRules.brutalMode
+                && player.currentRound.state == .busted
+            let canEditVengeanceModifiers = canEditCards || canEditBrutalModifiers
+            let isManualScoreLocked = player.currentRound.state == .busted && !game.scoringRules.brutalMode
+            let x2Enabled = canEditCards && (player.currentRound.hand.x2Count > 0 || viewModel.canAddX2())
+            let divideByTwoEnabled = canEditVengeanceModifiers
+                && (player.currentRound.hand.divideByTwoCount > 0 || viewModel.canAddDivideByTwo())
             
             // Check if deck has only one of each modifier (to hide "Hold to remove" hint and badges)
             let deckProfile = game.deckProfile
-            let hasOnlyOneOfEachModifier = deckProfile.addModifierCounts.values.allSatisfy { $0 <= 1 } && deckProfile.x2Count <= 1
+            let hasOnlyOneOfEachModifier = game.scoringRules.mode == .classic
+                ? deckProfile.addModifierCounts.values.allSatisfy { $0 <= 1 } && deckProfile.x2Count <= 1
+                : deckProfile.subtractModifierCounts.values.allSatisfy { $0 <= 1 } && deckProfile.divideByTwoCount <= 1
             
             QuickCardPicker(
                 player: player,
+                scoringRules: game.scoringRules,
                 onTapNumber: { number in
                     onNumberTap(selectedId, number)
+                },
+                onTapSpecialNumber: { card in
+                    if player.currentRound.hand.specialNumbers.contains(card) {
+                        viewModel.removeSpecialNumberFromPlayer(selectedId, card: card)
+                    } else {
+                        viewModel.addSpecialNumberToPlayer(selectedId, card: card)
+                    }
                 },
                 onIncrementModifier: { value in
                     // If deck has only 1 copy and player already has it, remove on tap
@@ -567,6 +632,30 @@ struct SelectedPlayerPanel: View {
                 onDecrementX2: {
                     viewModel.removeX2FromPlayer(selectedId)
                 },
+                onIncrementSubtractModifier: { value in
+                    let deckCount = game.deckProfile.subtractModifierCounts[value] ?? 0
+                    let playerCount = player.currentRound.hand.subtractMods[value] ?? 0
+                    if deckCount == 1 && playerCount > 0 {
+                        viewModel.removeSubtractModifierFromPlayer(selectedId, value: value)
+                    } else {
+                        viewModel.addSubtractModifierToPlayer(selectedId, value: value)
+                    }
+                },
+                onDecrementSubtractModifier: { value in
+                    viewModel.removeSubtractModifierFromPlayer(selectedId, value: value)
+                },
+                onIncrementDivideByTwo: {
+                    let deckCount = game.deckProfile.divideByTwoCount
+                    let playerCount = player.currentRound.hand.divideByTwoCount
+                    if deckCount == 1 && playerCount > 0 {
+                        viewModel.removeDivideByTwoFromPlayer(selectedId)
+                    } else {
+                        viewModel.addDivideByTwoToPlayer(selectedId)
+                    }
+                },
+                onDecrementDivideByTwo: {
+                    viewModel.removeDivideByTwoFromPlayer(selectedId)
+                },
                 showingBustBanner: showingBustBanner,
                 bustNumber: bustNumber,
                 onConfirmBust: {
@@ -581,7 +670,7 @@ struct SelectedPlayerPanel: View {
                 },
                 isNumberEnabled: { number in
                     // Disabled when editing is locked (banked/frozen/busted/manual score)
-                    if isEditingLocked {
+                    if !canEditCards {
                         return false
                     }
                     // Allow if player already has it (can remove) or if available in deck
@@ -590,9 +679,16 @@ struct SelectedPlayerPanel: View {
                     }
                     return viewModel.canAddNumber(number, toPlayer: selectedId)
                 },
+                isSpecialNumberEnabled: { card in
+                    guard canEditCards else { return false }
+                    if player.currentRound.hand.specialNumbers.contains(card) {
+                        return true
+                    }
+                    return viewModel.canAddSpecialNumber(card, toPlayer: selectedId)
+                },
                 isModifierEnabled: { value in
                     // Disabled when editing is locked
-                    if isEditingLocked {
+                    if !canEditCards {
                         return false
                     }
                     // Allow if player already has it (can remove) or if available in deck
@@ -602,6 +698,14 @@ struct SelectedPlayerPanel: View {
                     return viewModel.canAddModifier(value)
                 },
                 isX2Enabled: x2Enabled,
+                isSubtractModifierEnabled: { value in
+                    guard canEditVengeanceModifiers else { return false }
+                    if (player.currentRound.hand.subtractMods[value] ?? 0) > 0 {
+                        return true
+                    }
+                    return viewModel.canAddSubtractModifier(value)
+                },
+                isDivideByTwoEnabled: divideByTwoEnabled,
                 isManualScoreEnabled: !isManualScoreLocked,
                 onSaveManualScore: { score in
                     viewModel.setManualScoreOverride(selectedId, score: score)
@@ -632,6 +736,58 @@ struct SelectedPlayerPanel: View {
     }
 }
 
+private struct BrutalBonusChoiceRow: View {
+    let sourcePlayer: Player
+    let players: [Player]
+    let onSelectTarget: (UUID?) -> Void
+
+    private var selectedTarget: Player? {
+        guard let targetId = sourcePlayer.currentRound.sevenCardBonusTargetId else { return nil }
+        return players.first(where: { $0.id == targetId })
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "burst.fill")
+                .foregroundStyle(AppBrandPalette.copper)
+
+            Text("7-card reward")
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+
+            Spacer()
+
+            Menu {
+                Button {
+                    onSelectTarget(nil)
+                } label: {
+                    Label("Keep +15", systemImage: "plus.circle")
+                }
+
+                ForEach(players.filter { $0.id != sourcePlayer.id }) { player in
+                    Button {
+                        onSelectTarget(player.id)
+                    } label: {
+                        Label("Give \(player.name) -15", systemImage: "minus.circle")
+                    }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(selectedTarget.map { "\($0.name) -15" } ?? "Keep +15")
+                        .lineLimit(1)
+                    Image(systemName: "chevron.up.chevron.down")
+                        .font(.system(size: 9, weight: .bold))
+                }
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .foregroundStyle(AppBrandPalette.copper)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Capsule().fill(AppBrandPalette.copper.opacity(0.14)))
+            }
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
 // MARK: - Player Action Buttons
 
 /// Fixed-height action button row that maintains consistent height regardless of player state.
@@ -640,6 +796,7 @@ struct PlayerActionButtons: View {
     let player: Player
     let selectedId: UUID
     @Bindable var viewModel: GameViewModel
+    let scoringRules: ScoringRules
     @Environment(\.visualTheme) private var visualTheme
     @Environment(\.colorScheme) private var colorScheme
 
@@ -662,10 +819,10 @@ struct PlayerActionButtons: View {
     var body: some View {
         // Use ZStack with fixed height to prevent layout shifts between states
         ZStack {
-            // In Round: Bank, Bust, Hold
+            // In Round: Bank/Stay, Bust, Freeze/Forced Stay
             HStack(spacing: 6) {
                 ActionPillButton(
-                    title: "Bank",
+                    title: scoringRules.mode == .vengeance ? "Stay" : "Bank",
                     icon: "checkmark.circle.fill",
                     color: bankColor,
                     action: {
@@ -685,7 +842,7 @@ struct PlayerActionButtons: View {
                 )
                 
                 ActionPillButton(
-                    title: "Hold",
+                    title: scoringRules.mode == .vengeance ? "Forced Stay" : "Freeze",
                     icon: "snowflake",
                     color: holdColor,
                     action: {
@@ -696,6 +853,7 @@ struct PlayerActionButtons: View {
             }
             .opacity(player.currentRound.state == .inRound ? 1 : 0)
             .allowsHitTesting(player.currentRound.state == .inRound)
+            .accessibilityHidden(player.currentRound.state != .inRound)
             
             // Busted state
             HStack(spacing: 6) {
@@ -722,6 +880,7 @@ struct PlayerActionButtons: View {
             }
             .opacity(player.currentRound.state == .busted ? 1 : 0)
             .allowsHitTesting(player.currentRound.state == .busted)
+            .accessibilityHidden(player.currentRound.state != .busted)
             
             // Banked state
             HStack(spacing: 6) {
@@ -729,7 +888,7 @@ struct PlayerActionButtons: View {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 18))
                         .foregroundStyle(bankColor)
-                    Text("Banked")
+                    Text(scoringRules.mode == .vengeance ? "Stayed" : "Banked")
                         .font(.system(size: 12, weight: .bold, design: .rounded))
                         .foregroundStyle(bankColor)
                 }
@@ -748,6 +907,7 @@ struct PlayerActionButtons: View {
             }
             .opacity(player.currentRound.state == .banked ? 1 : 0)
             .allowsHitTesting(player.currentRound.state == .banked)
+            .accessibilityHidden(player.currentRound.state != .banked)
             
             // Held state
             HStack(spacing: 6) {
@@ -755,7 +915,7 @@ struct PlayerActionButtons: View {
                     Image(systemName: "snowflake")
                         .font(.system(size: 18))
                         .foregroundStyle(holdColor)
-                    Text("On Hold")
+                    Text(scoringRules.mode == .vengeance ? "Forced Stay" : "Frozen")
                         .font(.system(size: 12, weight: .bold, design: .rounded))
                         .foregroundStyle(holdColor)
                 }
@@ -774,6 +934,7 @@ struct PlayerActionButtons: View {
             }
             .opacity(player.currentRound.state == .frozen ? 1 : 0)
             .allowsHitTesting(player.currentRound.state == .frozen)
+            .accessibilityHidden(player.currentRound.state != .frozen)
         }
         // Fixed height ensures consistent layout
         .frame(height: 36)
@@ -809,6 +970,7 @@ struct ActionPillButton: View {
             .scaleEffect(isPressed ? 0.95 : 1.0)
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(title)
         .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
             withAnimation(.spring(response: 0.15, dampingFraction: 0.8)) {
                 isPressed = pressing

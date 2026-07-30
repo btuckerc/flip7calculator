@@ -19,18 +19,28 @@ match="$(
       | to_entries[]
       | select(.key | test("^com\\.apple\\.CoreSimulator\\.SimRuntime\\.iOS"))
       | .key as $runtime
-      | .value[]
-      | select(.isAvailable == true and .name == $name)
+      | .value
+      | to_entries[]
+      | .key as $device_order
+      | .value
+      | select(.isAvailable == true)
       | {
           udid: .udid,
           name: .name,
+          device_order: $device_order,
           version: ($runtime | capture("iOS-(?<v>.*)$").v | gsub("-"; ".")),
           version_key: ($runtime | capture("iOS-(?<v>.*)$").v | split("-") | map(tonumber))
         }
     ]
+    | if $name == "auto"
+      then map(select(.name | startswith("iPhone ")))
+      else map(select(.name == $name))
+      end
+    | . as $matches
     | if $os == "" or $os == "latest"
-      then sort_by(.version_key) | last
-      else map(select(.version == $os)) | sort_by(.version_key) | last
+      then ($matches | map(.version_key) | max) as $latest
+        | $matches | map(select(.version_key == $latest)) | sort_by(.device_order) | first
+      else $matches | map(select(.version == $os)) | sort_by(.device_order) | first
       end
     | if . == null then empty else @base64 end
   ' <<<"$json"
@@ -59,7 +69,7 @@ version="$(decoded '.version')"
 
 case "$mode" in
   destination)
-    printf 'platform=iOS Simulator,id=%s\n' "$udid"
+    printf 'platform=iOS Simulator,arch=%s,id=%s\n' "$(uname -m)" "$udid"
     ;;
   udid)
     printf '%s\n' "$udid"

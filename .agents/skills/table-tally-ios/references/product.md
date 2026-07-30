@@ -12,6 +12,7 @@ Current strengths:
 - Deck-profile customization
 - End-of-game stats
 - iPhone and iPad support
+- Separate Classic and Vengeance profiles with safe mid-game switching
 
 ## What Matters Most
 
@@ -21,6 +22,7 @@ Future changes should strengthen these outcomes:
 - Common actions stay tap-efficient during live play.
 - The app feels trustworthy: score math is clear, mistakes are reversible, and state changes are obvious.
 - The experience stays lightweight and offline. Do not assume a backend, account system, analytics pipeline, or remote sync.
+- Existing local games and preferences survive app updates. Backward-compatible decoding is a product requirement, not only an engineering preference.
 
 ## Rebrand Constraint
 
@@ -43,6 +45,7 @@ Usually avoid:
 - Mandatory onboarding or account creation
 - Network-coupled features
 - Theme or animation work that ignores Reduce Motion, contrast, or iPad parity
+- Network, account, or telemetry infrastructure without an explicit product decision
 
 ## Internal Naming Reality
 
@@ -65,3 +68,5 @@ The user-facing brand is `Flipping Seven Calculator`, but internal project ident
 - `flip7calculator/Utilities/DesignTokens.swift`
 - `flip7calculator/Utilities/DesignStyles.swift`
   - tokenized styling foundation for ongoing UI cleanup
+
+For full state flow, persistence keys, mode-switch invariants, and change-impact recipes, read `docs/ARCHITECTURE.md`.

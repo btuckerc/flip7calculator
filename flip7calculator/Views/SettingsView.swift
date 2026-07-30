@@ -63,6 +63,8 @@ struct SettingsView: View {
     @AppStorage("showOpeningAnimation") private var showOpeningAnimation: Bool = true
     @AppStorage("animateMainMenuTitle") private var animateMainMenuTitle: Bool = true
     @AppStorage("defaultTargetScore") private var defaultTargetScore: Int = 200
+    @AppStorage("defaultGameMode") private var defaultGameModeRaw: String = GameMode.classic.rawValue
+    @AppStorage("defaultBrutalMode") private var defaultBrutalMode: Bool = ScoringRules.defaultBrutalMode
     @AppStorage("visualThemeVersion") private var visualThemeVersion: String = VisualTheme.v2.rawValue
     
     @State private var showingTargetScoreEditor = false
@@ -78,6 +80,26 @@ struct SettingsView: View {
 
     private var selectedVisualTheme: VisualTheme {
         VisualTheme(rawValue: visualThemeVersion) ?? .v2
+    }
+
+    private var selectedDefaultGameMode: GameMode {
+        GameMode(rawValue: defaultGameModeRaw) ?? .classic
+    }
+
+    private var displayedGameMode: GameMode {
+        viewModel.game?.scoringRules.mode ?? selectedDefaultGameMode
+    }
+
+    private var brutalModeBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.game?.scoringRules.brutalMode ?? defaultBrutalMode },
+            set: { enabled in
+                defaultBrutalMode = enabled
+                if viewModel.game?.scoringRules.mode == .vengeance {
+                    viewModel.setBrutalMode(enabled)
+                }
+            }
+        )
     }
 
     private var themeTint: Color {
@@ -170,6 +192,39 @@ struct SettingsView: View {
                 
                 // Game Options: Target Score, Manage Players, Manage Deck
                 Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(viewModel.game == nil ? "Default Game Mode" : "Game Mode")
+
+                        OptionChips(
+                            options: GameMode.allCases,
+                            selectedOption: displayedGameMode,
+                            onSelect: selectGameMode,
+                            labelForOption: { $0.displayName },
+                            iconForOption: { $0.icon },
+                            fillsAvailableWidth: true
+                        )
+                    }
+                    .padding(.vertical, 4)
+                    .settingsRowStyle(background: rowBackground, separator: rowSeparator)
+
+                    if displayedGameMode == .vengeance {
+                        Toggle(isOn: brutalModeBinding) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Brutal Mode")
+                                Text(ScoringRules.brutalModeDescription)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .accessibilityLabel("Brutal Mode")
+                        .accessibilityHint(
+                            viewModel.game == nil
+                                ? "Uses the optional cutthroat rules for new Vengeance games"
+                                : "Changes the optional cutthroat rules for the current Vengeance game"
+                        )
+                        .settingsRowStyle(background: rowBackground, separator: rowSeparator)
+                    }
+
                     // Target Score - editable
                     HStack {
                         Text("Target Score")
@@ -229,7 +284,8 @@ struct SettingsView: View {
                         HStack {
                             Text("Manage Deck")
                             Spacer()
-                            let deckProfile = PersistedDeckProfile.load().deckProfile
+                            let deckProfile = viewModel.game?.deckProfile
+                                ?? PersistedDeckProfile.load(for: selectedDefaultGameMode).deckProfile
                             Text("\(deckProfile.totalCardCount) cards")
                                 .foregroundStyle(.secondary)
                         }
@@ -239,9 +295,9 @@ struct SettingsView: View {
                     Text("Game Options")
                 } footer: {
                     if viewModel.game != nil {
-                        Text("Changes to target score will update the current game")
+                        Text("Mode changes apply immediately. Shared number cards stay in this round; mode-specific entries return if you switch back.")
                     } else {
-                        Text("Target score will be used for new games")
+                        Text("These defaults will be used for new games")
                     }
                 }
                 
@@ -364,6 +420,22 @@ struct SettingsView: View {
         defaultTargetScore = clampedScore
         if viewModel.game != nil {
             viewModel.updateTargetScore(clampedScore)
+        }
+    }
+
+    private func selectGameMode(_ mode: GameMode) {
+        guard mode != displayedGameMode else { return }
+
+        defaultGameModeRaw = mode.rawValue
+        if mode == .classic {
+            defaultBrutalMode = ScoringRules.defaultBrutalMode
+        }
+
+        if viewModel.game != nil {
+            viewModel.switchGameMode(to: mode, brutalMode: defaultBrutalMode)
+            if let activeRules = viewModel.game?.scoringRules {
+                defaultBrutalMode = activeRules.brutalMode
+            }
         }
     }
     

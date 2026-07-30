@@ -7,45 +7,60 @@
 
 import Foundation
 
-/// Represents a persisted deck profile that can be saved and loaded
+/// Stores a separate custom deck for each supported scoring family.
 struct PersistedDeckProfile {
     var deckProfile: DeckProfile
-    
+
     init(deckProfile: DeckProfile = .standard) {
         self.deckProfile = deckProfile
     }
-    
-    /// Loads the persisted deck profile from UserDefaults
-    /// Returns the standard deck if none is saved
-    static func load() -> PersistedDeckProfile {
-        guard let data = UserDefaults.standard.data(forKey: "lastDeckProfile"),
-              let deckProfile = try? JSONDecoder().decode(DeckProfile.self, from: data) else {
-            return PersistedDeckProfile(deckProfile: .standard)
+
+    static func load(
+        for mode: GameMode = .classic,
+        defaults: UserDefaults = .standard
+    ) -> PersistedDeckProfile {
+        let data = defaults.data(forKey: storageKey(for: mode))
+            ?? (mode == .classic ? defaults.data(forKey: legacyStorageKey) : nil)
+
+        guard let data,
+              var deckProfile = try? JSONDecoder().decode(DeckProfile.self, from: data) else {
+            return PersistedDeckProfile(deckProfile: .defaultProfile(for: mode))
         }
+
+        // Pre-ruleset profiles are Classic by definition.
+        deckProfile.mode = mode
         return PersistedDeckProfile(deckProfile: deckProfile)
     }
-    
-    /// Saves the deck profile to UserDefaults
-    func save() {
-        if let encoded = try? JSONEncoder().encode(deckProfile) {
-            UserDefaults.standard.set(encoded, forKey: "lastDeckProfile")
+
+    static func load() -> PersistedDeckProfile {
+        load(for: .classic)
+    }
+
+    func save(defaults: UserDefaults = .standard) {
+        guard let encoded = try? JSONEncoder().encode(deckProfile) else { return }
+        defaults.set(encoded, forKey: Self.storageKey(for: deckProfile.mode))
+    }
+
+    static func clear(for mode: GameMode = .classic, defaults: UserDefaults = .standard) {
+        defaults.removeObject(forKey: storageKey(for: mode))
+        if mode == .classic {
+            defaults.removeObject(forKey: legacyStorageKey)
         }
     }
-    
-    /// Clears the persisted deck profile from UserDefaults (resets to standard)
-    static func clear() {
-        UserDefaults.standard.removeObject(forKey: "lastDeckProfile")
+
+    mutating func resetToDefault(defaults: UserDefaults = .standard) {
+        deckProfile = .defaultProfile(for: deckProfile.mode)
+        save(defaults: defaults)
     }
-    
-    /// Resets to the standard deck profile and saves it
-    mutating func resetToStandard() {
+
+    mutating func resetToStandard(defaults: UserDefaults = .standard) {
         deckProfile = .standard
-        save()
+        save(defaults: defaults)
+    }
+
+    private static let legacyStorageKey = "lastDeckProfile"
+
+    private static func storageKey(for mode: GameMode) -> String {
+        "deckProfile.\(mode.rawValue)"
     }
 }
-
-
-
-
-
-

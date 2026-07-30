@@ -7,67 +7,113 @@
 
 import Foundation
 
-/// Pure scoring engine for the app's default scoring profile.
 struct ScoreEngine {
-    /// Standard bonus for achieving 7 unique number cards
     static let sevenCardBonus = 15
-    
-    /// Calculates round score based on hand and state (without manual override)
-    /// Formula: (NumberSum × 2^x2Count) + AddMods + (SevenCardBonus? 15 : 0), unless busted ⇒ 0
-    static func calculateRoundScore(hand: RoundHand, state: PlayerRoundState) -> Int {
-        // If busted, score is 0
-        if state == .busted {
-            return 0
+
+    static func calculateRoundScore(
+        hand: RoundHand,
+        state: PlayerRoundState,
+        rules: ScoringRules = .classic,
+        includeSevenCardBonus: Bool = true,
+        scoreAdjustment: Int = 0
+    ) -> Int {
+        switch rules.mode {
+        case .classic:
+            guard state != .busted else { return 0 }
+            let multipliedSum = hand.numberSum * powerOfTwo(hand.x2Count)
+            let bonus = includeSevenCardBonus && hand.hasSevenCardBonus ? sevenCardBonus : 0
+            return max(0, multipliedSum + hand.modifierSum + bonus + scoreAdjustment)
+
+        case .vengeance:
+            return calculateVengeanceScore(
+                hand: hand,
+                state: state,
+                rules: rules,
+                includeSevenCardBonus: includeSevenCardBonus,
+                scoreAdjustment: scoreAdjustment
+            )
         }
-        
-        // Calculate number sum
-        let numberSum = hand.numberSum
-        
-        // Apply multipliers (x2 doubles the number sum only)
-        let multipliedSum = numberSum * Int(pow(2.0, Double(hand.x2Count)))
-        
-        // Add modifier cards
-        let modifierSum = hand.modifierSum
-        
-        // Add the seven-card bonus if achieved
-        let bonus = hand.hasSevenCardBonus ? sevenCardBonus : 0
-        
-        return multipliedSum + modifierSum + bonus
     }
-    
-    /// Calculates round score from a PlayerRound, respecting manual override
-    /// Priority: busted → 0, manualScoreOverride → that value (clamped ≥0), otherwise computed
-    static func calculateRoundScore(round: PlayerRound) -> Int {
-        // Busted always scores 0, even if manual override is set
-        if round.state == .busted {
+
+    static func calculateRoundScore(round: PlayerRound, rules: ScoringRules = .classic) -> Int {
+        if round.state == .busted && !rules.brutalMode {
             return 0
         }
-        
-        // If manual override is set, use it (clamped to non-negative)
+
         if let manualScore = round.manualScoreOverride {
-            return max(0, manualScore)
+            return rules.brutalMode ? manualScore : max(0, manualScore)
         }
-        
-        // Otherwise compute from hand
-        return calculateRoundScore(hand: round.hand, state: round.state)
+
+        return calculateRoundScore(
+            hand: round.hand,
+            state: round.state,
+            rules: rules,
+            includeSevenCardBonus: round.sevenCardBonusTargetId == nil,
+            scoreAdjustment: round.scoreAdjustment
+        )
     }
-    
-    /// Calculates the "auto" score from cards (ignoring manual override), for display purposes
-    static func calculateAutoScore(hand: RoundHand, state: PlayerRoundState) -> Int {
-        return calculateRoundScore(hand: hand, state: state)
+
+    static func calculateAutoScore(
+        hand: RoundHand,
+        state: PlayerRoundState,
+        rules: ScoringRules = .classic
+    ) -> Int {
+        calculateRoundScore(hand: hand, state: state, rules: rules)
     }
-    
-    /// Calculates what the round score would be with a given hand (for preview)
-    static func previewRoundScore(hand: RoundHand, state: PlayerRoundState) -> Int {
-        return calculateRoundScore(hand: hand, state: state)
+
+    static func calculateAutoScore(round: PlayerRound, rules: ScoringRules = .classic) -> Int {
+        calculateRoundScore(
+            hand: round.hand,
+            state: round.state,
+            rules: rules,
+            includeSevenCardBonus: round.sevenCardBonusTargetId == nil,
+            scoreAdjustment: round.scoreAdjustment
+        )
     }
-    
-    /// Calculates total score (current total + round preview), respecting manual override
-    static func previewTotalScore(player: Player) -> Int {
-        let roundScore = calculateRoundScore(round: player.currentRound)
-        return player.totalScore + roundScore
+
+    static func previewRoundScore(
+        hand: RoundHand,
+        state: PlayerRoundState,
+        rules: ScoringRules = .classic
+    ) -> Int {
+        calculateRoundScore(hand: hand, state: state, rules: rules)
+    }
+
+    static func previewTotalScore(player: Player, rules: ScoringRules = .classic) -> Int {
+        player.totalScore + calculateRoundScore(round: player.currentRound, rules: rules)
+    }
+
+    private static func calculateVengeanceScore(
+        hand: RoundHand,
+        state: PlayerRoundState,
+        rules: ScoringRules,
+        includeSevenCardBonus: Bool,
+        scoreAdjustment: Int
+    ) -> Int {
+        if state == .busted && !rules.brutalMode {
+            return 0
+        }
+
+        var score = state == .busted || hand.hasZeroEffect ? 0 : hand.numberSum
+        for _ in 0..<hand.divideByTwoCount {
+            score /= 2
+        }
+        score -= hand.subtractModifierSum
+
+        if !rules.brutalMode {
+            score = max(0, score)
+        }
+
+        if includeSevenCardBonus && hand.hasSevenCardBonus && state != .busted {
+            score += sevenCardBonus
+        }
+
+        score += scoreAdjustment
+        return rules.brutalMode ? score : max(0, score)
+    }
+
+    private static func powerOfTwo(_ exponent: Int) -> Int {
+        guard exponent > 0 else { return 1 }
+        return 1 << min(exponent, 30)
     }
 }
-
-
-

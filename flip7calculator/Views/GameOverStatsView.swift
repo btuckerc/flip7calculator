@@ -166,6 +166,26 @@ struct GameOverStatsView: View {
                     detail: nil
                 )
             }
+
+            if stats.totalNegativeModifierPoints > 0 {
+                HighlightRow(
+                    icon: "minus.circle.fill",
+                    iconColor: AppBrandPalette.copper,
+                    title: "Negative Modifiers",
+                    value: "-\(stats.totalNegativeModifierPoints)",
+                    detail: stats.totalDivideByTwoUsed > 0 ? "\(stats.totalDivideByTwoUsed) divide-by-2" : nil
+                )
+            }
+
+            if stats.totalRedirectedSevenCardBonuses > 0 {
+                HighlightRow(
+                    icon: "burst.fill",
+                    iconColor: AppBrandPalette.copper,
+                    title: "Redirected Bonuses",
+                    value: "\(stats.totalRedirectedSevenCardBonuses)",
+                    detail: "-\(stats.totalRedirectedSevenCardBonuses * ScoreEngine.sevenCardBonus) pts sent"
+                )
+            }
         } header: {
             Text("Highlights")
         }
@@ -277,7 +297,12 @@ struct GameOverStatsView: View {
     private var roundHistorySection: some View {
         Section {
             ForEach(game.gameHistory.reversed(), id: \.roundNumber) { gameRound in
-                RoundHistoryRow(gameRound: gameRound, playerColors: playerColors, players: game.players)
+                RoundHistoryRow(
+                    gameRound: gameRound,
+                    playerColors: playerColors,
+                    players: game.players,
+                    scoringRules: game.rules(for: gameRound)
+                )
             }
         } header: {
             Text("Round History")
@@ -455,6 +480,7 @@ private struct RoundHistoryRow: View {
     let gameRound: GameRound
     let playerColors: [Color]
     let players: [Player]
+    let scoringRules: ScoringRules
     
     @State private var isExpanded = false
     
@@ -486,7 +512,7 @@ private struct RoundHistoryRow: View {
                     
                     // Quick summary
                     HStack(spacing: 8) {
-                        if let winner = sortedResults.first, winner.roundScore > 0 {
+                        if let winner = sortedResults.first {
                             HStack(spacing: 4) {
                                 Circle()
                                     .fill(colorForPlayer(winner.playerId))
@@ -522,7 +548,7 @@ private struct RoundHistoryRow: View {
                             
                             // State badge
                             if let state = result.state {
-                                StateBadge(state: state)
+                                StateBadge(state: state, mode: scoringRules.mode)
                             }
                             
                             // 7-card bonus indicator
@@ -538,15 +564,34 @@ private struct RoundHistoryRow: View {
                                     .font(.system(size: 11, weight: .medium, design: .rounded))
                                     .foregroundStyle(AppBrandPalette.brandBlueSky)
                             }
+
+                            if result.divideByTwoCount > 0 {
+                                Text("÷2")
+                                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                                    .foregroundStyle(AppBrandPalette.brandBlueSky)
+                            }
+
+                            if result.subtractModifierTotal > 0 {
+                                Text("-\(result.subtractModifierTotal)")
+                                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                                    .foregroundStyle(AppBrandPalette.copper)
+                            }
+
+                            if result.specialNumberCount > 0 {
+                                Label("\(result.specialNumberCount)", systemImage: "sparkles")
+                                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                                    .foregroundStyle(AppBrandPalette.gold)
+                                    .labelStyle(.titleAndIcon)
+                            }
                             
                             Spacer()
                             
                             if result.isBusted {
-                                Text("Bust")
+                                Text(scoringRules.brutalMode && result.roundScore < 0 ? "Bust \(result.roundScore)" : "Bust")
                                     .font(.system(size: 13, weight: .medium, design: .rounded))
                                     .foregroundStyle(AppBrandPalette.copper)
                             } else {
-                                Text("+\(result.roundScore)")
+                                Text(result.roundScore > 0 ? "+\(result.roundScore)" : "\(result.roundScore)")
                                     .font(.system(size: 14, weight: .medium, design: .rounded))
                                     .foregroundStyle(AppBrandPalette.brandBlue)
                                     .monospacedDigit()
@@ -566,14 +611,16 @@ private struct RoundHistoryRow: View {
 
 private struct StateBadge: View {
     let state: PlayerRoundState
+    let mode: GameMode
     
     var body: some View {
         switch state {
         case .banked:
             EmptyView()
         case .frozen:
-            Text("❄️")
-                .font(.system(size: 10))
+            Text(mode == .vengeance ? "FORCED" : "HOLD")
+                .font(.system(size: 8, weight: .bold, design: .rounded))
+                .foregroundStyle(AppBrandPalette.brandBlueSky)
         case .busted:
             EmptyView() // Already shown with "Bust" text
         case .inRound:
@@ -603,6 +650,25 @@ struct PlayerDetailView: View {
     private var rank: Int {
         let ranked = game.players.sorted { $0.totalScore > $1.totalScore }
         return (ranked.firstIndex(where: { $0.id == player.id }) ?? 0) + 1
+    }
+
+    private var usesMixedModes: Bool {
+        game.modesUsed.count > 1
+    }
+
+    private var bankedOutcomeLabel: String {
+        usesMixedModes ? "Banked / Stayed" : (game.scoringRules.mode == .vengeance ? "Stayed" : "Banked")
+    }
+
+    private var heldOutcomeLabel: String {
+        usesMixedModes ? "Frozen / Forced" : (game.scoringRules.mode == .vengeance ? "Forced to Stay" : "Frozen")
+    }
+
+    private var cardStatsHeader: String {
+        if usesMixedModes {
+            return "Cards & Modifiers"
+        }
+        return game.scoringRules.mode == .classic ? "Bonuses & Multipliers" : "Special Cards & Modifiers"
     }
 
     private var surfaceColor: Color {
@@ -687,10 +753,16 @@ struct PlayerDetailView: View {
                         valueColor: stats.bustCount > 0 ? AppBrandPalette.copper : nil
                     )
                     
-                    DetailStatRow(label: "Banked", value: "\(stats.bankedCount)")
+                    DetailStatRow(
+                        label: bankedOutcomeLabel,
+                        value: "\(stats.bankedCount)"
+                    )
                     
                     if stats.heldCount > 0 {
-                        DetailStatRow(label: "On Hold", value: "\(stats.heldCount)")
+                        DetailStatRow(
+                            label: heldOutcomeLabel,
+                            value: "\(stats.heldCount)"
+                        )
                     }
                 } header: {
                     Text("Outcomes")
@@ -701,24 +773,55 @@ struct PlayerDetailView: View {
                     DetailStatRow(
                         label: "7-Card Bonuses",
                         value: "\(stats.sevenCardBonusCount)",
-                        detail: stats.sevenCardBonusCount > 0 ? "+\(stats.totalSevenCardBonusPoints) pts" : nil,
+                        detail: sevenCardBonusDetail,
                         valueColor: stats.sevenCardBonusCount > 0 ? AppBrandPalette.gold : nil
                     )
-                    
-                    DetailStatRow(
-                        label: "×2 Multipliers Used",
-                        value: "\(stats.totalX2Used)",
-                        detail: stats.totalMultiplierEffect > 0 ? "+\(stats.totalMultiplierEffect) pts" : nil,
-                        valueColor: stats.totalX2Used > 0 ? AppBrandPalette.brandBlueSky : nil
-                    )
-                    
-                    DetailStatRow(
-                        label: "Modifier Points",
-                        value: "+\(stats.totalModifiersUsed)",
-                        valueColor: stats.totalModifiersUsed > 0 ? AppBrandPalette.copper : nil
-                    )
+
+                    if game.modesUsed.contains(.classic) {
+                        DetailStatRow(
+                            label: "×2 Multipliers Used",
+                            value: "\(stats.totalX2Used)",
+                            detail: stats.totalMultiplierEffect > 0 ? "+\(stats.totalMultiplierEffect) pts" : nil,
+                            valueColor: stats.totalX2Used > 0 ? AppBrandPalette.brandBlueSky : nil
+                        )
+
+                        DetailStatRow(
+                            label: "Modifier Points",
+                            value: "+\(stats.totalModifiersUsed)",
+                            valueColor: stats.totalModifiersUsed > 0 ? AppBrandPalette.copper : nil
+                        )
+                    }
+
+                    if game.modesUsed.contains(.vengeance) {
+                        DetailStatRow(
+                            label: "Divide-by-2 Cards",
+                            value: "\(stats.totalDivideByTwoUsed)",
+                            valueColor: stats.totalDivideByTwoUsed > 0 ? AppBrandPalette.brandBlueSky : nil
+                        )
+
+                        DetailStatRow(
+                            label: "Negative Modifier Points",
+                            value: "-\(stats.totalNegativeModifierPoints)",
+                            valueColor: stats.totalNegativeModifierPoints > 0 ? AppBrandPalette.copper : nil
+                        )
+
+                        DetailStatRow(
+                            label: "Special Number Cards",
+                            value: "\(stats.totalSpecialNumbersUsed)",
+                            valueColor: stats.totalSpecialNumbersUsed > 0 ? AppBrandPalette.gold : nil
+                        )
+
+                        if stats.redirectedSevenCardBonusCount > 0 {
+                            DetailStatRow(
+                                label: "Bonuses Redirected",
+                                value: "\(stats.redirectedSevenCardBonusCount)",
+                                detail: "-\(stats.redirectedSevenCardBonusCount * ScoreEngine.sevenCardBonus) pts sent",
+                                valueColor: AppBrandPalette.copper
+                            )
+                        }
+                    }
                 } header: {
-                    Text("Bonuses & Multipliers")
+                    Text(cardStatsHeader)
                 }
                 
                 // Streaks
@@ -752,6 +855,15 @@ struct PlayerDetailView: View {
                 }
             }
         }
+    }
+
+    private var sevenCardBonusDetail: String? {
+        guard stats.sevenCardBonusCount > 0 else { return nil }
+        if stats.redirectedSevenCardBonusCount > 0 {
+            let kept = stats.sevenCardBonusCount - stats.redirectedSevenCardBonusCount
+            return "\(kept) kept, \(stats.redirectedSevenCardBonusCount) redirected"
+        }
+        return "+\(stats.totalSevenCardBonusPoints) pts"
     }
 }
 

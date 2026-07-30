@@ -8,9 +8,13 @@
 import SwiftUI
 
 struct NumberChipGrid: View {
+    let mode: GameMode
     let selectedNumbers: Set<Int>
+    let selectedSpecialNumbers: Set<SpecialNumberCard>
     let onTap: (Int) -> Void
+    let onTapSpecialNumber: (SpecialNumberCard) -> Void
     let isEnabled: (Int) -> Bool
+    let isSpecialNumberEnabled: (SpecialNumberCard) -> Bool
     
     // Manual score state
     let manualScoreOverride: Int?
@@ -19,6 +23,7 @@ struct NumberChipGrid: View {
     let onSaveManualScore: (Int) -> Void
     let onClearManualScore: () -> Void  // Clears only manual override (keeps cards/modifiers)
     let onClearRound: () -> Void  // Clears entire round (cards + modifiers + manual)
+    let allowsNegativeManualScore: Bool
     
     @State private var showingScorePopover = false
     @Environment(\.visualTheme) private var visualTheme
@@ -38,7 +43,7 @@ struct NumberChipGrid: View {
     
     /// Check if there's anything to clear (cards selected or manual override)
     private var hasSomethingToClear: Bool {
-        !selectedNumbers.isEmpty || hasManualOverride
+        !selectedNumbers.isEmpty || !selectedSpecialNumbers.isEmpty || hasManualOverride
     }
     
     var body: some View {
@@ -47,15 +52,16 @@ struct NumberChipGrid: View {
             GeometryReader { geo in
                 let spacing: CGFloat = 6
                 let totalSpacing = spacing * 3 // 3 gaps between 4 "units"
-                let unitWidth = (geo.size.width - totalSpacing) / 4
+                let unitWidth = max(0, (geo.size.width - totalSpacing) / 4)
                 
                 HStack(spacing: spacing) {
-                    // Number 0 chip (1 unit)
+                    // Keep the irregular edge card beside the score control.
+                    let edgeNumber = mode == .classic ? 0 : 13
                     NumberChip(
-                        number: 0,
-                        isSelected: selectedNumbers.contains(0),
-                        isEnabled: isEnabled(0),
-                        onTap: { onTap(0) }
+                        number: edgeNumber,
+                        isSelected: selectedNumbers.contains(edgeNumber),
+                        isEnabled: isEnabled(edgeNumber),
+                        onTap: { onTap(edgeNumber) }
                     )
                     .frame(width: unitWidth)
                     
@@ -78,11 +84,12 @@ struct NumberChipGrid: View {
                             onClearManualScore: {
                                 onClearManualScore()
                             },
+                            allowsNegative: allowsNegativeManualScore,
                             onDismiss: {
                                 showingScorePopover = false
                             }
                         )
-                        .presentationDetents([.height(220)])
+                        .presentationDetents([.height(allowsNegativeManualScore ? 270 : 220)])
                         .presentationDragIndicator(.visible)
                         .presentationBackground(DesignColor.color(.surfacePrimary, theme: visualTheme, colorScheme: colorScheme))
                     }
@@ -109,6 +116,22 @@ struct NumberChipGrid: View {
                         isEnabled: isEnabled(number),
                         onTap: { onTap(number) }
                     )
+                }
+            }
+
+            if mode == .vengeance {
+                LazyVGrid(
+                    columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 3),
+                    spacing: 6
+                ) {
+                    ForEach(SpecialNumberCard.allCases) { card in
+                        SpecialNumberChip(
+                            card: card,
+                            isSelected: selectedSpecialNumbers.contains(card),
+                            isEnabled: isSpecialNumberEnabled(card),
+                            onTap: { onTapSpecialNumber(card) }
+                        )
+                    }
                 }
             }
         }
@@ -300,5 +323,58 @@ struct NumberChip: View {
                 isPressed = pressing
             }
         }, perform: {})
+    }
+}
+
+struct SpecialNumberChip: View {
+    let card: SpecialNumberCard
+    let isSelected: Bool
+    let isEnabled: Bool
+    let onTap: () -> Void
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var accentColor: Color {
+        switch card {
+        case .zero: return DesignColor.color(.stateDanger, theme: visualTheme, colorScheme: colorScheme)
+        case .unluckySeven: return DesignColor.color(.stateWarning, theme: visualTheme, colorScheme: colorScheme)
+        case .luckyThirteen: return DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+        }
+    }
+
+    var body: some View {
+        Button {
+            guard isEnabled else { return }
+            HapticFeedback.light()
+            onTap()
+        } label: {
+            VStack(spacing: 1) {
+                Text(card.shortLabel)
+                    .font(.system(size: 16, weight: .black, design: .rounded))
+                Text(card.displayName)
+                    .font(.system(size: 8, weight: .semibold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .foregroundStyle(isSelected ? .white : (isEnabled ? accentColor : .secondary))
+            .frame(maxWidth: .infinity)
+            .frame(height: 44)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(
+                        isSelected
+                            ? accentColor
+                            : DesignColor.color(.surfaceSecondary, theme: visualTheme, colorScheme: colorScheme)
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(accentColor.opacity(isEnabled ? 0.28 : 0.08), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .accessibilityLabel(card.displayName)
+        .accessibilityHint(card.effectSummary)
     }
 }

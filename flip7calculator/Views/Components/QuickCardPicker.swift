@@ -9,18 +9,27 @@ import SwiftUI
 
 struct QuickCardPicker: View {
     let player: Player
+    let scoringRules: ScoringRules
     let onTapNumber: (Int) -> Void
+    let onTapSpecialNumber: (SpecialNumberCard) -> Void
     let onIncrementModifier: (Int) -> Void
     let onDecrementModifier: (Int) -> Void
     let onIncrementX2: () -> Void
     let onDecrementX2: () -> Void
+    let onIncrementSubtractModifier: (Int) -> Void
+    let onDecrementSubtractModifier: (Int) -> Void
+    let onIncrementDivideByTwo: () -> Void
+    let onDecrementDivideByTwo: () -> Void
     let showingBustBanner: Bool
     let bustNumber: Int?
     let onConfirmBust: () -> Void
     let onUndoBust: () -> Void
     let isNumberEnabled: (Int) -> Bool
+    let isSpecialNumberEnabled: (SpecialNumberCard) -> Bool
     let isModifierEnabled: (Int) -> Bool
     let isX2Enabled: Bool
+    let isSubtractModifierEnabled: (Int) -> Bool
+    let isDivideByTwoEnabled: Bool
     
     // Manual score
     let isManualScoreEnabled: Bool
@@ -33,7 +42,7 @@ struct QuickCardPicker: View {
     
     /// Auto score computed from cards (ignoring manual override)
     private var autoScore: Int {
-        ScoreEngine.calculateAutoScore(hand: player.currentRound.hand, state: player.currentRound.state)
+        ScoreEngine.calculateAutoScore(round: player.currentRound, rules: scoringRules)
     }
     
     var body: some View {
@@ -54,15 +63,20 @@ struct QuickCardPicker: View {
                     .foregroundStyle(.secondary)
                 
                 NumberChipGrid(
+                    mode: scoringRules.mode,
                     selectedNumbers: player.currentRound.hand.selectedNumbers,
+                    selectedSpecialNumbers: player.currentRound.hand.specialNumbers,
                     onTap: onTapNumber,
+                    onTapSpecialNumber: onTapSpecialNumber,
                     isEnabled: isNumberEnabled,
+                    isSpecialNumberEnabled: isSpecialNumberEnabled,
                     manualScoreOverride: player.currentRound.manualScoreOverride,
                     autoScore: autoScore,
                     isManualScoreEnabled: isManualScoreEnabled,
                     onSaveManualScore: onSaveManualScore,
                     onClearManualScore: onClearManualScore,
-                    onClearRound: onClearRound
+                    onClearRound: onClearRound,
+                    allowsNegativeManualScore: scoringRules.brutalMode
                 )
             }
             
@@ -84,14 +98,23 @@ struct QuickCardPicker: View {
                 }
                 
                 ModifierGrid(
+                    mode: scoringRules.mode,
                     addMods: player.currentRound.hand.addMods,
                     x2Count: player.currentRound.hand.x2Count,
+                    subtractMods: player.currentRound.hand.subtractMods,
+                    divideByTwoCount: player.currentRound.hand.divideByTwoCount,
                     onTapModifier: onIncrementModifier,
                     onLongPressModifier: onDecrementModifier,
                     onTapX2: onIncrementX2,
                     onLongPressX2: onDecrementX2,
+                    onTapSubtractModifier: onIncrementSubtractModifier,
+                    onLongPressSubtractModifier: onDecrementSubtractModifier,
+                    onTapDivideByTwo: onIncrementDivideByTwo,
+                    onLongPressDivideByTwo: onDecrementDivideByTwo,
                     isModifierEnabled: isModifierEnabled,
                     isX2Enabled: isX2Enabled,
+                    isSubtractModifierEnabled: isSubtractModifierEnabled,
+                    isDivideByTwoEnabled: isDivideByTwoEnabled,
                     showCountBadges: !hasOnlyOneOfEachModifier
                 )
             }

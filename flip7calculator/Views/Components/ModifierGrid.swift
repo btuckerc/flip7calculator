@@ -8,14 +8,23 @@
 import SwiftUI
 
 struct ModifierGrid: View {
+    let mode: GameMode
     let addMods: [Int: Int]
     let x2Count: Int
+    let subtractMods: [Int: Int]
+    let divideByTwoCount: Int
     let onTapModifier: (Int) -> Void
     let onLongPressModifier: (Int) -> Void
     let onTapX2: () -> Void
     let onLongPressX2: () -> Void
+    let onTapSubtractModifier: (Int) -> Void
+    let onLongPressSubtractModifier: (Int) -> Void
+    let onTapDivideByTwo: () -> Void
+    let onLongPressDivideByTwo: () -> Void
     let isModifierEnabled: (Int) -> Bool
     let isX2Enabled: Bool
+    let isSubtractModifierEnabled: (Int) -> Bool
+    let isDivideByTwoEnabled: Bool
     let showCountBadges: Bool  // When false, don't show count badges (for singleton decks)
     
     // 6 columns - all modifiers in a single row
@@ -30,29 +39,51 @@ struct ModifierGrid: View {
     
     var body: some View {
         LazyVGrid(columns: columns, spacing: 4) {
-            // Additive modifiers
-            ForEach([2, 4, 6, 8, 10], id: \.self) { value in
+            if mode == .classic {
+                ForEach([2, 4, 6, 8, 10], id: \.self) { value in
+                    ModifierTile(
+                        label: "+\(value)",
+                        count: addMods[value] ?? 0,
+                        color: AppBrandPalette.gold,
+                        isEnabled: isModifierEnabled(value),
+                        showCountBadge: showCountBadges,
+                        onTap: { onTapModifier(value) },
+                        onLongPress: { onLongPressModifier(value) }
+                    )
+                }
+
                 ModifierTile(
-                    label: "+\(value)",
-                    count: addMods[value] ?? 0,
-                    color: AppBrandPalette.gold,
-                    isEnabled: isModifierEnabled(value),
+                    label: "x2",
+                    count: x2Count,
+                    color: AppBrandPalette.brandBlue,
+                    isEnabled: isX2Enabled,
                     showCountBadge: showCountBadges,
-                    onTap: { onTapModifier(value) },
-                    onLongPress: { onLongPressModifier(value) }
+                    onTap: onTapX2,
+                    onLongPress: onLongPressX2
+                )
+            } else {
+                ForEach([2, 4, 6, 8, 10], id: \.self) { value in
+                    ModifierTile(
+                        label: "-\(value)",
+                        count: subtractMods[value] ?? 0,
+                        color: AppBrandPalette.copper,
+                        isEnabled: isSubtractModifierEnabled(value),
+                        showCountBadge: showCountBadges,
+                        onTap: { onTapSubtractModifier(value) },
+                        onLongPress: { onLongPressSubtractModifier(value) }
+                    )
+                }
+
+                ModifierTile(
+                    label: "÷2",
+                    count: divideByTwoCount,
+                    color: AppBrandPalette.brandBlue,
+                    isEnabled: isDivideByTwoEnabled,
+                    showCountBadge: showCountBadges,
+                    onTap: onTapDivideByTwo,
+                    onLongPress: onLongPressDivideByTwo
                 )
             }
-            
-            // x2 multiplier (stays purple, distinct from additive modifiers)
-            ModifierTile(
-                label: "×2",
-                count: x2Count,
-                color: AppBrandPalette.brandBlue,
-                isEnabled: isX2Enabled,
-                showCountBadge: showCountBadges,
-                onTap: onTapX2,
-                onLongPress: onLongPressX2
-            )
         }
     }
 }

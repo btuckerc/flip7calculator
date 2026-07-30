@@ -2,6 +2,8 @@
 
 > **Decision update — July 28, 2026:** The owner approved `Flipping Seven Calculator` as the public product name, accepting the documented trademark and App Review risk. Implementation must not use the exact `FLIP 7` mark or restore the former box-art-inspired wordmark, card backs, modifier graphics, publisher artwork, or other trade dress. The approved direction restores only generic seven-card deal/flip motion in the app's original blue, cream, and gold design language. The historical audit and earlier recommendation below remain preserved as the decision record.
 
+> **Reading note:** Sections describing “the repo today,” failing tests, old files, version `1.2`, or candidate names are the April 2026 audit snapshot, not current implementation guidance. For current code structure use `docs/ARCHITECTURE.md`; for current workflows use `docs/AGENT_PLAYBOOK.md` and `docs/RELEASE_RUNBOOK.md`; for a dated App Store submission snapshot use `APP_STORE_LISTING.md` and then query App Store Connect.
+
 This is a working product and repo plan for responding to the Apple/USAopoly trademark complaint, re-evaluating the app, and deciding what we should build next.
 
 This is product/engineering guidance, not legal advice.
@@ -21,7 +23,7 @@ Suggested subject template:
 - Internal identifiers that are not user-facing are lower priority than visible trademarked content, but they should still be tracked as cleanup debt.
 - The goal should not be "minimum wording swap." The goal should be "ship a product that clearly stands on its own."
 
-## What the repo is today
+## What the repo was at audit time
 
 After reading the repo end to end, this is not just a neutral calculator with an unfortunate title. It is a polished, single-purpose companion app built around one specific card game.
 
@@ -40,7 +42,7 @@ The strongest reusable parts are real and valuable:
 - `PlayerManagementView`, `PlayersEditorCard`, roster persistence, target score controls.
 - The in-progress design-token work (`DesignTokens.swift`, `DesignStyles.swift`) is a useful modernization path.
 
-## Repo audit findings
+## Historical repo audit findings
 
 ### 1. Trademark exposure is deep, not superficial
 
@@ -320,7 +322,7 @@ Cons:
 - materially more work
 - not the fastest response to the current dispute
 
-## Suggested change map
+## Historical change map
 
 ### Phase 0: Immediate containment
 
@@ -358,7 +360,7 @@ Cons:
 - Replace game-specific rules text with reusable scoring/profile explanations
 - Consider house rules, alternate targets, and saved presets
 
-## Concrete repo tasks
+## Historical repo tasks
 
 ### High priority files
 

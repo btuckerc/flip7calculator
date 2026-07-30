@@ -7,6 +7,18 @@
 
 import Foundation
 
+struct ModePlayerRoundSnapshot: Codable, Equatable {
+    let playerId: UUID
+    var round: PlayerRound
+}
+
+struct ModeRoundProgress: Codable, Equatable {
+    let mode: GameMode
+    var playerRounds: [ModePlayerRoundSnapshot]
+    var deckProfile: DeckProfile
+    var scoringRules: ScoringRules
+}
+
 /// Represents a complete score-tracking game session.
 struct Game: Codable, Equatable {
     var players: [Player]
@@ -14,13 +26,22 @@ struct Game: Codable, Equatable {
     var targetScore: Int
     var gameHistory: [GameRound]
     var deckProfile: DeckProfile
+    var scoringRules: ScoringRules
+    var modeRoundProgress: [ModeRoundProgress]
     
-    init(players: [Player], targetScore: Int = 200, deckProfile: DeckProfile = .standard) {
+    init(
+        players: [Player],
+        targetScore: Int = 200,
+        deckProfile: DeckProfile = .standard,
+        scoringRules: ScoringRules = .classic
+    ) {
         self.players = players
         self.currentRoundIndex = 0
         self.targetScore = targetScore
         self.gameHistory = []
         self.deckProfile = deckProfile
+        self.scoringRules = scoringRules
+        self.modeRoundProgress = []
     }
     
     /// Current round number (1-indexed)
@@ -44,8 +65,8 @@ struct Game: Codable, Equatable {
     mutating func startNewRound() {
         // Save round to history with full snapshots
         let roundResults = players.map { player -> RoundResult in
-            let roundScore = ScoreEngine.calculateRoundScore(round: player.currentRound)
-            let autoScore = ScoreEngine.calculateAutoScore(hand: player.currentRound.hand, state: player.currentRound.state)
+            let roundScore = ScoreEngine.calculateRoundScore(round: player.currentRound, rules: scoringRules)
+            let autoScore = ScoreEngine.calculateAutoScore(round: player.currentRound, rules: scoringRules)
             return RoundResult(
                 playerId: player.id,
                 playerName: player.name,
@@ -53,16 +74,25 @@ struct Game: Codable, Equatable {
                 state: player.currentRound.state,
                 manualScoreOverride: player.currentRound.manualScoreOverride,
                 handSnapshot: player.currentRound.hand,
-                autoScore: autoScore
+                autoScore: autoScore,
+                scoreAdjustment: player.currentRound.scoreAdjustment,
+                sevenCardBonusTargetId: player.currentRound.sevenCardBonusTargetId
             )
         }
-        gameHistory.append(GameRound(roundNumber: currentRoundNumber, results: roundResults))
+        gameHistory.append(
+            GameRound(
+                roundNumber: currentRoundNumber,
+                results: roundResults,
+                scoringRules: scoringRules
+            )
+        )
         
         // Bank all players (busted players get 0 via ScoreEngine)
         for index in players.indices {
-            players[index].bankRound()
+            players[index].bankRound(rules: scoringRules)
         }
-        
+
+        modeRoundProgress.removeAll()
         currentRoundIndex += 1
     }
     
@@ -71,8 +101,8 @@ struct Game: Codable, Equatable {
     mutating func endRound() {
         // Save round to history with full snapshots
         let roundResults = players.map { player -> RoundResult in
-            let roundScore = ScoreEngine.calculateRoundScore(round: player.currentRound)
-            let autoScore = ScoreEngine.calculateAutoScore(hand: player.currentRound.hand, state: player.currentRound.state)
+            let roundScore = ScoreEngine.calculateRoundScore(round: player.currentRound, rules: scoringRules)
+            let autoScore = ScoreEngine.calculateAutoScore(round: player.currentRound, rules: scoringRules)
             return RoundResult(
                 playerId: player.id,
                 playerName: player.name,
@@ -80,15 +110,57 @@ struct Game: Codable, Equatable {
                 state: player.currentRound.state,
                 manualScoreOverride: player.currentRound.manualScoreOverride,
                 handSnapshot: player.currentRound.hand,
-                autoScore: autoScore
+                autoScore: autoScore,
+                scoreAdjustment: player.currentRound.scoreAdjustment,
+                sevenCardBonusTargetId: player.currentRound.sevenCardBonusTargetId
             )
         }
-        gameHistory.append(GameRound(roundNumber: currentRoundNumber, results: roundResults))
+        gameHistory.append(
+            GameRound(
+                roundNumber: currentRoundNumber,
+                results: roundResults,
+                scoringRules: scoringRules
+            )
+        )
         
         // Bank all players
         for index in players.indices {
-            players[index].bankRound()
+            players[index].bankRound(rules: scoringRules)
         }
+        modeRoundProgress.removeAll()
+    }
+
+    func rules(for round: GameRound) -> ScoringRules {
+        round.scoringRules ?? scoringRules
+    }
+
+    var modesUsed: Set<GameMode> {
+        var modes = Set(gameHistory.map { rules(for: $0).mode })
+        modes.insert(scoringRules.mode)
+        return modes
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case players
+        case currentRoundIndex
+        case targetScore
+        case gameHistory
+        case deckProfile
+        case scoringRules
+        case modeRoundProgress
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let decodedDeck = try container.decodeIfPresent(DeckProfile.self, forKey: .deckProfile) ?? .standard
+        players = try container.decode([Player].self, forKey: .players)
+        currentRoundIndex = try container.decodeIfPresent(Int.self, forKey: .currentRoundIndex) ?? 0
+        targetScore = try container.decodeIfPresent(Int.self, forKey: .targetScore) ?? 200
+        gameHistory = try container.decodeIfPresent([GameRound].self, forKey: .gameHistory) ?? []
+        deckProfile = decodedDeck
+        scoringRules = try container.decodeIfPresent(ScoringRules.self, forKey: .scoringRules)
+            ?? ScoringRules(mode: decodedDeck.mode)
+        modeRoundProgress = try container.decodeIfPresent([ModeRoundProgress].self, forKey: .modeRoundProgress) ?? []
     }
 }
 
@@ -96,6 +168,13 @@ struct Game: Codable, Equatable {
 struct GameRound: Codable, Equatable {
     let roundNumber: Int
     let results: [RoundResult]
+    let scoringRules: ScoringRules?
+
+    init(roundNumber: Int, results: [RoundResult], scoringRules: ScoringRules? = nil) {
+        self.roundNumber = roundNumber
+        self.results = results
+        self.scoringRules = scoringRules
+    }
 }
 
 /// Result for a single player in a round
@@ -109,6 +188,8 @@ struct RoundResult: Equatable {
     let manualScoreOverride: Int?
     let handSnapshot: RoundHand?
     let autoScore: Int?
+    let scoreAdjustment: Int?
+    let sevenCardBonusTargetId: UUID?
     
     /// Legacy initializer (for backward compatibility and previews)
     init(playerId: UUID, playerName: String, roundScore: Int) {
@@ -119,10 +200,22 @@ struct RoundResult: Equatable {
         self.manualScoreOverride = nil
         self.handSnapshot = nil
         self.autoScore = nil
+        self.scoreAdjustment = nil
+        self.sevenCardBonusTargetId = nil
     }
     
     /// Full snapshot initializer
-    init(playerId: UUID, playerName: String, roundScore: Int, state: PlayerRoundState, manualScoreOverride: Int?, handSnapshot: RoundHand, autoScore: Int) {
+    init(
+        playerId: UUID,
+        playerName: String,
+        roundScore: Int,
+        state: PlayerRoundState,
+        manualScoreOverride: Int?,
+        handSnapshot: RoundHand,
+        autoScore: Int,
+        scoreAdjustment: Int = 0,
+        sevenCardBonusTargetId: UUID? = nil
+    ) {
         self.playerId = playerId
         self.playerName = playerName
         self.roundScore = roundScore
@@ -130,6 +223,8 @@ struct RoundResult: Equatable {
         self.manualScoreOverride = manualScoreOverride
         self.handSnapshot = handSnapshot
         self.autoScore = autoScore
+        self.scoreAdjustment = scoreAdjustment
+        self.sevenCardBonusTargetId = sevenCardBonusTargetId
     }
     
     // MARK: - Convenience accessors (use snapshot if available, fall back to derived)
@@ -144,7 +239,7 @@ struct RoundResult: Equatable {
     
     /// Whether this round earned the seven-card bonus
     var hasSevenCardBonus: Bool {
-        handSnapshot?.hasSevenCardBonus ?? false
+        !isBusted && (handSnapshot?.hasSevenCardBonus ?? false)
     }
     
     /// Number of x2 multipliers used
@@ -156,10 +251,26 @@ struct RoundResult: Equatable {
     var modifierTotal: Int {
         handSnapshot?.modifierSum ?? 0
     }
+
+    var subtractModifierTotal: Int {
+        handSnapshot?.subtractModifierSum ?? 0
+    }
+
+    var divideByTwoCount: Int {
+        handSnapshot?.divideByTwoCount ?? 0
+    }
+
+    var specialNumberCount: Int {
+        handSnapshot?.specialNumbers.count ?? 0
+    }
+
+    var redirectedSevenCardBonus: Bool {
+        sevenCardBonusTargetId != nil
+    }
     
     /// Number of cards in hand
     var cardCount: Int {
-        handSnapshot?.selectedNumbers.count ?? 0
+        handSnapshot?.numberCardCount ?? 0
     }
 }
 
@@ -168,6 +279,7 @@ extension RoundResult: Codable {
     enum CodingKeys: String, CodingKey {
         case playerId, playerName, roundScore
         case state, manualScoreOverride, handSnapshot, autoScore
+        case scoreAdjustment, sevenCardBonusTargetId
     }
     
     init(from decoder: Decoder) throws {
@@ -181,6 +293,8 @@ extension RoundResult: Codable {
         manualScoreOverride = try container.decodeIfPresent(Int.self, forKey: .manualScoreOverride)
         handSnapshot = try container.decodeIfPresent(RoundHand.self, forKey: .handSnapshot)
         autoScore = try container.decodeIfPresent(Int.self, forKey: .autoScore)
+        scoreAdjustment = try container.decodeIfPresent(Int.self, forKey: .scoreAdjustment)
+        sevenCardBonusTargetId = try container.decodeIfPresent(UUID.self, forKey: .sevenCardBonusTargetId)
     }
     
     func encode(to encoder: Encoder) throws {
@@ -192,5 +306,7 @@ extension RoundResult: Codable {
         try container.encodeIfPresent(manualScoreOverride, forKey: .manualScoreOverride)
         try container.encodeIfPresent(handSnapshot, forKey: .handSnapshot)
         try container.encodeIfPresent(autoScore, forKey: .autoScore)
+        try container.encodeIfPresent(scoreAdjustment, forKey: .scoreAdjustment)
+        try container.encodeIfPresent(sevenCardBonusTargetId, forKey: .sevenCardBonusTargetId)
     }
 }
