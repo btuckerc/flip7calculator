@@ -58,5 +58,5 @@ capture_device() {
   xcrun simctl shutdown "$udid" >/dev/null 2>&1 || true
 }
 
-capture_device "$IPHONE_UDID" iphone live live-bonus stats setup game-over
+capture_device "$IPHONE_UDID" iphone live live-bonus stats game-over
 capture_device "$IPAD_UDID" ipad live live-bonus stats game-over

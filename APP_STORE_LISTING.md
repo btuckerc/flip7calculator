@@ -1,6 +1,6 @@
 # App Store Listing — Flipping Seven Calculator
 
-Use this document as the human-readable source of truth for the `1.4 (12)` App Store Connect update. The matching machine-readable metadata is in [AppStoreAssets/1.4/metadata-en-US.json](AppStoreAssets/1.4/metadata-en-US.json).
+Use this document as the human-readable source of truth for the `1.4 (12)` App Store Connect update. The matching machine-readable metadata lives in [AppStoreAssets/1.4/metadata-en-US.json](AppStoreAssets/1.4/metadata-en-US.json) and [AppStoreAssets/1.4/metadata-es-MX.json](AppStoreAssets/1.4/metadata-es-MX.json).
 
 For the decision record and trademark/App Review guardrails, also read:
 
@@ -12,13 +12,14 @@ For the decision record and trademark/App Review guardrails, also read:
 | Field | Submission value |
 |---|---|
 | App name (25/30) | `Flipping Seven Calculator` |
-| Subtitle (29/30) | `Offline Card Game Scorekeeper` |
+| Subtitle `en-US` (26/30) | `Flip-Card Game Scorekeeper` |
+| Subtitle `es-MX` (28/30) | `Marcador de juegos de cartas` |
 | Bundle ID | `com.tcraig.flip7calculator.ios` |
 | SKU | `flip7calculator` |
 | Version | `1.4` |
 | Build | `12` |
 | Primary category | `Utilities` |
-| Secondary category | `Games` → `Card` |
+| Secondary category | `Games` → `Card`, `Board` |
 | Age rating | `4+`, with the App Store Connect questionnaire verified for this release |
 | Copyright | `2026 Tucker Craig` |
 
@@ -26,56 +27,63 @@ Keep the existing bundle ID and app record. Internal target/module names are int
 
 ## Promotional Text
 
-135/170 characters:
+159/170 characters:
 
-> Tap cards, track 7-card bonuses, and tally rounds fast on iPhone and iPad. Works completely offline with no ads, accounts, or tracking.
+> Score a full table in seconds. Tap cards, auto-add 7-card bonuses, and track who banked, froze, or busted. Offline on iPhone and iPad, with no ads or accounts.
 
 ## Keywords
 
-97/100 characters:
+100/100 characters:
 
 ```text
-scoreboard,tally,tracker,points,luck,bust,party,tabletop,night,stats,undo,counter,score,pad,sheet
+scoreboard,counter,tracker,score,keeper,tally,point,7,sheet,pad,bust,luck,party,board,tabletop,night
 ```
 
-Do not repeat words already present in the app name, subtitle, or category. Do not add the exact disputed mark, publisher name, competing app names, or spelling variations intended to reproduce them.
+Do not repeat words already present in the app name, subtitle, or category. Never place `flip` and `7` adjacent anywhere, and never add the disputed mark, publisher name, competing app names, or spelling variations intended to reproduce them.
+
+### Spanish (`es-MX`) Localization
+
+Indexed in both the US and Mexico storefronts for Spanish-speaking players:
+
+- Subtitle (28/30): `Marcador de juegos de cartas`
+- Keywords (99/100): `puntos,anotador,contador,puntaje,ronda,suerte,fiesta,familia,mesa,tablero,baraja,jugada,hoja,rapido`
 
 ## Description
 
-Flipping Seven Calculator is a simple, fast, offline scorekeeper for push-your-luck card games on iPhone and iPad.
+Flipping Seven Calculator is a fast, offline scorekeeper for push-your-luck card games on iPhone and iPad.
 
-Keep the table moving without doing mental math:
+Spend game night playing cards instead of doing mental math:
 
-- Tap number cards and modifiers as hands are played
-- See who is active, banked, frozen, or busted right on the board
-- Automatically apply 7-card bonuses, multipliers, special numbers, and negative modifiers
-- Switch between two scoring modes with separate custom deck profiles
+- Tap number cards and modifiers as hands unfold
+- See at a glance who is still drawing, banked, frozen, or busted
+- Automatically total 7-card bonuses, x2 multipliers, special numbers, and negative modifiers
+- Switch between two scoring modes with custom deck profiles
 - Turn on optional Brutal rules for negative rounds and redirected 7-card bonuses
-- Undo, redo, or enter a manual round score whenever house rules come up
-- Use the full-table layout on iPad (side-by-side in landscape) or the compact board on iPhone
-- Review post-game charts, highlights, player stats, and round history
+- Undo, redo, or type a manual round score whenever house rules come up
+- Play on iPad with a full-table layout (side-by-side in landscape) or on iPhone with a compact board
+- Check post-game score charts, highlights, player stats, and round-by-round history
 - Pick up an interrupted game right where you left off
 
-Everything stays on your device. No accounts, no ads, no subscriptions, and no internet connection required.
+Everything stays on your device. No accounts, no ads, no subscriptions, and no internet connection needed.
 
 Independent scorekeeping utility. Not affiliated with or endorsed by any game publisher.
 
 ## What's New in 1.4
 
-Version 1.4 focuses on speed, readability, and polish:
+Version 1.4 makes scoring faster, easier to read, and smoother to use:
 
-- Faster startup with a shorter, tap-to-skip opening animation and more responsive taps throughout
-- Cleaner layout with higher-contrast number and modifier buttons, distinct Bank, Bust, and Freeze colors, and updated light and dark themes
-- New iPad table layout with big player tiles in portrait and side-by-side board and keypad in landscape
-- Better VoiceOver support on modifier controls and dialogs, improved Dynamic Type sizing, and full Reduce Motion support
-- Updated score charts and a refreshed app icon
+- Faster startup with a shorter opening animation you can tap to skip, plus snappier taps throughout the app
+- Higher-contrast number and modifier keys, clearer Bank, Bust, and Freeze states, and refreshed light and dark themes
+- Redesigned iPad table layout with large player tiles in portrait and a side-by-side board and keypad in landscape
+- Improved VoiceOver labels on modifier controls and dialogs, better Dynamic Type scaling, and full Reduce Motion support
+- Updated post-game score charts and a sharper app icon
 
 ## URLs
 
 | Field | URL | Status before submission |
 |---|---|---|
-| Privacy policy | `https://btuckerc.dev/privacy/flipping-seven-calculator` | Verified deployed production route and policy bundle on 2026-07-29 |
-| Support | `https://btuckerc.dev/contact` | Verified HTTP 200 with rendered contact content on 2026-07-28 |
+| Privacy policy | `https://btuckerc.dev/privacy/flipping-seven-calculator` | Verified HTTP 200 live on 2026-11-22 |
+| Support | `https://btuckerc.dev/contact` | Verified HTTP 200 live on 2026-11-22 |
 | Marketing | Optional | Leave blank unless a product-specific page is published |
 
 Do not submit with a blank fallback route or the old Lucky Ledger privacy page merely because either returns HTTP 200. The rendered policy and submitted URL must agree with the new product name.
@@ -102,21 +110,20 @@ Reference for the related correspondence: APP264401-I.
 
 ## Screenshots
 
-The version `1.4` screenshots are composed on macOS from deterministic real app captures (fictional names: Peter, Ned, Mary, and Gwen) using `-releaseMarketingPreview` so Debug-only preview controls are never depicted.
+The version `1.4` screenshots are composed on macOS from deterministic real app captures (fictional names: Miles, Ned, MJ, and Peter, using the shipped Neon player palette) with `-releaseMarketingPreview` so Debug-only preview controls are never depicted.
 
 ### iPhone 6.9-inch (`1320 x 2868`)
 
-1. `01-live-scoring.png` — Fast round scoring
-2. `02-states-and-bonus.png` — Clear player states
-3. `03-stats-charts.png` — Full game stats
-4. `04-quick-setup.png` — Quick game setup
-5. `05-game-over.png` — Final standings
+1. `01-live-scoring.png` — Score every flip fast
+2. `02-states-and-bonus.png` — 7-card bonus, auto-added
+3. `03-stats-charts.png` — Stats after every game
+4. `04-game-over.png` — Final standings
 
 ### iPad 13-inch (`2064 x 2752`)
 
-1. `01-live-split.png` — Made for the whole table
-2. `02-states-and-bonus.png` — Clear player states
-3. `03-stats-charts.png` — Full game stats
+1. `01-live-split.png` — Built for the whole table
+2. `02-states-and-bonus.png` — 7-card bonus, auto-added
+3. `03-stats-charts.png` — Stats after every game
 4. `04-game-over.png` — Final standings
 
 Source asset documentation lives in [AppStoreAssets/1.4/README.md](AppStoreAssets/1.4/README.md).
@@ -131,6 +138,7 @@ Version `1.4 (12)` updates the two-card-and-7 icon using 4× supersampled render
 
 ## Search and Measurement
 
-- Title (`Flipping Seven Calculator`), subtitle (`Offline Card Game Scorekeeper`), and keywords (`scoreboard,tally,tracker,points,luck,bust,party,tabletop,night,stats,undo,counter,score,pad,sheet`) have zero token duplication.
-- The first three iPhone screenshots lead with live scoring, player states + 7-card bonus, and post-game charts.
+- Title (`Flipping Seven Calculator`), subtitle (`Flip-Card Game Scorekeeper`), and keywords (`scoreboard,counter,tracker,score,keeper,tally,point,7,sheet,pad,bust,luck,party,board,tabletop,night`) have zero token duplication and never place `flip` and `7` adjacent.
+- `es-MX` adds genuine Spanish search coverage for US and Mexico storefronts without keyword stuffing.
+- The first three iPhone screenshots lead with live scoring, 7-card bonus + player states, and post-game charts, and omit the setup screen so no expansion mode name or rules-like line appears on public marketing media.
 - Query live App Store Connect state before any upload, build attachment, or submission; never infer live status from this file.

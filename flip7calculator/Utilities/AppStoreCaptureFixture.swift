@@ -19,10 +19,10 @@ enum AppStoreCaptureFixture: String {
         return AppStoreCaptureFixture(rawValue: arguments[flagIndex + 1])
     }()
 
-    static let playerNames = ["Peter", "Ned", "Mary", "Gwen"]
+    static let playerNames = ["Miles", "Ned", "MJ", "Peter"]
 
     static let layoutAuditPlayerNames = [
-        "Peter", "Ned", "Mary", "Gwen", "Miles", "May", "Ben", "Felicia"
+        "Miles", "Ned", "MJ", "Peter", "Gwen", "May", "Happy", "Felicia"
     ]
 
     private static let playerIDs = [
@@ -49,7 +49,7 @@ enum AppStoreCaptureFixture: String {
     static func prepareDefaults() {
         UserDefaults.standard.set("dark", forKey: "appTheme")
         UserDefaults.standard.set(VisualTheme.v2.rawValue, forKey: "visualThemeVersion")
-        UserDefaults.standard.set(PlayerPalette.classic.rawValue, forKey: "playerPalette")
+        UserDefaults.standard.set(PlayerPalette.neon.rawValue, forKey: "playerPalette")
         UserDefaults.standard.set(false, forKey: "showOpeningAnimation")
         UserDefaults.standard.set(GameMode.classic.rawValue, forKey: "defaultGameMode")
         UserDefaults.standard.set(ScoringRules.defaultBrutalMode, forKey: "defaultBrutalMode")
@@ -120,7 +120,7 @@ enum AppStoreCaptureFixture: String {
 
     private static func liveBonusGame() -> Game {
         var game = liveGame()
-        // Make Peter active with a 7-card bonus so auto-selection showcases the +15 bonus & full states.
+        // Make Miles active with a 7-card bonus so auto-selection showcases the +15 bonus & full states.
         game.players[0].currentRound.state = .inRound
         game.players[1].currentRound.state = .banked
         return game

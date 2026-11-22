@@ -68,37 +68,30 @@ IPHONE_SLIDES = (
     SlideSpec(
         source_name="live.png",
         output_name="01-live-scoring.png",
-        headline="Fast round scoring",
+        headline="Score every flip fast",
         subline="Tap cards and modifiers as they hit the table.",
-        accent_hex="6AA9E8",
+        accent_hex="A855F7",
     ),
     SlideSpec(
         source_name="live-bonus.png",
         output_name="02-states-and-bonus.png",
-        headline="Clear player states",
-        subline="See who banked, froze, busted, or hit 7 cards.",
+        headline="7-card bonus, auto-added",
+        subline="See who banked, froze, or busted at a glance.",
         accent_hex="F0C14B",
     ),
     SlideSpec(
         source_name="stats.png",
         output_name="03-stats-charts.png",
-        headline="Full game stats",
+        headline="Stats after every game",
         subline="Score graphs, highlights, and round history.",
-        accent_hex="F0C14B",
-    ),
-    SlideSpec(
-        source_name="setup.png",
-        output_name="04-quick-setup.png",
-        headline="Quick game setup",
-        subline="Add 2–8 players, pick a target, and deal.",
-        accent_hex="6AA9E8",
+        accent_hex="A855F7",
     ),
     SlideSpec(
         source_name="game-over.png",
-        output_name="05-game-over.png",
+        output_name="04-game-over.png",
         headline="Final standings",
-        subline="Review the scores or start a rematch in one tap.",
-        accent_hex="F0C14B",
+        subline="Check the leaderboard or start a rematch in one tap.",
+        accent_hex="6AA9E8",
     ),
 )
 
@@ -106,23 +99,23 @@ IPAD_SLIDES = (
     SlideSpec(
         source_name="live.png",
         output_name="01-live-split.png",
-        headline="Made for the whole table",
-        subline="Big player tiles and keypad on iPad.",
-        accent_hex="6AA9E8",
+        headline="Built for the whole table",
+        subline="Big player tiles and keypad made for iPad.",
+        accent_hex="A855F7",
     ),
     SlideSpec(
         source_name="live-bonus.png",
         output_name="02-states-and-bonus.png",
-        headline="Clear player states",
-        subline="Track banked hands, busts, freezes, and 7-card bonuses.",
+        headline="7-card bonus, auto-added",
+        subline="Track banked hands, freezes, busts, and bonus totals.",
         accent_hex="F0C14B",
     ),
     SlideSpec(
         source_name="stats.png",
         output_name="03-stats-charts.png",
-        headline="Full game stats",
+        headline="Stats after every game",
         subline="Score graphs, highlights, and round-by-round history.",
-        accent_hex="F0C14B",
+        accent_hex="A855F7",
     ),
     SlideSpec(
         source_name="game-over.png",
@@ -139,11 +132,15 @@ def make_ambient_canvas(width: int, height: int, accent: tuple[int, int, int]) -
     img = Image.new("RGB", (grid_w, grid_h))
     px = img.load()
 
-    top_base = rgb("132642")
-    bottom_base = rgb("08111E")
+    top_base = rgb("151F47")
+    bottom_base = rgb("0A0B1F")
+    cyan_glow_color = rgb("22D3EE")
     glow_x = grid_w * 0.50
     glow_y = grid_h * 0.14
     glow_r = grid_w * 0.85
+    cyan_x = grid_w * 0.88
+    cyan_y = grid_h * 0.86
+    cyan_r = grid_w * 0.78
 
     for y in range(grid_h):
         ty = y / max(1, grid_h - 1)
@@ -151,7 +148,10 @@ def make_ambient_canvas(width: int, height: int, accent: tuple[int, int, int]) -
         for x in range(grid_w):
             d = math.hypot(x - glow_x, (y - glow_y) * 1.15) / glow_r
             glow = max(0.0, 1.0 - d) ** 2 * 0.13
-            px[x, y] = lerp_color(base, accent, glow)
+            color = lerp_color(base, accent, glow)
+            dc = math.hypot(x - cyan_x, (y - cyan_y) * 1.10) / cyan_r
+            cglow = max(0.0, 1.0 - dc) ** 2 * 0.05
+            px[x, y] = lerp_color(color, cyan_glow_color, cglow)
 
     return img.resize((width, height), resample=Image.Resampling.BICUBIC).convert("RGBA")
 
@@ -213,14 +213,22 @@ def render_slide(
         anchor="ma",
     )
 
-    # Subtle minimal accent rule under subline
+    # Subtle minimal accent rule with a faint cyan misregistered-print shadow
     rule_w = 84
     rule_y = subline_y + (76 if not is_ipad else 68)
-    draw.rounded_rectangle(
+    rule_layer = Image.new("RGBA", (cw, ch), (0, 0, 0, 0))
+    rdraw = ImageDraw.Draw(rule_layer)
+    rdraw.rounded_rectangle(
+        (cx - rule_w // 2 + 5, rule_y + 3, cx + rule_w // 2 + 5, rule_y + 10),
+        radius=4,
+        fill=(*rgb("22D3EE"), 150),
+    )
+    rdraw.rounded_rectangle(
         (cx - rule_w // 2, rule_y, cx + rule_w // 2, rule_y + 7),
         radius=4,
-        fill=(*accent, 220),
+        fill=(*accent, 235),
     )
+    canvas.alpha_composite(rule_layer)
 
     raw = Image.open(raw_path).convert("RGBA")
     frame_top = rule_y + (54 if not is_ipad else 48)
@@ -258,7 +266,7 @@ def render_slide(
         (outer_x, outer_y, outer_x + outer_w, outer_y + outer_h),
         radius=outer_radius,
         fill=(12, 20, 32, 255),
-        outline=(110, 142, 184, 96),
+        outline=(139, 124, 246, 80),
         width=4,
     )
     canvas.alpha_composite(shell)

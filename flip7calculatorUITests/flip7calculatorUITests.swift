@@ -10,7 +10,7 @@ import XCTest
 final class flip7calculatorUITests: XCTestCase {
 
     private let layoutAuditPlayerNames = [
-        "Peter", "Ned", "Mary", "Gwen", "Miles", "May", "Ben", "Felicia"
+        "Miles", "Ned", "MJ", "Peter", "Gwen", "May", "Happy", "Felicia"
     ]
 
     override func setUpWithError() throws {
@@ -218,7 +218,7 @@ final class flip7calculatorUITests: XCTestCase {
         XCTAssertEqual(start.label, "Start Scoring")
         start.tap()
 
-        XCTAssertTrue(app.buttons["Peter"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["Miles"].waitForExistence(timeout: 2))
         XCTAssertFalse(app.buttons["dealer.primaryAction"].exists)
     }
 
@@ -231,7 +231,7 @@ final class flip7calculatorUITests: XCTestCase {
         let primaryAction = app.buttons["dealer.primaryAction"]
         XCTAssertTrue(primaryAction.waitForExistence(timeout: 2))
         XCTAssertTrue(primaryAction.isHittable)
-        XCTAssertTrue(app.staticTexts["Peter, draw or stay?"].exists)
+        XCTAssertTrue(app.staticTexts["Miles, draw or stay?"].exists)
         XCTAssertTrue(app.staticTexts["88"].exists, "The draw-pile count should remain visible")
         XCTAssertFalse(app.staticTexts["Discard"].exists)
         XCTAssertTrue(app.otherElements["simulator.card.faceDown"].exists)
@@ -248,14 +248,14 @@ final class flip7calculatorUITests: XCTestCase {
         screenshot.lifetime = .keepAlways
         add(screenshot)
 
-        let peterHand = app.buttons["dealer.hand.00000000-0000-0000-0000-000000000001"]
-        XCTAssertTrue(peterHand.isHittable)
-        peterHand.tap()
+        let milesHand = app.buttons["dealer.hand.00000000-0000-0000-0000-000000000001"]
+        XCTAssertTrue(milesHand.isHittable)
+        milesHand.tap()
         XCTAssertTrue(app.navigationBars["Table Hands"].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.staticTexts["Peter"].exists)
+        XCTAssertTrue(app.staticTexts["Miles"].exists)
         XCTAssertTrue(app.staticTexts["Ned"].exists)
-        XCTAssertTrue(app.staticTexts["Mary"].exists)
-        XCTAssertTrue(app.staticTexts["Gwen"].exists)
+        XCTAssertTrue(app.staticTexts["MJ"].exists)
+        XCTAssertTrue(app.staticTexts["Peter"].exists)
 
         let handsScreenshot = XCTAttachment(screenshot: app.screenshot())
         handsScreenshot.name = "Dealer - Table Hands"
@@ -269,7 +269,7 @@ final class flip7calculatorUITests: XCTestCase {
         app.launchArguments = ["-appStoreCapture", "live"]
         app.launch()
 
-        XCTAssertTrue(app.buttons["Peter"].waitForExistence(timeout: 2), "The live-game fixture did not load")
+        XCTAssertTrue(app.buttons["Miles"].waitForExistence(timeout: 2), "The live-game fixture did not load")
         app.buttons["Settings"].tap()
         XCTAssertTrue(
             app.navigationBars["Settings"].waitForExistence(timeout: 2),
@@ -295,11 +295,11 @@ final class flip7calculatorUITests: XCTestCase {
         vengeance.tap()
         app.buttons["Done"].tap()
 
-        app.buttons["Peter"].tap()
+        app.buttons["Miles"].tap()
         XCTAssertTrue(
             app.staticTexts["VENGEANCE"].waitForExistence(timeout: 1),
             "The live calculator did not update to Vengeance"
         )
-        XCTAssertTrue(app.buttons["Peter"].exists, "The running game was replaced instead of preserved")
+        XCTAssertTrue(app.buttons["Miles"].exists, "The running game was replaced instead of preserved")
     }
 }

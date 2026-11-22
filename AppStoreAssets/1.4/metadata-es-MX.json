@@ -1,0 +1,14 @@
+{
+  "appInfo": {
+    "name": "Flipping Seven Calculator",
+    "subtitle": "Marcador de juegos de cartas",
+    "privacyPolicyUrl": "https://btuckerc.dev/privacy/flipping-seven-calculator"
+  },
+  "version": {
+    "description": "Flipping Seven Calculator es un marcador rápido y sin conexión para juegos de cartas de tentar la suerte en iPhone y iPad.\n\nConcéntrate en la partida en lugar de hacer cuentas mentales:\n\n- Toca las cartas numéricas y modificadores conforme avanza la mano\n- Ve al instante quién sigue en juego, se plantó, quedó congelado o se pasó\n- Suma automáticamente bonos de 7 cartas, multiplicadores x2, números especiales y modificadores negativos\n- Cambia entre dos modos de puntuación con perfiles de baraja personalizables\n- Activa las reglas opcionales del modo Brutal para rondas negativas y bonos de 7 cartas redirigidos\n- Deshaz, vuelve a aplicar o escribe un puntaje manual cuando haya reglas de la casa\n- Usa el tablero amplio en iPad (lado a lado en horizontal) o el diseño compacto en iPhone\n- Consulta gráficas al final de la partida, momentos destacados, estadísticas e historial por ronda\n- Retoma una partida interrumpida justo donde la dejaste\n\nTodo se guarda en tu dispositivo. Sin cuentas, sin anuncios, sin suscripciones y sin necesidad de internet.\n\nUtilidad independiente para llevar la puntuación. No está afiliada ni respaldada por ningún editor de juegos.",
+    "keywords": "puntos,anotador,contador,puntaje,ronda,suerte,fiesta,familia,mesa,tablero,baraja,jugada,hoja,rapido",
+    "promotionalText": "Anota la partida en segundos. Toca las cartas, suma bonos de 7 cartas al instante y ve quién se plantó, se congeló o se pasó. Sin internet, anuncios ni cuentas.",
+    "supportUrl": "https://btuckerc.dev/contact",
+    "whatsNew": "La versión 1.4 hace que llevar el puntaje sea más rápido, claro y cómodo:\n\n- Inicio más rápido con una animación corta que puedes tocar para saltar, además de respuestas más ágiles en toda la app\n- Teclas de números y modificadores con mejor contraste, estados más claros y temas claro y oscuro renovados\n- Nuevo diseño de mesa en iPad con tarjetas grandes en vertical y tablero junto al teclado en horizontal\n- Mejor compatibilidad con VoiceOver, tamaño dinámico de texto y opción de reducir movimiento\n- Gráficas de puntuación actualizadas e ícono renovado"
+  }
+}
