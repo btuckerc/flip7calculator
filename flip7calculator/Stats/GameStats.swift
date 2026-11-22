@@ -315,17 +315,19 @@ struct GameStats {
 struct PlayerGameStats {
     let playerId: UUID
     let game: Game
-    
-    /// All round results for this player
-    var roundResults: [RoundResult] {
-        game.gameHistory.compactMap { round in
+    /// All round results for this player (precomputed once at initialization)
+    let roundResults: [RoundResult]
+    /// All round scores (precomputed once at initialization)
+    let roundScores: [Int]
+
+    init(playerId: UUID, game: Game) {
+        self.playerId = playerId
+        self.game = game
+        let results = game.gameHistory.compactMap { round in
             round.results.first(where: { $0.playerId == playerId })
         }
-    }
-    
-    /// All round scores (including busts as 0)
-    var roundScores: [Int] {
-        roundResults.map { $0.roundScore }
+        self.roundResults = results
+        self.roundScores = results.map(\.roundScore)
     }
     
     /// Only non-bust round scores
@@ -503,13 +505,32 @@ struct PlayerGameStats {
 
 // MARK: - Chart Data Helpers
 
-/// Data point for charts
-struct RoundDataPoint: Identifiable {
-    let id = UUID()
+/// Data point for charts with deterministic identity for stable Swift Charts diffing.
+struct RoundDataPoint: Identifiable, Equatable {
+    var id: String {
+        occurrenceIndex == 0
+            ? "\(playerId.uuidString)-\(roundNumber)"
+            : "\(playerId.uuidString)-\(roundNumber)-\(occurrenceIndex)"
+    }
     let roundNumber: Int
     let score: Int
     let playerName: String
     let playerId: UUID
+    let occurrenceIndex: Int
+
+    init(
+        roundNumber: Int,
+        score: Int,
+        playerName: String,
+        playerId: UUID,
+        occurrenceIndex: Int = 0
+    ) {
+        self.roundNumber = roundNumber
+        self.score = score
+        self.playerName = playerName
+        self.playerId = playerId
+        self.occurrenceIndex = occurrenceIndex
+    }
 }
 
 extension GameStats {
@@ -517,20 +538,34 @@ extension GameStats {
     func cumulativeChartData() -> [RoundDataPoint] {
         var dataPoints: [RoundDataPoint] = []
         var cumulative: [UUID: Int] = Dictionary(uniqueKeysWithValues: game.players.map { ($0.id, 0) })
+        var seenCounts: [String: Int] = [:]
         
         // Add starting point (round 0, score 0)
         for player in game.players {
-            dataPoints.append(RoundDataPoint(roundNumber: 0, score: 0, playerName: player.name, playerId: player.id))
+            let key = "\(player.id.uuidString)-0"
+            let occurrence = seenCounts[key, default: 0]
+            seenCounts[key] = occurrence + 1
+            dataPoints.append(RoundDataPoint(
+                roundNumber: 0,
+                score: 0,
+                playerName: player.name,
+                playerId: player.id,
+                occurrenceIndex: occurrence
+            ))
         }
         
         for round in game.gameHistory {
             for result in round.results {
                 cumulative[result.playerId, default: 0] += result.roundScore
+                let key = "\(result.playerId.uuidString)-\(round.roundNumber)"
+                let occurrence = seenCounts[key, default: 0]
+                seenCounts[key] = occurrence + 1
                 dataPoints.append(RoundDataPoint(
                     roundNumber: round.roundNumber,
                     score: cumulative[result.playerId] ?? 0,
                     playerName: result.playerName,
-                    playerId: result.playerId
+                    playerId: result.playerId,
+                    occurrenceIndex: occurrence
                 ))
             }
         }
@@ -540,14 +575,18 @@ extension GameStats {
     /// Generate data points for round-by-round bar chart for a specific player
     func roundScoreChartData(for playerId: UUID) -> [RoundDataPoint] {
         let playerName = game.players.first(where: { $0.id == playerId })?.name ?? "Unknown"
+        var seenCounts: [Int: Int] = [:]
         
         return game.gameHistory.compactMap { round -> RoundDataPoint? in
             guard let result = round.results.first(where: { $0.playerId == playerId }) else { return nil }
+            let occurrence = seenCounts[round.roundNumber, default: 0]
+            seenCounts[round.roundNumber] = occurrence + 1
             return RoundDataPoint(
                 roundNumber: round.roundNumber,
                 score: result.roundScore,
                 playerName: playerName,
-                playerId: playerId
+                playerId: playerId,
+                occurrenceIndex: occurrence
             )
         }
     }

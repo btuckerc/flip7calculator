@@ -30,6 +30,7 @@ struct DealerGameView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
 
     private var riskMode: RiskInsightsMode {
@@ -199,10 +200,18 @@ struct DealerGameView: View {
                 }
                 .appChromeBackground()
             }
-            .onAppear { updateIdleTimer() }
+            .onAppear {
+                updateIdleTimer()
+                if game.isCompletedWithWinner {
+                    showingGameOver = true
+                }
+            }
             .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
             .onChange(of: keepScreenAwake) { _, _ in updateIdleTimer() }
             .onChange(of: scenePhase) { _, _ in updateIdleTimer() }
+            .onChange(of: game.isCompletedWithWinner) { _, isCompleted in
+                showingGameOver = isCompleted
+            }
         } else {
             ContentUnavailableView {
                 Label("Simulator Session Unavailable", systemImage: "exclamationmark.triangle")
@@ -363,6 +372,7 @@ private struct DealerPlayerTile: View {
     let isCurrent: Bool
     let isDealer: Bool
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -393,7 +403,7 @@ private struct DealerPlayerTile: View {
                 if cards.contains(where: { $0.content == .action(.shield) }) {
                     Image(systemName: DeckProfile.ActionCard.secondChance.icon)
                         .font(.system(size: 12))
-                        .foregroundStyle(DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme))
+                        .foregroundStyle(DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride))
                         .accessibilityLabel("Second Chance available")
                 }
                 Text(statusLabel)
@@ -456,6 +466,7 @@ private struct DealerStage: View {
     let onShowHand: (UUID) -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -613,6 +624,7 @@ private struct DealerCardFace: View {
     let card: LiveCardInstance?
     let compact: Bool
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -650,11 +662,11 @@ private struct DealerCardFace: View {
 
     private var accent: Color {
         guard let content = card?.content else {
-            return DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+            return DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride)
         }
         switch content {
         case .number:
-            return DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+            return DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride)
         case .addModifier, .multiplier:
             return DesignColor.color(.brandSecondary, theme: visualTheme, colorScheme: colorScheme)
         case .action(.hold):
@@ -790,6 +802,7 @@ private struct DealerCardToken: View {
     let card: LiveCardInstance
     let size: DealerCardTokenSize
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -834,7 +847,7 @@ private struct DealerCardToken: View {
     private var accent: Color {
         switch card.content {
         case .number:
-            return DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+            return DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride)
         case .addModifier, .multiplier:
             return DesignColor.color(.brandSecondary, theme: visualTheme, colorScheme: colorScheme)
         case .action(.hold):
@@ -853,6 +866,7 @@ private struct DealerPileCounter: View {
     let symbol: String
     let role: DesignColor.Role
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -880,6 +894,7 @@ private struct DealerHandsSheet: View {
     let focusedPlayerID: UUID
     @Environment(\.dismiss) private var dismiss
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
 
     private var orderedPlayers: [Player] {
@@ -979,6 +994,7 @@ private struct DealerActionBar: View {
     let onUndo: () -> Void
     let onRedo: () -> Void
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -1062,7 +1078,7 @@ private struct DealerActionBar: View {
                 .font(.system(size: 25))
                 .foregroundStyle(
                     enabled
-                        ? DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+                        ? DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride)
                         : Color(.systemGray4)
                 )
                 .frame(width: 36, height: 44)

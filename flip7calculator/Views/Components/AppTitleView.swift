@@ -28,18 +28,16 @@ struct AppTitleView: View {
         VStack(spacing: 8) {
             BrandMarkView(
                 animated: allowsAnimation && shouldAnimate,
-                showsFaceUpWhenStatic: allowsAnimation
+                showsFaceUpWhenStatic: true
             )
-            .frame(height: 104)
+            .frame(height: 98)
 
             BrandWordmarkView(showDescriptor: true)
 
             if showTagline {
                 Text(AppBrand.tagline)
-                    .font(.system(size: 15, weight: .medium, design: .rounded))
-                    .foregroundStyle(
-                        DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme)
-                    )
+                    .font(DesignTypography.font(.caption))
+                    .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
                     .multilineTextAlignment(.center)
             }
         }
@@ -55,35 +53,29 @@ struct BrandWordmarkView: View {
     var compact: Bool = false
 
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(spacing: compact ? 1 : 3) {
             HStack(alignment: .firstTextBaseline, spacing: compact ? 5 : 7) {
                 Text(AppBrand.wordmarkLead)
-                    .foregroundStyle(
-                        DesignColor.color(.textPrimary, theme: visualTheme, colorScheme: colorScheme)
-                    )
+                    .foregroundStyle(DesignColor.color(.textPrimary, theme: visualTheme, colorScheme: colorScheme))
 
                 Text(AppBrand.wordmarkSeven)
-                    .foregroundStyle(
-                        DesignColor.color(.brandSecondary, theme: visualTheme, colorScheme: colorScheme)
-                    )
-                    .shadow(color: AppBrandPalette.brandBlueDeep.opacity(0.22), radius: 0, x: 1, y: 2)
+                    .foregroundStyle(DesignColor.color(.brandSecondary, theme: visualTheme, colorScheme: colorScheme))
             }
-            .font(.custom("Nunito-Black", fixedSize: compact ? 24 : 29))
-            .tracking(compact ? 0.6 : 1.0)
-            .minimumScaleFactor(0.78)
+            .font(.custom("Nunito-Black", size: compact ? 23 : 28, relativeTo: .title2))
+            .tracking(compact ? 0.5 : 0.9)
+            .minimumScaleFactor(0.76)
             .lineLimit(1)
             .frame(maxWidth: .infinity, alignment: .center)
 
             if showDescriptor {
                 Text(AppBrand.wordmarkDescriptor)
-                    .font(.system(size: compact ? 9 : 11, weight: .bold, design: .rounded))
-                    .tracking(compact ? 2.2 : 3.2)
-                    .foregroundStyle(
-                        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
-                    )
+                    .font(.system(.caption2, design: .rounded, weight: .bold))
+                    .tracking(compact ? 2.0 : 3.0)
+                    .foregroundStyle(DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride))
                     .frame(maxWidth: .infinity, alignment: .center)
             }
         }
@@ -93,6 +85,8 @@ struct BrandWordmarkView: View {
     }
 }
 
+/// Seven-card fan mark that plays a single calm reveal on appearance and rests face-up
+/// with zero background CPU/GPU drain. Users can tap the fan for an optional ripple.
 struct BrandMarkView: View {
     let animated: Bool
     var showsFaceUpWhenStatic: Bool = true
@@ -101,10 +95,7 @@ struct BrandMarkView: View {
     @Environment(\.colorScheme) private var colorScheme
     private let dealtCards = Array(repeating: true, count: 7)
     @State private var faceUpCards: [Bool]
-
-    private var animationTaskID: Int {
-        (animated ? 2 : 0) + (showsFaceUpWhenStatic ? 1 : 0)
-    }
+    @State private var rippleTrigger = 0
 
     init(animated: Bool, showsFaceUpWhenStatic: Bool = true) {
         self.animated = animated
@@ -116,63 +107,58 @@ struct BrandMarkView: View {
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 28)
-                .fill(
-                    DesignColor.color(.surfaceInteractive, theme: visualTheme, colorScheme: colorScheme)
-                )
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .fill(DesignColor.color(.surfaceInteractive, theme: visualTheme, colorScheme: colorScheme))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 28)
-                        .stroke(Color.white.opacity(0.14), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 24, style: .continuous)
+                        .stroke(DesignColor.border(theme: visualTheme, colorScheme: colorScheme), lineWidth: 1)
                 )
-                .shadow(color: AppBrandPalette.ink.opacity(0.10), radius: 22, y: 10)
 
             SevenCardFanView(
                 dealtCards: dealtCards,
                 faceUpCards: faceUpCards,
-                cardSize: CGSize(width: 52, height: 76),
-                horizontalSpread: 27,
-                arcHeight: 9
+                cardSize: CGSize(width: 50, height: 72),
+                horizontalSpread: 26,
+                arcHeight: 8
             )
-            .offset(y: -5)
-            .padding(.horizontal, 18)
+            .offset(y: -4)
+            .padding(.horizontal, 16)
         }
-        .padding(.horizontal, 16)
-        .task(id: animationTaskID) {
+        .padding(.horizontal, 12)
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .onTapGesture {
+            guard animated else { return }
+            HapticFeedback.selection()
+            rippleTrigger &+= 1
+        }
+        .task(id: "\(animated)-\(showsFaceUpWhenStatic)-\(rippleTrigger)") {
             guard animated else {
                 faceUpCards = Array(repeating: showsFaceUpWhenStatic, count: 7)
                 return
             }
 
-            faceUpCards = Array(repeating: false, count: 7)
-            guard await pause(for: .milliseconds(320)) else { return }
-
-            while !Task.isCancelled {
-                guard await flipCards(faceUpCards.indices, faceUp: true) else { return }
-                guard await pause(for: .seconds(2.0)) else { return }
-                guard await flipCards(faceUpCards.indices.reversed(), faceUp: false) else { return }
-                guard await pause(for: .milliseconds(900)) else { return }
+            if rippleTrigger > 0 {
+                // Interactive tap ripple: quick flip face-down then back face-up once.
+                for index in faceUpCards.indices {
+                    guard !Task.isCancelled else { return }
+                    withAnimation(.snappy(duration: 0.22, extraBounce: 0)) {
+                        faceUpCards[index] = false
+                    }
+                    try? await Task.sleep(for: .milliseconds(35))
+                }
+                try? await Task.sleep(for: .milliseconds(120))
+            } else {
+                faceUpCards = Array(repeating: false, count: 7)
+                try? await Task.sleep(for: .milliseconds(120))
             }
-        }
-    }
 
-    @MainActor
-    private func flipCards<S: Sequence>(_ indices: S, faceUp: Bool) async -> Bool where S.Element == Int {
-        for index in indices {
-            guard !Task.isCancelled else { return false }
-            withAnimation(.smooth(duration: 0.38)) {
-                faceUpCards[index] = faceUp
+            for index in faceUpCards.indices {
+                guard !Task.isCancelled else { return }
+                withAnimation(.smooth(duration: 0.28)) {
+                    faceUpCards[index] = true
+                }
+                try? await Task.sleep(for: .milliseconds(55))
             }
-            guard await pause(for: .milliseconds(110)) else { return false }
-        }
-        return true
-    }
-
-    private func pause(for duration: Duration) async -> Bool {
-        do {
-            try await Task.sleep(for: duration)
-            return true
-        } catch {
-            return false
         }
     }
 }
@@ -195,13 +181,13 @@ struct SevenCardFanView: View {
                     isFaceUp: value(in: faceUpCards, at: index, fallback: true),
                     size: cardSize
                 )
-                .rotationEffect(.degrees(Double(distanceFromCenter) * 3.2 - 1.2))
+                .rotationEffect(.degrees(Double(distanceFromCenter) * 3.0 - 1.0))
                 .offset(
                     x: distanceFromCenter * horizontalSpread,
                     y: normalizedDistance * normalizedDistance * arcHeight
                 )
                 .opacity(value(in: dealtCards, at: index, fallback: true) ? 1 : 0)
-                .offset(y: value(in: dealtCards, at: index, fallback: true) ? 0 : -cardSize.height * 1.8)
+                .offset(y: value(in: dealtCards, at: index, fallback: true) ? 0 : -cardSize.height * 1.4)
                 .zIndex(Double(index))
             }
         }
@@ -234,52 +220,46 @@ struct BrandPlayingCard: View {
             back: cardBack
         )
         .frame(width: size.width, height: size.height)
-        .shadow(color: AppBrandPalette.ink.opacity(0.16), radius: 5, y: 3)
+        .shadow(color: AppBrandPalette.ink.opacity(0.14), radius: 3, y: 2)
         .accessibilityHidden(true)
     }
 
     private var cardBack: some View {
-        RoundedRectangle(cornerRadius: cornerRadius)
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             .fill(AppBrandPalette.brandBlue)
             .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius - 2)
-                    .stroke(AppBrandPalette.card.opacity(0.88), lineWidth: max(1.5, size.width * 0.045))
+                RoundedRectangle(cornerRadius: cornerRadius - 2, style: .continuous)
+                    .stroke(AppBrandPalette.card.opacity(0.84), lineWidth: max(1.4, size.width * 0.04))
                     .padding(max(3, size.width * 0.09))
             )
             .overlay {
                 VStack(spacing: max(2, size.height * 0.045)) {
-                    Capsule().fill(AppBrandPalette.gold).frame(width: size.width * 0.30, height: 3)
-                    Capsule().fill(AppBrandPalette.card.opacity(0.92)).frame(width: size.width * 0.44, height: 3)
-                    Capsule().fill(AppBrandPalette.copper).frame(width: size.width * 0.24, height: 3)
+                    Capsule().fill(AppBrandPalette.gold).frame(width: size.width * 0.28, height: 2.5)
+                    Capsule().fill(AppBrandPalette.card.opacity(0.9)).frame(width: size.width * 0.42, height: 2.5)
+                    Capsule().fill(AppBrandPalette.copper).frame(width: size.width * 0.22, height: 2.5)
                 }
             }
     }
 
     private var cardFront: some View {
-        RoundedRectangle(cornerRadius: cornerRadius)
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             .fill(AppBrandPalette.card)
             .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .stroke(
-                        isSeven ? AppBrandPalette.gold : AppBrandPalette.brandBlue.opacity(0.72),
-                        lineWidth: isSeven ? max(2, size.width * 0.055) : max(1.2, size.width * 0.035)
+                        isSeven ? AppBrandPalette.gold : AppBrandPalette.brandBlue.opacity(0.55),
+                        lineWidth: isSeven ? max(2, size.width * 0.05) : max(1.2, size.width * 0.032)
                     )
             )
             .overlay {
                 Text("\(number)")
                     .font(.custom("Nunito-Black", fixedSize: size.height * (isSeven ? 0.48 : 0.40)))
                     .foregroundStyle(numberColor)
-                    .shadow(
-                        color: isSeven ? AppBrandPalette.brandBlueDeep.opacity(0.18) : .clear,
-                        radius: 0,
-                        x: 1,
-                        y: 2
-                    )
             }
             .overlay(alignment: .topLeading) {
                 Circle()
                     .fill(isSeven ? AppBrandPalette.copper : AppBrandPalette.brandBlueSky)
-                    .frame(width: max(4, size.width * 0.12), height: max(4, size.width * 0.12))
+                    .frame(width: max(4, size.width * 0.11), height: max(4, size.width * 0.11))
                     .padding(max(4, size.width * 0.11))
             }
     }

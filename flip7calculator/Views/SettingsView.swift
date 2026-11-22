@@ -16,7 +16,7 @@ enum AppTheme: String, CaseIterable {
     case sunset = "Sunset"
     case forest = "Forest"
     case ocean = "Ocean"
-    
+
     var colorScheme: ColorScheme? {
         switch self {
         case .system: return nil
@@ -24,17 +24,26 @@ enum AppTheme: String, CaseIterable {
         case .dark, .midnight, .forest, .ocean: return .dark
         }
     }
-    
+
+    var hasCustomAccent: Bool {
+        switch self {
+        case .system, .light, .dark:
+            return false
+        case .midnight, .sunset, .forest, .ocean:
+            return true
+        }
+    }
+
     var accentColor: Color {
         switch self {
-        case .system, .light, .dark: return .blue
+        case .system, .light, .dark: return AppBrandPalette.brandBlue
         case .midnight: return .indigo
         case .sunset: return .orange
         case .forest: return .green
         case .ocean: return .cyan
         }
     }
-    
+
     var icon: String {
         switch self {
         case .system: return "gear"
@@ -54,8 +63,9 @@ struct SettingsView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.requestReview) private var requestReview
     @Environment(\.colorScheme) private var colorScheme
-    
-    @AppStorage("appTheme") private var appTheme: String = "system"
+
+    @AppStorage("appTheme") private var appTheme: String = AppTheme.system.rawValue
+    @AppStorage("visualThemeVersion") private var visualThemeVersion: String = VisualTheme.v2.rawValue
     @AppStorage("playerPalette") private var playerPaletteRaw: String = PlayerPalette.classic.rawValue
     @AppStorage("hapticFeedback") private var hapticFeedbackEnabled: Bool = true
     @AppStorage("showRoundScorePreview") private var showRoundScorePreview: Bool = true
@@ -65,21 +75,20 @@ struct SettingsView: View {
     @AppStorage("defaultTargetScore") private var defaultTargetScore: Int = 200
     @AppStorage("defaultGameMode") private var defaultGameModeRaw: String = GameMode.classic.rawValue
     @AppStorage("defaultBrutalMode") private var defaultBrutalMode: Bool = ScoringRules.defaultBrutalMode
-    @AppStorage("visualThemeVersion") private var visualThemeVersion: String = VisualTheme.v2.rawValue
-    
+
     @State private var showingTargetScoreEditor = false
     @State private var tempTargetScore: Int = 200
-    
+
     private var selectedTheme: AppTheme {
         AppTheme(rawValue: appTheme) ?? .system
-    }
-    
-    private var selectedPalette: PlayerPalette {
-        PlayerPalette(rawValue: playerPaletteRaw) ?? PlayerPalette.fromLegacyRawValue(playerPaletteRaw)
     }
 
     private var selectedVisualTheme: VisualTheme {
         VisualTheme(rawValue: visualThemeVersion) ?? .v2
+    }
+
+    private var selectedPalette: PlayerPalette {
+        PlayerPalette(rawValue: playerPaletteRaw) ?? PlayerPalette.fromLegacyRawValue(playerPaletteRaw)
     }
 
     private var selectedDefaultGameMode: GameMode {
@@ -102,32 +111,53 @@ struct SettingsView: View {
         )
     }
 
+    private var effectiveColorScheme: ColorScheme {
+        selectedTheme.colorScheme ?? colorScheme
+    }
+
+    private var accentOverride: Color? {
+        selectedTheme.hasCustomAccent ? selectedTheme.accentColor : nil
+    }
+
     private var themeTint: Color {
-        switch selectedVisualTheme {
-        case .legacy:
-            return selectedTheme.accentColor
-        case .v2:
-            return DesignColor.color(.brandPrimary, theme: .v2, colorScheme: selectedTheme.colorScheme)
-        }
+        DesignColor.color(.brandPrimary, theme: selectedVisualTheme, colorScheme: effectiveColorScheme, accentOverride: accentOverride)
     }
 
     private var rowBackground: Color {
-        DesignColor.color(.surfaceRaised, theme: selectedVisualTheme, colorScheme: selectedTheme.colorScheme ?? colorScheme)
+        DesignColor.listRowBackground(theme: selectedVisualTheme, colorScheme: effectiveColorScheme)
     }
 
     private var rowSeparator: Color {
-        AppBrandPalette.cardBorder(colorScheme: selectedTheme.colorScheme ?? colorScheme)
+        DesignColor.border(theme: selectedVisualTheme, colorScheme: effectiveColorScheme)
     }
-    
-    /// The displayed target score: from active game if present, otherwise from default
+
     private var displayedTargetScore: Int {
         viewModel.game?.targetScore ?? defaultTargetScore
     }
-    
+
     var body: some View {
         NavigationStack {
             List {
-                // Theme - Compact picker
+                Section {
+                    OptionChips(
+                        options: Array(VisualTheme.allCases),
+                        selectedOption: selectedVisualTheme,
+                        onSelect: { theme in
+                            visualThemeVersion = theme.rawValue
+                        },
+                        labelForOption: { $0.displayName },
+                        iconForOption: { $0.icon },
+                        fillsAvailableWidth: true,
+                        usesBorderlessStyle: true
+                    )
+                    .padding(.vertical, 4)
+                    .settingsRowStyle(background: rowBackground, separator: rowSeparator)
+                } header: {
+                    Text("Visual Theme")
+                } footer: {
+                    Text("Switch between the classic system look and the Flipping Seven palette.")
+                }
+
                 Section {
                     OptionChips(
                         options: Array(AppTheme.allCases),
@@ -137,38 +167,17 @@ struct SettingsView: View {
                         },
                         labelForOption: { $0.rawValue },
                         iconForOption: { $0.icon },
-                        colorForOption: { $0.accentColor }
+                        colorForOption: { $0.accentColor },
+                        usesBorderlessStyle: true
                     )
                     .padding(.vertical, 4)
                     .settingsRowStyle(background: rowBackground, separator: rowSeparator)
                 } header: {
-                    Text("Theme")
+                    Text("Appearance")
                 } footer: {
-                    Text("Choose a color scheme for the app")
+                    Text("Choose a color scheme and accent for the app.")
                 }
 
-                Section {
-                    OptionChips(
-                        options: Array(VisualTheme.allCases),
-                        selectedOption: selectedVisualTheme,
-                        onSelect: { visualTheme in
-                            visualThemeVersion = visualTheme.rawValue
-                        },
-                        labelForOption: { $0.displayName },
-                        iconForOption: { $0.icon },
-                        colorForOption: { visualTheme in
-                            DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: selectedTheme.colorScheme)
-                        }
-                    )
-                    .padding(.vertical, 4)
-                    .settingsRowStyle(background: rowBackground, separator: rowSeparator)
-                } header: {
-                    Text("Visual Theme")
-                } footer: {
-                    Text("Legacy keeps the original UI. \(AppBrand.visualThemeV2Name) uses the current design system.")
-                }
-                
-                // Player Palette - Compact picker
                 Section {
                     OptionChips(
                         options: Array(PlayerPalette.allCases),
@@ -180,20 +189,21 @@ struct SettingsView: View {
                         iconForOption: { $0.icon },
                         previewColorsForOption: { palette in
                             PlayerColorResolver.previewColors(palette: palette)
-                        }
+                        },
+                        usesBorderlessStyle: true
                     )
                     .padding(.vertical, 4)
                     .settingsRowStyle(background: rowBackground, separator: rowSeparator)
                 } header: {
                     Text("Player Colors")
                 } footer: {
-                    Text("Choose a color palette for player tiles")
+                    Text("Choose an accessible color palette for player accents and charts.")
                 }
-                
-                // Game Options: Target Score, Manage Players, Manage Deck
+
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(viewModel.game == nil ? "Default Game Mode" : "Game Mode")
+                            .font(.system(.body, design: .rounded, weight: .medium))
 
                         OptionChips(
                             options: GameMode.allCases,
@@ -201,7 +211,8 @@ struct SettingsView: View {
                             onSelect: selectGameMode,
                             labelForOption: { $0.displayName },
                             iconForOption: { $0.icon },
-                            fillsAvailableWidth: true
+                            fillsAvailableWidth: true,
+                            usesBorderlessStyle: true
                         )
                     }
                     .padding(.vertical, 4)
@@ -225,48 +236,50 @@ struct SettingsView: View {
                         .settingsRowStyle(background: rowBackground, separator: rowSeparator)
                     }
 
-                    // Target Score - editable
                     HStack {
                         Text("Target Score")
-                        
+
                         Spacer()
-                        
+
                         Button {
-                            let newScore = max(50, displayedTargetScore - 25)
-                            updateTargetScore(newScore)
+                            HapticFeedback.light()
+                            updateTargetScore(max(50, displayedTargetScore - 25))
                         } label: {
                             Image(systemName: "minus.circle.fill")
-                                .font(.system(size: 20))
+                                .font(.system(size: 22))
                                 .foregroundStyle(displayedTargetScore > 50 ? themeTint : Color(.systemGray4))
                         }
                         .buttonStyle(.borderless)
                         .disabled(displayedTargetScore <= 50)
-                        
+                        .accessibilityLabel("Decrease target score by 25")
+
                         Button {
                             tempTargetScore = displayedTargetScore
                             showingTargetScoreEditor = true
                         } label: {
                             Text("\(displayedTargetScore)")
-                                .font(.system(size: 17, weight: .medium, design: .rounded))
+                                .font(.system(.body, design: .rounded, weight: .semibold))
+                                .monospacedDigit()
                                 .foregroundStyle(themeTint)
                                 .frame(minWidth: 50)
                         }
                         .buttonStyle(.borderless)
-                        
+                        .accessibilityLabel("Target score \(displayedTargetScore)")
+
                         Button {
-                            let newScore = min(5000, displayedTargetScore + 25)
-                            updateTargetScore(newScore)
+                            HapticFeedback.light()
+                            updateTargetScore(min(5000, displayedTargetScore + 25))
                         } label: {
                             Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 20))
+                                .font(.system(size: 22))
                                 .foregroundStyle(displayedTargetScore < 5000 ? themeTint : Color(.systemGray4))
                         }
                         .buttonStyle(.borderless)
                         .disabled(displayedTargetScore >= 5000)
+                        .accessibilityLabel("Increase target score by 25")
                     }
                     .settingsRowStyle(background: rowBackground, separator: rowSeparator)
-                    
-                    // Manage Players
+
                     NavigationLink(destination: PlayerManagementView(viewModel: viewModel)) {
                         HStack {
                             Text("Manage Players")
@@ -274,12 +287,12 @@ struct SettingsView: View {
                             if let roster = PersistedRoster.load(), !roster.names.isEmpty {
                                 Text("\(roster.names.count)")
                                     .foregroundStyle(.secondary)
+                                    .monospacedDigit()
                             }
                         }
                     }
                     .settingsRowStyle(background: rowBackground, separator: rowSeparator)
-                    
-                    // Manage Deck
+
                     NavigationLink(destination: DeckManagementView(viewModel: viewModel)) {
                         HStack {
                             Text("Manage Deck")
@@ -288,6 +301,7 @@ struct SettingsView: View {
                                 ?? PersistedDeckProfile.load(for: selectedDefaultGameMode).deckProfile
                             Text("\(deckProfile.totalCardCount) cards")
                                 .foregroundStyle(.secondary)
+                                .monospacedDigit()
                         }
                     }
                     .settingsRowStyle(background: rowBackground, separator: rowSeparator)
@@ -297,29 +311,26 @@ struct SettingsView: View {
                     if viewModel.game != nil {
                         Text("Mode changes apply immediately. Shared number cards stay in this round; mode-specific entries return if you switch back.")
                     } else {
-                        Text("These defaults will be used for new games")
+                        Text("These defaults will be used for new games.")
                     }
                 }
-                
-                // Haptics
+
                 Section {
                     Toggle("Haptic Feedback", isOn: $hapticFeedbackEnabled)
                         .settingsRowStyle(background: rowBackground, separator: rowSeparator)
                 } header: {
                     Text("Haptics")
                 }
-                
-                // Display
+
                 Section {
                     Toggle("Show Round Score Preview", isOn: $showRoundScorePreview)
                         .settingsRowStyle(background: rowBackground, separator: rowSeparator)
                 } header: {
                     Text("Display")
                 } footer: {
-                    Text("Show potential round score on player tiles")
+                    Text("Show potential round score on player tiles.")
                 }
-                
-                // Accessibility
+
                 Section {
                     Toggle("Show Opening Animation", isOn: $showOpeningAnimation)
                         .settingsRowStyle(background: rowBackground, separator: rowSeparator)
@@ -330,10 +341,9 @@ struct SettingsView: View {
                 } header: {
                     Text("Accessibility")
                 } footer: {
-                    Text("Opening animation plays when the app launches. Title animation loops on the main menu. Reduce Animations and iOS Reduce Motion disable both animated effects.")
+                    Text("Opening animation plays briefly when the app launches and can be tapped to skip. Reduce Animations and iOS Reduce Motion disable animated effects.")
                 }
-                
-                // Support
+
                 Section {
                     Button {
                         if let url = URL(string: AppBrand.supportURL) {
@@ -348,7 +358,7 @@ struct SettingsView: View {
                         }
                     }
                     .settingsRowStyle(background: rowBackground, separator: rowSeparator)
-                    
+
                     Button {
                         requestAppReview()
                     } label: {
@@ -363,8 +373,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Support")
                 }
-                
-                // About
+
                 Section {
                     HStack(alignment: .firstTextBaseline) {
                         Text("App")
@@ -398,23 +407,25 @@ struct SettingsView: View {
                     Button("Done") {
                         dismiss()
                     }
+                    .fontWeight(.semibold)
                 }
             }
         }
+        .preferredColorScheme(selectedTheme.colorScheme)
         .tint(themeTint)
+        .environment(\.visualTheme, selectedVisualTheme)
+        .environment(\.appAccentOverride, accentOverride)
         .sheet(isPresented: $showingTargetScoreEditor) {
             TargetScoreEditorSheet(targetScore: $tempTargetScore) { newScore in
                 updateTargetScore(newScore)
             }
             .preferredColorScheme(selectedTheme.colorScheme)
             .tint(themeTint)
-            .id(appTheme)
+            .environment(\.visualTheme, selectedVisualTheme)
+            .environment(\.appAccentOverride, accentOverride)
         }
     }
-    
-    // MARK: - Helpers
-    
-    /// Updates both the default target score and the active game's target score (if present)
+
     private func updateTargetScore(_ newScore: Int) {
         let clampedScore = max(50, min(5000, newScore))
         defaultTargetScore = clampedScore
@@ -438,23 +449,9 @@ struct SettingsView: View {
             }
         }
     }
-    
-    /// Requests an App Store review using in-app prompt, with fallback to opening the App Store
+
     private func requestAppReview() {
-        // Try the in-app review prompt
         requestReview()
-        
-        // Note: requestReview() may or may not show a prompt depending on Apple's rate limits.
-        // We cannot reliably detect if it was shown, so we don't automatically fall back.
-        // Users who want to leave a review can tap again, or we could add a separate "Write a Review" option.
-        // For now, the button tries the prompt. If users want guaranteed access, they can use the App Store link.
-    }
-    
-    /// Opens the App Store review page directly
-    private func openAppStoreReview() {
-        if let url = URL(string: "https://apps.apple.com/app/id\(AppBrand.appStoreId)?action=write-review") {
-            openURL(url)
-        }
     }
 }
 
@@ -465,7 +462,7 @@ private struct SettingsRowChrome: ViewModifier {
     func body(content: Content) -> some View {
         content
             .listRowBackground(background)
-            .listRowSeparatorTint(separator.opacity(0.34))
+            .listRowSeparatorTint(separator.opacity(0.6))
     }
 }
 

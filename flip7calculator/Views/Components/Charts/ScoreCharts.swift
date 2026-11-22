@@ -15,73 +15,114 @@ struct CumulativeScoreChart: View {
     let dataPoints: [RoundDataPoint]
     let players: [Player]
     let playerColors: [Color]
-    
+
     private var maxRound: Int {
-        dataPoints.map { $0.roundNumber }.max() ?? 1
+        max(dataPoints.map(\.roundNumber).max() ?? 1, 1)
     }
-    
+
     private var maxScore: Int {
-        dataPoints.map { $0.score }.max() ?? 100
+        max(dataPoints.map(\.score).max() ?? 100, 20)
     }
-    
+
+    private var minScore: Int {
+        min(dataPoints.map(\.score).min() ?? 0, 0)
+    }
+
+    private var yDomain: ClosedRange<Int> {
+        let lower = minScore < 0 ? minScore - 15 : 0
+        return lower...(maxScore + 20)
+    }
+
+    private var xAxisRounds: [Int] {
+        if maxRound <= 6 {
+            return Array(0...maxRound)
+        }
+        let step = max(1, Int(ceil(Double(maxRound) / 5.0)))
+        var values = Array(stride(from: 0, through: maxRound, by: step))
+        if values.last != maxRound {
+            values.append(maxRound)
+        }
+        return values
+    }
+
     var body: some View {
+        let playerIDDomain = players.map { $0.id.uuidString }
         Chart(dataPoints) { point in
             LineMark(
                 x: .value("Round", point.roundNumber),
                 y: .value("Score", point.score)
             )
-            .foregroundStyle(by: .value("Player", point.playerName))
-            .symbol(by: .value("Player", point.playerName))
-            .interpolationMethod(.catmullRom)
-            
+            .foregroundStyle(by: .value("Player", point.playerId.uuidString))
+            .symbol(by: .value("Player", point.playerId.uuidString))
+            .interpolationMethod(.monotone)
+            .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+            .accessibilityLabel(point.playerName)
+            .accessibilityValue("Round \(point.roundNumber), \(point.score) points")
+
             PointMark(
                 x: .value("Round", point.roundNumber),
                 y: .value("Score", point.score)
             )
-            .foregroundStyle(by: .value("Player", point.playerName))
-            .symbolSize(point.roundNumber == maxRound ? 60 : 30)
+            .foregroundStyle(by: .value("Player", point.playerId.uuidString))
+            .symbolSize(point.roundNumber == maxRound ? 64 : 28)
+            .accessibilityLabel(point.playerName)
+            .accessibilityValue("Round \(point.roundNumber), \(point.score) points")
         }
-        .chartForegroundStyleScale(domain: players.map { $0.name }, range: playerColors)
+        .chartForegroundStyleScale(domain: playerIDDomain, range: playerColors)
+        .chartXScale(domain: 0...maxRound, range: .plotDimension(padding: 16))
         .chartXAxis {
-            AxisMarks(values: .automatic(desiredCount: min(maxRound + 1, 8))) { value in
+            AxisMarks(values: xAxisRounds) { value in
                 if let round = value.as(Int.self) {
-                    AxisGridLine()
+                    AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [3, 4]))
                     AxisTick()
-                    AxisValueLabel {
+                    AxisValueLabel(
+                        anchor: round == 0 ? .topLeading : (round == maxRound ? .topTrailing : .top)
+                    ) {
                         Text(round == 0 ? "Start" : "R\(round)")
-                            .font(.system(size: 10, design: .rounded))
+                            .font(.system(.caption2, design: .rounded, weight: .medium))
                     }
                 }
             }
         }
         .chartYAxis {
             AxisMarks(position: .leading) { value in
-                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4, 4]))
-                AxisTick()
+                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [3, 4]))
                 AxisValueLabel {
                     if let score = value.as(Int.self) {
                         Text("\(score)")
-                            .font(.system(size: 10, design: .rounded))
+                            .font(.system(.caption2, design: .rounded, weight: .medium))
                             .monospacedDigit()
                     }
                 }
             }
         }
-        .chartLegend(position: .bottom, spacing: 12) {
-            HStack(spacing: 12) {
+        .chartLegend(position: .bottom, alignment: .leading, spacing: 10) {
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 72), spacing: 10, alignment: .leading)],
+                alignment: .leading,
+                spacing: 6
+            ) {
                 ForEach(Array(players.enumerated()), id: \.element.id) { index, player in
-                    HStack(spacing: 4) {
+                    HStack(spacing: 5) {
                         Circle()
                             .fill(playerColors[safe: index] ?? .gray)
                             .frame(width: 8, height: 8)
                         Text(player.name)
-                            .font(.system(size: 11, design: .rounded))
+                            .font(.system(.caption, design: .rounded, weight: .medium))
                             .lineLimit(1)
                     }
                 }
             }
         }
-        .chartYScale(domain: 0...(maxScore + 20))
+        .chartYScale(domain: yDomain)
+        .padding(.trailing, 10)
+        .accessibilityLabel(accessibilitySummary)
+    }
+
+    private var accessibilitySummary: String {
+        let ranked = players.sorted { $0.totalScore > $1.totalScore }
+        let standings = ranked.map { "\($0.name) \($0.totalScore) points" }.joined(separator: ", ")
+        return "Score progression across \(maxRound) rounds. Final standings: \(standings)."
     }
 }
 
@@ -91,23 +132,27 @@ struct CumulativeScoreChart: View {
 struct RoundScoreBarChart: View {
     let dataPoints: [RoundDataPoint]
     let playerColor: Color
-    
+
     private var maxScore: Int {
-        max(dataPoints.map { $0.score }.max() ?? 50, 20)
+        max(dataPoints.map(\.score).max() ?? 50, 20)
     }
-    
+
+    private var minScore: Int {
+        min(dataPoints.map(\.score).min() ?? 0, 0)
+    }
+
     var body: some View {
         Chart(dataPoints) { point in
             BarMark(
                 x: .value("Round", "R\(point.roundNumber)"),
                 y: .value("Score", point.score)
             )
-            .foregroundStyle(point.score == 0 ? Color.red.opacity(0.6) : playerColor)
-            .cornerRadius(4)
-            .annotation(position: .top, spacing: 2) {
-                if point.score > 0 {
+            .foregroundStyle(point.score <= 0 ? AppBrandPalette.copper.opacity(0.65) : playerColor)
+            .cornerRadius(5)
+            .annotation(position: point.score >= 0 ? .top : .bottom, spacing: 3) {
+                if point.score != 0 {
                     Text("\(point.score)")
-                        .font(.system(size: 9, weight: .medium, design: .rounded))
+                        .font(.system(.caption2, design: .rounded, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
                 }
@@ -118,24 +163,30 @@ struct RoundScoreBarChart: View {
                 AxisValueLabel {
                     if let label = value.as(String.self) {
                         Text(label)
-                            .font(.system(size: 10, design: .rounded))
+                            .font(.system(.caption2, design: .rounded, weight: .medium))
                     }
                 }
             }
         }
         .chartYAxis {
             AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { value in
-                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [4, 4]))
+                AxisGridLine(stroke: StrokeStyle(lineWidth: 0.5, dash: [3, 4]))
                 AxisValueLabel {
                     if let score = value.as(Int.self) {
                         Text("\(score)")
-                            .font(.system(size: 10, design: .rounded))
+                            .font(.system(.caption2, design: .rounded, weight: .medium))
                             .monospacedDigit()
                     }
                 }
             }
         }
-        .chartYScale(domain: 0...(maxScore + 10))
+        .chartYScale(domain: (minScore < 0 ? minScore - 12 : 0)...(maxScore + 12))
+        .accessibilityLabel(accessibilitySummary)
+    }
+
+    private var accessibilitySummary: String {
+        let rounds = dataPoints.map { "Round \($0.roundNumber): \($0.score)" }.joined(separator: ", ")
+        return "Round scores: \(rounds)"
     }
 }
 
@@ -146,11 +197,15 @@ struct ScoreSparkline: View {
     let scores: [Int]
     let color: Color
     let height: CGFloat
-    
+
     private var maxScore: Int {
         max(scores.max() ?? 1, 1)
     }
-    
+
+    private var minScore: Int {
+        min(scores.min() ?? 0, 0)
+    }
+
     var body: some View {
         Chart(Array(scores.enumerated()), id: \.offset) { index, score in
             LineMark(
@@ -158,19 +213,21 @@ struct ScoreSparkline: View {
                 y: .value("Score", score)
             )
             .foregroundStyle(color)
-            .interpolationMethod(.catmullRom)
-            
+            .interpolationMethod(.monotone)
+            .lineStyle(StrokeStyle(lineWidth: 2, lineCap: .round))
+
             AreaMark(
                 x: .value("Round", index),
                 y: .value("Score", score)
             )
-            .foregroundStyle(color.opacity(0.15))
-            .interpolationMethod(.catmullRom)
+            .foregroundStyle(color.opacity(0.14))
+            .interpolationMethod(.monotone)
         }
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
-        .chartYScale(domain: 0...(maxScore + 5))
+        .chartYScale(domain: (minScore < 0 ? minScore - 5 : 0)...(maxScore + 5))
         .frame(height: height)
+        .accessibilityHidden(true)
     }
 }
 
@@ -182,114 +239,45 @@ struct ScoreBreakdownBar: View {
     let modifierPoints: Int
     let multiplierEffect: Int
     let sevenCardBonus: Int
-    
+
     private var total: Int {
         max(numberPoints + modifierPoints + multiplierEffect + sevenCardBonus, 1)
     }
-    
+
     var body: some View {
         GeometryReader { geometry in
-            HStack(spacing: 1) {
-                // Numbers (base)
+            HStack(spacing: 1.5) {
                 if numberPoints > 0 {
                     Rectangle()
-                        .fill(AppBrandPalette.brandBlue.opacity(0.82))
+                        .fill(AppBrandPalette.brandBlue.opacity(0.88))
                         .frame(width: segmentWidth(for: numberPoints, in: geometry.size.width))
                 }
-                
-                // Multiplier effect
                 if multiplierEffect > 0 {
                     Rectangle()
-                        .fill(AppBrandPalette.brandBlueSky.opacity(0.82))
+                        .fill(AppBrandPalette.brandBlueSky.opacity(0.88))
                         .frame(width: segmentWidth(for: multiplierEffect, in: geometry.size.width))
                 }
-                
-                // Modifiers
                 if modifierPoints > 0 {
                     Rectangle()
-                        .fill(AppBrandPalette.copper.opacity(0.82))
+                        .fill(AppBrandPalette.copper.opacity(0.88))
                         .frame(width: segmentWidth(for: modifierPoints, in: geometry.size.width))
                 }
-                
-                // Seven-card bonus
                 if sevenCardBonus > 0 {
                     Rectangle()
-                        .fill(AppBrandPalette.gold.opacity(0.9))
+                        .fill(AppBrandPalette.gold.opacity(0.92))
                         .frame(width: segmentWidth(for: sevenCardBonus, in: geometry.size.width))
                 }
             }
         }
         .frame(height: 8)
-        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
         .background(
-            RoundedRectangle(cornerRadius: 4)
-                .fill(AppBrandPalette.mist.opacity(0.55))
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .fill(AppBrandPalette.mist.opacity(0.35))
         )
     }
-    
+
     private func segmentWidth(for value: Int, in totalWidth: CGFloat) -> CGFloat {
         CGFloat(value) / CGFloat(total) * totalWidth
     }
-}
-
-// MARK: - Previews
-
-#Preview("Cumulative Chart") {
-    let players = [
-        Player(name: "Alice"),
-        Player(name: "Bob"),
-        Player(name: "Charlie")
-    ]
-    
-    let dataPoints = [
-        RoundDataPoint(roundNumber: 0, score: 0, playerName: "Alice", playerId: players[0].id),
-        RoundDataPoint(roundNumber: 0, score: 0, playerName: "Bob", playerId: players[1].id),
-        RoundDataPoint(roundNumber: 0, score: 0, playerName: "Charlie", playerId: players[2].id),
-        RoundDataPoint(roundNumber: 1, score: 45, playerName: "Alice", playerId: players[0].id),
-        RoundDataPoint(roundNumber: 1, score: 32, playerName: "Bob", playerId: players[1].id),
-        RoundDataPoint(roundNumber: 1, score: 0, playerName: "Charlie", playerId: players[2].id),
-        RoundDataPoint(roundNumber: 2, score: 45, playerName: "Alice", playerId: players[0].id),
-        RoundDataPoint(roundNumber: 2, score: 90, playerName: "Bob", playerId: players[1].id),
-        RoundDataPoint(roundNumber: 2, score: 41, playerName: "Charlie", playerId: players[2].id),
-        RoundDataPoint(roundNumber: 3, score: 112, playerName: "Alice", playerId: players[0].id),
-        RoundDataPoint(roundNumber: 3, score: 115, playerName: "Bob", playerId: players[1].id),
-        RoundDataPoint(roundNumber: 3, score: 79, playerName: "Charlie", playerId: players[2].id),
-    ]
-    
-    let colors = PlayerColorResolver.colors(count: 3, palette: .classic)
-    
-    return CumulativeScoreChart(dataPoints: dataPoints, players: players, playerColors: colors)
-        .frame(height: 200)
-        .padding()
-}
-
-#Preview("Bar Chart") {
-    let playerId = UUID()
-    let dataPoints = [
-        RoundDataPoint(roundNumber: 1, score: 45, playerName: "Alice", playerId: playerId),
-        RoundDataPoint(roundNumber: 2, score: 0, playerName: "Alice", playerId: playerId),
-        RoundDataPoint(roundNumber: 3, score: 67, playerName: "Alice", playerId: playerId),
-        RoundDataPoint(roundNumber: 4, score: 32, playerName: "Alice", playerId: playerId),
-        RoundDataPoint(roundNumber: 5, score: 58, playerName: "Alice", playerId: playerId),
-    ]
-    
-    return RoundScoreBarChart(dataPoints: dataPoints, playerColor: AppBrandPalette.copper)
-        .frame(height: 150)
-        .padding()
-}
-
-#Preview("Sparkline") {
-    ScoreSparkline(scores: [45, 0, 67, 32, 58, 41, 0, 73], color: AppBrandPalette.brandBlue, height: 40)
-        .padding()
-}
-
-#Preview("Breakdown Bar") {
-    VStack(spacing: 20) {
-        ScoreBreakdownBar(numberPoints: 45, modifierPoints: 10, multiplierEffect: 45, sevenCardBonus: 15)
-            .frame(width: 200)
-        
-        ScoreBreakdownBar(numberPoints: 30, modifierPoints: 0, multiplierEffect: 0, sevenCardBonus: 0)
-            .frame(width: 200)
-    }
-    .padding()
 }

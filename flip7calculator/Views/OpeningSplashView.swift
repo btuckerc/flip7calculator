@@ -2,7 +2,7 @@
 //  OpeningSplashView.swift
 //  flip7calculator
 //
-//  Flipping Seven Calculator launch animation.
+//  Crisp, skippable opening presentation for Flipping Seven Calculator.
 //
 
 import SwiftUI
@@ -17,12 +17,14 @@ struct OpeningSplashView: View {
     @State private var dealtCards = Array(repeating: false, count: 7)
     @State private var faceUpCards = Array(repeating: false, count: 7)
     @State private var showWordmark = false
-    @State private var showDescriptor = false
     @State private var exitOpacity = 1.0
-    @State private var exitScale: CGFloat = 1.0
+    @State private var isDismissing = false
 
     private var shouldReduceMotion: Bool {
-        accessibilityReduceMotion || reduceAnimations
+        DesignMotion.shouldReduceMotion(
+            reduceAnimations: reduceAnimations,
+            accessibilityReduceMotion: accessibilityReduceMotion
+        )
     }
 
     var body: some View {
@@ -30,84 +32,81 @@ struct OpeningSplashView: View {
             AppBrandPalette.screenBackground(colorScheme: colorScheme)
                 .ignoresSafeArea()
 
-            VStack(spacing: 28) {
+            VStack(spacing: 24) {
                 SevenCardFanView(
                     dealtCards: dealtCards,
                     faceUpCards: faceUpCards,
-                    cardSize: CGSize(width: 58, height: 86),
-                    horizontalSpread: 33,
-                    arcHeight: 15
+                    cardSize: CGSize(width: 54, height: 80),
+                    horizontalSpread: 30,
+                    arcHeight: 12
                 )
-                .frame(height: 118)
+                .frame(height: 108)
 
-                BrandWordmarkView(showDescriptor: showDescriptor || shouldReduceMotion)
+                BrandWordmarkView(showDescriptor: true)
                     .opacity(showWordmark || shouldReduceMotion ? 1 : 0)
-                    .offset(y: showWordmark || shouldReduceMotion ? 0 : 10)
+                    .offset(y: showWordmark || shouldReduceMotion ? 0 : 6)
             }
             .padding(.horizontal, 24)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(AppBrand.appName)
         }
         .opacity(exitOpacity)
-        .scaleEffect(exitScale)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            dismissImmediately()
+        }
         .task {
-            await startAnimation()
+            await runSequence()
         }
     }
 
     @MainActor
-    private func startAnimation() async {
+    private func runSequence() async {
         if shouldReduceMotion {
             dealtCards = Array(repeating: true, count: 7)
             faceUpCards = Array(repeating: true, count: 7)
             showWordmark = true
-            showDescriptor = true
-            try? await Task.sleep(for: .seconds(1.1))
+            try? await Task.sleep(for: .milliseconds(220))
             guard !Task.isCancelled else { return }
-            isPresented = false
+            closeSplash(duration: 0.14)
             return
         }
 
-        for index in dealtCards.indices {
-            guard !Task.isCancelled else { return }
-            withAnimation(.snappy(duration: 0.28, extraBounce: 0.04)) {
-                dealtCards[index] = true
-            }
-            try? await Task.sleep(for: .milliseconds(90))
-        }
-
-        try? await Task.sleep(for: .milliseconds(180))
-
-        for index in faceUpCards.indices {
-            guard !Task.isCancelled else { return }
-            withAnimation(.easeInOut(duration: 0.34)) {
-                faceUpCards[index] = true
-            }
-            try? await Task.sleep(for: .milliseconds(115))
-        }
-
-        withAnimation(.easeOut(duration: 0.30)) {
+        // Fast, cohesive fan reveal (~0.70s total, skippable on tap).
+        dealtCards = Array(repeating: true, count: 7)
+        withAnimation(.snappy(duration: 0.22, extraBounce: 0)) {
             showWordmark = true
         }
 
-        try? await Task.sleep(for: .milliseconds(180))
-
-        withAnimation(.easeOut(duration: 0.24)) {
-            showDescriptor = true
+        for index in faceUpCards.indices {
+            guard !Task.isCancelled, !isDismissing else { return }
+            withAnimation(.snappy(duration: 0.22, extraBounce: 0)) {
+                faceUpCards[index] = true
+            }
+            try? await Task.sleep(for: .milliseconds(36))
         }
 
-        try? await Task.sleep(for: .milliseconds(720))
-        guard !Task.isCancelled else { return }
-        closeSplash()
+        try? await Task.sleep(for: .milliseconds(220))
+        guard !Task.isCancelled, !isDismissing else { return }
+        closeSplash(duration: 0.18)
     }
 
-    private func closeSplash() {
-        withAnimation(.easeInOut(duration: 0.30)) {
-            exitOpacity = 0
-            exitScale = 1.025
-        }
+    @MainActor
+    private func dismissImmediately() {
+        guard !isDismissing else { return }
+        isDismissing = true
+        isPresented = false
+    }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.32) {
+    @MainActor
+    private func closeSplash(duration: Double) {
+        guard !isDismissing else { return }
+        isDismissing = true
+        withAnimation(.easeOut(duration: duration)) {
+            exitOpacity = 0
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(Int(duration * 1000) + 20))
             isPresented = false
         }
     }

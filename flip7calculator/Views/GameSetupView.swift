@@ -21,27 +21,27 @@ struct GameSetupView: View {
     @State private var selectedEntryIntent: GameEntryIntent = .scoreCalculator
     @State private var hasLoadedEntryIntent = false
     @State private var showingStartError = false
-    
+
     @AppStorage("defaultTargetScore") private var defaultTargetScore: Int = 200
     @AppStorage("defaultGameMode") private var defaultGameModeRaw: String = GameMode.classic.rawValue
     @AppStorage("defaultBrutalMode") private var defaultBrutalMode: Bool = ScoringRules.defaultBrutalMode
     @AppStorage("lastGameEntryIntent") private var lastGameEntryIntentRaw: String = GameEntryIntent.scoreCalculator.rawValue
     @AppStorage("riskInsightsMode") private var riskInsightsModeRaw: String = RiskInsightsMode.off.rawValue
-    @AppStorage("appTheme") private var appTheme: String = "system"
+    @AppStorage("appTheme") private var appTheme: String = AppTheme.system.rawValue
     @Environment(\.visualTheme) private var visualTheme
     @Environment(\.colorScheme) private var colorScheme
-    
+
     private var selectedTheme: AppTheme {
         AppTheme(rawValue: appTheme) ?? .system
     }
 
     private var themeAccent: Color {
-        switch visualTheme {
-        case .legacy:
-            return selectedTheme.accentColor
-        case .v2:
-            return DesignColor.color(.brandPrimary, theme: .v2, colorScheme: colorScheme)
-        }
+        DesignColor.color(
+            .brandPrimary,
+            theme: visualTheme,
+            colorScheme: colorScheme,
+            accentOverride: selectedTheme.hasCustomAccent ? selectedTheme.accentColor : nil
+        )
     }
 
     private var selectedGameMode: GameMode {
@@ -58,7 +58,7 @@ struct GameSetupView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 18) {
+                VStack(spacing: 16) {
                     SetupHeroCard(animateTitle: animateTitle)
 
                     if DealerAvailability.isPreviewEnabled {
@@ -100,7 +100,10 @@ struct GameSetupView: View {
                     }
 
                     if targetScore != 200 {
-                        Button(action: { targetScore = 200 }) {
+                        Button(action: {
+                            HapticFeedback.light()
+                            targetScore = 200
+                        }) {
                             Text("Reset to 200")
                         }
                         .buttonStyle(GhostButtonStyle())
@@ -109,8 +112,8 @@ struct GameSetupView: View {
                 .frame(maxWidth: 760)
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 20)
-                .padding(.top, 14)
-                .padding(.bottom, 140)
+                .padding(.top, 12)
+                .padding(.bottom, 132)
             }
             .scrollIndicators(.hidden)
             .contentShape(Rectangle())
@@ -120,7 +123,10 @@ struct GameSetupView: View {
             .navigationBarTitleDisplayMode(.inline)
             .appChromeBackground()
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                VStack {
+                VStack(spacing: 0) {
+                    Divider()
+                        .overlay(DesignColor.border(theme: visualTheme, colorScheme: colorScheme))
+
                     Button(action: {
                         HapticFeedback.success()
                         startGame()
@@ -131,16 +137,14 @@ struct GameSetupView: View {
                     .buttonStyle(PrimaryButtonStyle())
                     .disabled(!canStartGame)
                     .accessibilityIdentifier("setup.startGame")
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+                    .padding(.bottom, 22)
+                    .frame(maxWidth: 760)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 12)
-                .padding(.bottom, 28)
-                .frame(maxWidth: 760)
                 .frame(maxWidth: .infinity)
                 .background(
                     DesignColor.color(.surfaceRaised, theme: visualTheme, colorScheme: colorScheme)
-                        .opacity(0.98)
-                        .shadow(color: AppBrandPalette.ink.opacity(visualTheme == .v2 ? 0.10 : 0.05), radius: 18, y: -6)
                         .ignoresSafeArea()
                 )
             }
@@ -156,6 +160,7 @@ struct GameSetupView: View {
                     Button(action: { showingRules = true }) {
                         Image(systemName: "questionmark.circle")
                     }
+                    .accessibilityLabel("Scoring Guide")
                 }
             }
             .sheet(isPresented: $showingTargetScoreEditor) {
@@ -164,19 +169,16 @@ struct GameSetupView: View {
                 }
                 .preferredColorScheme(selectedTheme.colorScheme)
                 .tint(themeAccent)
-                .id(appTheme)
             }
             .sheet(isPresented: $showingRules) {
                 AppHelpView()
                     .preferredColorScheme(selectedTheme.colorScheme)
                     .tint(themeAccent)
-                    .id(appTheme)
             }
             .sheet(isPresented: $showingSettings) {
                 SettingsView(viewModel: viewModel)
                     .preferredColorScheme(selectedTheme.colorScheme)
                     .tint(themeAccent)
-                    .id(appTheme)
             }
             .alert("Unable to Start", isPresented: $showingStartError) {
                 Button("OK", role: .cancel) {}
@@ -209,48 +211,44 @@ struct GameSetupView: View {
                 }
             }
             .onChange(of: showingSettings) { _, isShowing in
-                // Sync state when Settings sheet dismisses
                 if !isShowing {
-                    // Reload players from persisted roster
                     loadPersistedRoster()
-                    // Sync target score from AppStorage
                     targetScore = defaultTargetScore
                 }
             }
         }
     }
-    
+
     private func loadPersistedRoster() {
         if let roster = PersistedRoster.load(), !roster.names.isEmpty {
             let names = Array(roster.names.prefix(8))
             playerRows = names.map { PlayerNameRow(name: $0) }
         } else {
-            // No saved roster or cleared - reset to default
             playerRows = [PlayerNameRow(), PlayerNameRow()]
         }
-        focusCoordinator.setOrder(playerRows.map { $0.id })
+        focusCoordinator.setOrder(playerRows.map(\.id))
     }
-    
+
     private var canStartGame: Bool {
-        return playerRows.count >= 2 && playerRows.count <= 8
+        playerRows.count >= 2 && playerRows.count <= 8
     }
-    
+
     private func clearPlayers() {
         HapticFeedback.light()
         playerRows = [PlayerNameRow(), PlayerNameRow()]
-        focusCoordinator.setOrder(playerRows.map { $0.id })
+        focusCoordinator.setOrder(playerRows.map(\.id))
         focusCoordinator.clearFocus()
         PersistedRoster.clear()
     }
-    
+
     private func startGame() {
         guard playerRows.count >= 2 && playerRows.count <= 8 else { return }
-        
+
         let players = playerRows.enumerated().map { index, row in
             let trimmed = row.name.trimmingCharacters(in: .whitespaces)
             return trimmed.isEmpty ? "Player \(index + 1)" : trimmed
         }
-        
+
         PersistedRoster(names: players).save()
         let didStart = viewModel.startNewGame(
             players: players,
@@ -264,11 +262,11 @@ struct GameSetupView: View {
             showingStartError = true
         }
     }
-    
+
     private func persistRosterOrder() {
         let names = playerRows.map { $0.name.trimmingCharacters(in: .whitespaces) }
         PersistedRoster(names: names).save()
-        focusCoordinator.setOrder(playerRows.map { $0.id })
+        focusCoordinator.setOrder(playerRows.map(\.id))
     }
 }
 
@@ -278,8 +276,16 @@ private struct SetupPlayStyleCard: View {
     let onSelect: (GameEntryIntent) -> Void
     @Environment(\.visualTheme) private var visualTheme
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @AppStorage("reduceAnimations") private var reduceAnimations: Bool = false
+
+    private var isReducedMotion: Bool {
+        DesignMotion.shouldReduceMotion(
+            reduceAnimations: reduceAnimations,
+            accessibilityReduceMotion: accessibilityReduceMotion
+        )
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesignSpacing.sm) {
@@ -303,19 +309,22 @@ private struct SetupPlayStyleCard: View {
             }
         }
         .padding(DesignSpacing.md)
-        .cardSurface(cornerRadius: 22)
-        .animation(reduceMotion ? nil : DesignMotion.animation(.fast), value: selectedIntent)
+        .cardSurface(cornerRadius: 20)
+        .animation(DesignMotion.animation(.fast, reduced: isReducedMotion), value: selectedIntent)
     }
 
     private func intentButton(_ intent: GameEntryIntent, isEnabled: Bool) -> some View {
         let isSelected = selectedIntent == intent
-        return Button(action: { onSelect(intent) }) {
+        return Button(action: {
+            HapticFeedback.selection()
+            onSelect(intent)
+        }) {
             HStack(spacing: 7) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : intent.icon)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(.subheadline, weight: .semibold))
                 Text(intent.title)
                     .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
-                    .minimumScaleFactor(0.72)
+                    .minimumScaleFactor(0.75)
             }
             .frame(maxWidth: .infinity)
             .frame(height: dynamicTypeSize.isAccessibilitySize ? nil : 28)
@@ -333,6 +342,7 @@ private struct SetupPlayStyleCard: View {
 private struct SetupRiskInsightsCard: View {
     @Binding var riskInsightsModeRaw: String
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
 
     private var selectedMode: RiskInsightsMode {
@@ -342,16 +352,16 @@ private struct SetupRiskInsightsCard: View {
     var body: some View {
         HStack(spacing: DesignSpacing.sm) {
             Image(systemName: "gauge.with.dots.needle.33percent")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme))
+                .font(.system(.headline, weight: .semibold))
+                .foregroundStyle(DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride))
                 .frame(width: 28)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Risk Insights")
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
                     .foregroundStyle(DesignColor.color(.textPrimary, theme: visualTheme, colorScheme: colorScheme))
                 Text("Optional duplicate and bust context")
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .font(DesignTypography.font(.caption))
                     .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
             }
 
@@ -375,7 +385,6 @@ private struct SetupRiskInsightsCard: View {
                     Image(systemName: "chevron.up.chevron.down")
                         .font(.system(size: 9, weight: .bold))
                 }
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
                 .pillBadge(selectedMode == .off ? .neutral : .info)
             }
             .accessibilityLabel("Risk Insights")
@@ -394,11 +403,20 @@ private struct SetupGameModeCard: View {
     let onSetBrutalMode: (Bool) -> Void
     @Environment(\.visualTheme) private var visualTheme
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @AppStorage("reduceAnimations") private var reduceAnimations: Bool = false
+
+    private var isReducedMotion: Bool {
+        DesignMotion.shouldReduceMotion(
+            reduceAnimations: reduceAnimations,
+            accessibilityReduceMotion: accessibilityReduceMotion
+        )
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Game Mode")
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .font(DesignTypography.font(.label))
                 .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
                 .textCase(.uppercase)
 
@@ -414,12 +432,12 @@ private struct SetupGameModeCard: View {
             VStack(alignment: .leading, spacing: 5) {
                 if let expansionRequirement = selectedMode.expansionRequirement {
                     Text(expansionRequirement)
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .font(.system(.caption, design: .rounded, weight: .bold))
                         .foregroundStyle(DesignColor.color(.textPrimary, theme: visualTheme, colorScheme: colorScheme))
                 }
 
                 Text(selectedMode.shortDescription)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(DesignTypography.font(.caption))
                     .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
             }
 
@@ -427,9 +445,9 @@ private struct SetupGameModeCard: View {
                 Toggle(isOn: Binding(get: { brutalMode }, set: onSetBrutalMode)) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Brutal Mode")
-                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .font(.system(.subheadline, design: .rounded, weight: .semibold))
                         Text(ScoringRules.brutalModeDescription)
-                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .font(DesignTypography.font(.caption))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -437,9 +455,9 @@ private struct SetupGameModeCard: View {
                 .accessibilityHint("Changes scoring for the next game")
             }
         }
-        .padding(20)
-        .cardSurface(cornerRadius: 22)
-        .animation(DesignMotion.animation(.fast), value: selectedMode)
+        .padding(18)
+        .cardSurface(cornerRadius: 20)
+        .animation(DesignMotion.animation(.fast, reduced: isReducedMotion), value: selectedMode)
     }
 }
 
@@ -448,9 +466,9 @@ private struct SetupHeroCard: View {
 
     var body: some View {
         AppTitleView(showTagline: false, allowsAnimation: animateTitle)
-            .padding(.horizontal, 22)
+            .padding(.horizontal, 20)
             .padding(.vertical, 14)
-            .cardSurface(cornerRadius: 26)
+            .cardSurface(cornerRadius: 24)
     }
 }
 
@@ -460,54 +478,85 @@ private struct SetupTargetScoreCard: View {
     @Binding var showingTargetScoreEditor: Bool
     @Environment(\.visualTheme) private var visualTheme
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @AppStorage("reduceAnimations") private var reduceAnimations: Bool = false
 
     private let presets = [150, 200, 250, 300]
+
+    private var isReducedMotion: Bool {
+        DesignMotion.shouldReduceMotion(
+            reduceAnimations: reduceAnimations,
+            accessibilityReduceMotion: accessibilityReduceMotion
+        )
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Target Score")
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .font(DesignTypography.font(.label))
                 .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
                 .textCase(.uppercase)
 
             HStack(spacing: 18) {
-                Button(action: { targetScore = max(50, targetScore - 25) }) {
+                Button(action: {
+                    HapticFeedback.light()
+                    targetScore = max(50, targetScore - 25)
+                }) {
                     Image(systemName: "minus.circle.fill")
                         .font(.system(size: 32))
                         .foregroundStyle(targetScore > 50 ? themeAccent : Color(.systemGray4))
+                        .frame(width: 44, height: 44)
                 }
+                .buttonStyle(KeycapButtonStyle(pressedScale: 0.92))
                 .disabled(targetScore <= 50)
+                .accessibilityLabel("Decrease target score by 25")
 
                 Spacer()
 
-                Button(action: { showingTargetScoreEditor = true }) {
-                    VStack(spacing: 4) {
+                Button(action: {
+                    HapticFeedback.light()
+                    showingTargetScoreEditor = true
+                }) {
+                    VStack(spacing: 3) {
                         Text("\(targetScore)")
-                            .font(.system(size: 38, weight: .black, design: .rounded))
+                            .font(.system(.largeTitle, design: .rounded, weight: .black))
+                            .monospacedDigit()
                             .foregroundStyle(DesignColor.color(.textPrimary, theme: visualTheme, colorScheme: colorScheme))
                             .contentTransition(.numericText())
                         Text("Tap to type")
-                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .font(DesignTypography.font(.caption))
                             .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
                     }
                     .frame(minWidth: 110)
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Target score \(targetScore)")
+                .accessibilityHint("Opens keyboard to enter a custom target score")
 
                 Spacer()
 
-                Button(action: { targetScore = min(5000, targetScore + 25) }) {
+                Button(action: {
+                    HapticFeedback.light()
+                    targetScore = min(5000, targetScore + 25)
+                }) {
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 32))
                         .foregroundStyle(targetScore < 5000 ? themeAccent : Color(.systemGray4))
+                        .frame(width: 44, height: 44)
                 }
+                .buttonStyle(KeycapButtonStyle(pressedScale: 0.92))
                 .disabled(targetScore >= 5000)
+                .accessibilityLabel("Increase target score by 25")
             }
 
             HStack(spacing: 8) {
                 ForEach(presets, id: \.self) { preset in
-                    Button(action: { targetScore = preset }) {
+                    Button(action: {
+                        HapticFeedback.selection()
+                        targetScore = preset
+                    }) {
                         Text("\(preset)")
+                            .monospacedDigit()
                             .frame(maxWidth: .infinity)
                     }
                     .modifier(
@@ -519,9 +568,9 @@ private struct SetupTargetScoreCard: View {
                 }
             }
         }
-        .padding(20)
-        .cardSurface(cornerRadius: 22)
-        .animation(.snappy(duration: 0.2), value: targetScore)
+        .padding(18)
+        .cardSurface(cornerRadius: 20)
+        .animation(DesignMotion.animation(.fast, reduced: isReducedMotion), value: targetScore)
     }
 }
 
@@ -541,42 +590,61 @@ private struct TargetScorePresetStyleModifier: ViewModifier {
 
 private struct PrimaryPillButtonStyle: ButtonStyle {
     let fill: Color
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @AppStorage("reduceAnimations") private var reduceAnimations: Bool = false
+
+    private var isReducedMotion: Bool {
+        DesignMotion.shouldReduceMotion(
+            reduceAnimations: reduceAnimations,
+            accessibilityReduceMotion: accessibilityReduceMotion
+        )
+    }
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 14, weight: .semibold, design: .rounded))
-            .foregroundStyle(.white)
+            .font(.system(.subheadline, design: .rounded, weight: .semibold))
+            .foregroundStyle(fill.contrastingForeground)
             .padding(.vertical, 10)
             .background(
                 Capsule()
-                    .fill(fill.opacity(configuration.isPressed ? 0.82 : 1))
+                    .fill(fill.opacity(configuration.isPressed ? 0.85 : 1))
             )
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .animation(DesignMotion.animation(.fast), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed && !isReducedMotion ? 0.97 : 1)
+            .animation(DesignMotion.animation(.press, reduced: isReducedMotion), value: configuration.isPressed)
     }
 }
 
 private struct SecondaryPillButtonStyle: ButtonStyle {
     @Environment(\.visualTheme) private var visualTheme
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @AppStorage("reduceAnimations") private var reduceAnimations: Bool = false
+
+    private var isReducedMotion: Bool {
+        DesignMotion.shouldReduceMotion(
+            reduceAnimations: reduceAnimations,
+            accessibilityReduceMotion: accessibilityReduceMotion
+        )
+    }
 
     func makeBody(configuration: Configuration) -> some View {
-        let surface = DesignColor.color(.surfaceInteractive, theme: visualTheme, colorScheme: colorScheme)
-        let border = DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme).opacity(0.12)
+        let surface = DesignColor.color(.surfaceKeycap, theme: visualTheme, colorScheme: colorScheme)
+        let border = visualTheme == .v2 ? AppBrandPalette.keycapBorder(colorScheme: colorScheme) : Color(.separator).opacity(0.45)
 
         return configuration.label
-            .font(.system(size: 14, weight: .semibold, design: .rounded))
+            .font(.system(.subheadline, design: .rounded, weight: .semibold))
             .foregroundStyle(DesignColor.color(.textPrimary, theme: visualTheme, colorScheme: colorScheme))
             .padding(.vertical, 10)
             .background(
                 Capsule()
-                    .fill(surface.opacity(configuration.isPressed ? 0.88 : 1))
+                    .fill(surface.opacity(configuration.isPressed ? 0.84 : 1))
             )
             .overlay(
                 Capsule()
                     .stroke(border, lineWidth: 1)
             )
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .animation(DesignMotion.animation(.fast), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed && !isReducedMotion ? 0.97 : 1)
+            .animation(DesignMotion.animation(.press, reduced: isReducedMotion), value: configuration.isPressed)
     }
 }

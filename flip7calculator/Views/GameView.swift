@@ -9,7 +9,7 @@ import SwiftUI
 
 extension Array {
     subscript(safe index: Int) -> Element? {
-        return indices.contains(index) ? self[index] : nil
+        indices.contains(index) ? self[index] : nil
     }
 }
 
@@ -20,6 +20,7 @@ enum ActiveConfirmation {
 
 struct GameView: View {
     @Bindable var viewModel: GameViewModel
+    var hidesWinnerBanner: Bool = false
     @State private var selectedPlayerId: UUID?
     @State private var showingBustBanner = false
     @State private var bustNumber: Int?
@@ -27,174 +28,134 @@ struct GameView: View {
     @State private var showingSettings = false
     @State private var showingGameOverOverlay = false
     @State private var showingRules = false
-    
+
     @AppStorage("playerPalette") private var playerPaletteRaw: String = PlayerPalette.classic.rawValue
-    @AppStorage("appTheme") private var appTheme: String = "system"
+    @AppStorage("appTheme") private var appTheme: String = AppTheme.system.rawValue
+    @AppStorage("reduceAnimations") private var reduceAnimations: Bool = false
     @Environment(\.visualTheme) private var visualTheme
     @Environment(\.colorScheme) private var colorScheme
-    
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+
     private var selectedTheme: AppTheme {
         AppTheme(rawValue: appTheme) ?? .system
     }
-    
+
     private var selectedPalette: PlayerPalette {
         PlayerPalette(rawValue: playerPaletteRaw) ?? PlayerPalette.fromLegacyRawValue(playerPaletteRaw)
     }
 
+    private var isReducedMotion: Bool {
+        DesignMotion.shouldReduceMotion(
+            reduceAnimations: reduceAnimations,
+            accessibilityReduceMotion: accessibilityReduceMotion
+        )
+    }
+
     private var themeAccent: Color {
-        switch visualTheme {
-        case .legacy:
-            return selectedTheme.accentColor
-        case .v2:
-            return DesignColor.color(.brandPrimary, theme: .v2, colorScheme: colorScheme)
-        }
+        DesignColor.color(
+            .brandPrimary,
+            theme: visualTheme,
+            colorScheme: colorScheme,
+            accentOverride: selectedTheme.hasCustomAccent ? selectedTheme.accentColor : nil
+        )
     }
 
     private var winnerColor: Color {
-        colorScheme == .dark ? AppBrandPalette.gold : AppBrandPalette.brandBlueDeep
+        DesignColor.color(.brandSecondary, theme: visualTheme, colorScheme: colorScheme)
     }
-    
+
     private var playerColors: [Color] {
         guard let game = viewModel.game else { return [] }
         return PlayerColorResolver.colors(count: game.players.count, palette: selectedPalette)
     }
-    
-    /// Checks if finalizing the current round would produce at least one winner
+
     private var wouldProduceWinner: Bool {
-        guard let game = viewModel.game else { return false }
-        return game.previewHasUniqueWinner
+        viewModel.game?.previewHasUniqueWinner ?? false
     }
-    
-    /// Checks if the game currently has a winner (scores already banked)
+
     private var gameHasWinner: Bool {
         viewModel.game?.hasWinner ?? false
     }
-    
-    /// Whether a player is currently selected (panel should be visible)
-    private var hasSelection: Bool {
-        selectedPlayerId != nil
+
+    private var gameIsCompletedWithWinner: Bool {
+        viewModel.game?.isCompletedWithWinner ?? false
     }
-    
+
+    private var hasSelection: Bool {
+        guard let selectedPlayerId, let game = viewModel.game else { return false }
+        return game.players.contains(where: { $0.id == selectedPlayerId })
+    }
+
     var body: some View {
         if let game = viewModel.game {
             NavigationStack {
-                VStack(spacing: 0) {
-                    // Player grid fills available space above the panel
-                    PlayerGrid(
-                        players: game.players,
-                        playerColors: playerColors,
-                        selectedPlayerId: selectedPlayerId,
-                        scoringRules: game.scoringRules,
-                        onSelect: { id in
-                            // Animate only tile selection styling, not layout
-                            selectedPlayerId = id
-                        }
-                    )
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-                    .padding(.bottom, 12)
-                    .frame(maxHeight: .infinity, alignment: .top)
-                    
-                    // Selected player panel - ALWAYS in hierarchy to prevent layout reflow
-                    // Uses opacity + hit testing to show/hide without changing layout
-                    SelectedPlayerPanel(
-                        game: game,
-                        selectedPlayerId: selectedPlayerId,
-                        playerColors: playerColors,
-                        viewModel: viewModel,
-                        showingBustBanner: $showingBustBanner,
-                        bustNumber: $bustNumber,
-                        onNumberTap: { playerId, number in
-                            handleNumberTap(playerId: playerId, number: number)
-                        }
-                    )
-                    .opacity(hasSelection ? 1 : 0)
-                    .allowsHitTesting(hasSelection)
-                    .accessibilityHidden(!hasSelection)
-                    // Animate content changes within panel, not the panel appearance
-                    .animation(.easeInOut(duration: 0.15), value: selectedPlayerId)
-                }
-                // Bottom bar pinned via safeAreaInset - prevents content underlap
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    VStack(spacing: 0) {
-                        Divider()
-                        
-                        // Winner indicator (shown above controls when there's a winner)
-                        if game.hasWinner {
-                            HStack(spacing: 4) {
-                                Image(systemName: "trophy.fill")
-                                    .font(.system(size: 14))
-                                    .foregroundStyle(winnerColor)
-                                Text(game.winners.map { $0.name }.joined(separator: ", "))
-                                    .font(.system(size: 14, weight: .medium, design: .rounded))
-                                    .foregroundStyle(winnerColor)
-                                    .lineLimit(1)
-                                    .truncationMode(.tail)
+                Group {
+                    if horizontalSizeClass == .regular {
+                        GeometryReader { geometry in
+                            let isLandscape = geometry.size.width > geometry.size.height
+                            if isLandscape {
+                                HStack(alignment: .center, spacing: DesignSpacing.lg) {
+                                    PlayerGrid(
+                                        players: game.players,
+                                        playerColors: playerColors,
+                                        selectedPlayerId: selectedPlayerId,
+                                        scoringRules: game.scoringRules,
+                                        isRegularPortrait: false,
+                                        onSelect: selectPlayer
+                                    )
+                                    .frame(maxWidth: 460, maxHeight: .infinity, alignment: .center)
+
+                                    entryColumn(game: game)
+                                        .frame(maxWidth: 540, alignment: .center)
+                                }
+                                .padding(.horizontal, DesignSpacing.lg)
+                                .padding(.vertical, DesignSpacing.md)
+                                .frame(maxWidth: 1060, maxHeight: .infinity, alignment: .center)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                            } else {
+                                VStack(spacing: DesignSpacing.lg) {
+                                    PlayerGrid(
+                                        players: game.players,
+                                        playerColors: playerColors,
+                                        selectedPlayerId: selectedPlayerId,
+                                        scoringRules: game.scoringRules,
+                                        isRegularPortrait: true,
+                                        onSelect: selectPlayer
+                                    )
+                                    .frame(maxHeight: .infinity, alignment: .top)
+
+                                    entryColumn(game: game)
+                                }
+                                .padding(.horizontal, DesignSpacing.xl)
+                                .padding(.top, DesignSpacing.lg)
+                                .padding(.bottom, DesignSpacing.md)
+                                .frame(maxWidth: 820, maxHeight: .infinity, alignment: .center)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                             }
-                            .frame(maxWidth: .infinity, alignment: .center)
+                        }
+                    } else {
+                        VStack(spacing: 0) {
+                            PlayerGrid(
+                                players: game.players,
+                                playerColors: playerColors,
+                                selectedPlayerId: selectedPlayerId,
+                                scoringRules: game.scoringRules,
+                                onSelect: selectPlayer
+                            )
+                            .padding(.horizontal, 14)
                             .padding(.top, 8)
+                            .padding(.bottom, 10)
+                            .frame(maxHeight: .infinity, alignment: .top)
+
+                            entryColumn(game: game)
+                                .padding(.horizontal, 14)
+                                .padding(.bottom, 8)
                         }
-                        
-                        HStack {
-                            // Next Round button (left side, text button)
-                            Button(action: {
-                                activeConfirmation = .newRound
-                            }) {
-                                Text("Next Round")
-                                    .font(.system(size: 15, weight: .medium, design: .rounded))
-                                    .foregroundStyle(themeAccent)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            
-                            // Undo/Redo (centered)
-                            HStack(spacing: 12) {
-                                Button(action: {
-                                    HapticFeedback.light()
-                                    viewModel.undo()
-                                }) {
-                                    Image(systemName: "arrow.uturn.backward.circle.fill")
-                                        .font(.system(size: 28))
-                                        .foregroundStyle(viewModel.canUndo ? themeAccent : .gray.opacity(0.4))
-                                }
-                                .disabled(!viewModel.canUndo)
-                                
-                                Button(action: {
-                                    HapticFeedback.light()
-                                    viewModel.redo()
-                                }) {
-                                    Image(systemName: "arrow.uturn.forward.circle.fill")
-                                        .font(.system(size: 28))
-                                        .foregroundStyle(viewModel.canRedo ? themeAccent : .gray.opacity(0.4))
-                                }
-                                .disabled(!viewModel.canRedo)
-                            }
-                            
-                            // Continue button (right side)
-                            Button(action: {
-                                handleContinueTap(game: game)
-                            }) {
-                                HStack(spacing: 6) {
-                                    Text("Continue")
-                                        .font(.system(size: 16, weight: .semibold, design: .rounded))
-                                        .lineLimit(1)
-                                        .minimumScaleFactor(0.85)
-                                    Image(systemName: "arrow.right.circle.fill")
-                                        .font(.system(size: 18))
-                                }
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 10)
-                                .background(
-                                    Capsule()
-                                        .fill(themeAccent)
-                                )
-                            }
-                            .frame(maxWidth: .infinity, alignment: .trailing)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .background(DesignColor.color(.surfacePrimary, theme: visualTheme, colorScheme: colorScheme))
                     }
+                }
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    bottomActionBar(game: game)
                 }
                 .navigationTitle("Round \(game.currentRoundNumber)")
                 .navigationBarTitleDisplayMode(.inline)
@@ -205,31 +166,33 @@ struct GameView: View {
                         }
                         .accessibilityLabel("Settings")
                     }
-                    
+
                     ToolbarItem(placement: .navigationBarTrailing) {
                         Menu {
-                            Button("Scoring Guide") { showingRules = true }
+                            Button("Scoring Guide", systemImage: "questionmark.circle") {
+                                showingRules = true
+                            }
                             Divider()
-                            Button("New Game", role: .destructive) { activeConfirmation = .newGame }
+                            Button("New Game", systemImage: "plus.circle", role: .destructive) {
+                                activeConfirmation = .newGame
+                            }
                         } label: {
                             Image(systemName: "ellipsis.circle")
                         }
+                        .accessibilityLabel("Game options")
                     }
                 }
                 .sheet(isPresented: $showingSettings) {
                     SettingsView(viewModel: viewModel)
                         .preferredColorScheme(selectedTheme.colorScheme)
                         .tint(themeAccent)
-                        .id(appTheme)
                 }
                 .sheet(isPresented: $showingRules) {
                     AppHelpView(scoringRules: game.scoringRules)
                         .preferredColorScheme(selectedTheme.colorScheme)
                         .tint(themeAccent)
-                        .id(appTheme)
                 }
-                // Hide navigation bar when Game Over overlay is showing
-                .toolbar(showingGameOverOverlay ? .hidden : .visible, for: .navigationBar)
+                .toolbar(showingGameOverOverlay || activeConfirmation != nil ? .hidden : .visible, for: .navigationBar)
                 .overlay {
                     if let confirmation = activeConfirmation {
                         ConfirmationOverlay(
@@ -241,14 +204,19 @@ struct GameView: View {
                                 if confirmation == .newRound {
                                     HapticFeedback.success()
                                     if wouldProduceWinner {
-                                        // This is a winning round - finalize and show game over
                                         viewModel.endRound()
                                         selectedPlayerId = nil
                                         showingGameOverOverlay = true
                                     } else {
-                                        // Normal round - start next round
                                         viewModel.startNewRound()
-                                        selectedPlayerId = nil
+                                        if let updatedGame = viewModel.game {
+                                            selectedPlayerId = GameFlow.preferredSelection(
+                                                in: updatedGame,
+                                                currentSelection: nil
+                                            )
+                                        } else {
+                                            selectedPlayerId = nil
+                                        }
                                     }
                                 } else {
                                     HapticFeedback.medium()
@@ -260,14 +228,14 @@ struct GameView: View {
                             }
                         )
                     }
-                    
-                    // Game Over overlay
+
                     if showingGameOverOverlay {
                         GameOverOverlay(
                             viewModel: viewModel,
                             onPlayAgain: {
                                 showingGameOverOverlay = false
                                 viewModel.restartGameKeepingSettings()
+                                syncSelectionIfNeeded()
                             },
                             onNewGame: {
                                 showingGameOverOverlay = false
@@ -279,10 +247,23 @@ struct GameView: View {
                         )
                     }
                 }
-                .onChange(of: gameHasWinner) { _, hasWinner in
-                    // Auto-dismiss game over overlay if undo removes winner state
-                    if !hasWinner && showingGameOverOverlay {
-                        showingGameOverOverlay = false
+                .onAppear {
+                    if gameIsCompletedWithWinner {
+                        selectedPlayerId = nil
+                        showingGameOverOverlay = true
+                    } else {
+                        syncSelectionIfNeeded()
+                    }
+                }
+                .onChange(of: game.players.map(\.id)) { _, _ in
+                    syncSelectionIfNeeded()
+                }
+                .onChange(of: gameIsCompletedWithWinner) { _, isCompleted in
+                    showingGameOverOverlay = isCompleted
+                    if isCompleted {
+                        selectedPlayerId = nil
+                    } else {
+                        syncSelectionIfNeeded()
                     }
                 }
                 .appChromeBackground()
@@ -291,52 +272,154 @@ struct GameView: View {
             EmptyView()
         }
     }
-    
-    // MARK: - Helpers
-    
-    /// Finds the next player who is still in-round, starting from the current selection.
-    /// Returns nil if no players are in-round.
-    private func nextInRoundPlayerId(from currentId: UUID?, players: [Player]) -> UUID? {
-        let inRoundPlayers = players.filter { $0.currentRound.state == .inRound }
-        
-        // If no players are in-round, return nil
-        guard !inRoundPlayers.isEmpty else { return nil }
-        
-        // If no current selection, return the first in-round player
-        guard let currentId = currentId,
-              let currentIndex = players.firstIndex(where: { $0.id == currentId }) else {
-            return inRoundPlayers.first?.id
-        }
-        
-        // Find the next in-round player after the current one (wrap around)
-        let playersAfterCurrent = players.dropFirst(currentIndex + 1) + players.prefix(currentIndex + 1)
-        for player in playersAfterCurrent {
-            if player.currentRound.state == .inRound {
-                return player.id
+
+    // MARK: - Subviews
+
+    @ViewBuilder
+    private func entryColumn(game: Game) -> some View {
+        ZStack {
+            SelectedPlayerPanel(
+                game: game,
+                selectedPlayerId: selectedPlayerId,
+                playerColors: playerColors,
+                viewModel: viewModel,
+                showingBustBanner: $showingBustBanner,
+                bustNumber: $bustNumber,
+                onNumberTap: handleNumberTap
+            )
+            .opacity(hasSelection ? 1 : 0)
+            .allowsHitTesting(hasSelection)
+            .accessibilityHidden(!hasSelection)
+
+            if !hasSelection {
+                RoundSettledPlaceholder(
+                    inRoundCount: GameFlow.inRoundCount(in: game),
+                    onFinishRound: { activeConfirmation = .newRound }
+                )
             }
         }
-        
-        // Shouldn't reach here if inRoundPlayers is not empty, but fallback
-        return inRoundPlayers.first?.id
+        .dynamicTypeSize(...DynamicTypeSize.accessibility3)
+        .animation(DesignMotion.animation(.fast, reduced: isReducedMotion), value: selectedPlayerId)
     }
-    
-    /// Handles the Continue button tap - advances to next in-round player or prompts to finish round
+
+    @ViewBuilder
+    private func bottomActionBar(game: Game) -> some View {
+        VStack(spacing: 0) {
+            Divider()
+                .overlay(DesignColor.border(theme: visualTheme, colorScheme: colorScheme))
+
+            if game.isCompletedWithWinner && !showingGameOverOverlay && !hidesWinnerBanner {
+                HStack(spacing: 5) {
+                    Image(systemName: "trophy.fill")
+                        .font(.caption)
+                        .foregroundStyle(winnerColor)
+                    Text(game.winners.map(\.name).joined(separator: ", "))
+                        .font(.system(.footnote, design: .rounded, weight: .semibold))
+                        .foregroundStyle(winnerColor)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.top, 8)
+            }
+
+            HStack {
+                Button(action: {
+                    activeConfirmation = .newRound
+                }) {
+                    Text("Next Round")
+                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .foregroundStyle(themeAccent)
+                        .padding(.vertical, 6)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                HStack(spacing: 14) {
+                    Button(action: {
+                        HapticFeedback.light()
+                        viewModel.undo()
+                    }) {
+                        Image(systemName: "arrow.uturn.backward.circle.fill")
+                            .font(.system(size: 28))
+                            .foregroundStyle(viewModel.canUndo ? themeAccent : Color(.systemGray3).opacity(0.45))
+                    }
+                    .buttonStyle(KeycapButtonStyle(pressedScale: 0.92))
+                    .disabled(!viewModel.canUndo)
+                    .accessibilityLabel("Undo")
+
+                    Button(action: {
+                        HapticFeedback.light()
+                        viewModel.redo()
+                    }) {
+                        Image(systemName: "arrow.uturn.forward.circle.fill")
+                            .font(.system(size: 28))
+                            .foregroundStyle(viewModel.canRedo ? themeAccent : Color(.systemGray3).opacity(0.45))
+                    }
+                    .buttonStyle(KeycapButtonStyle(pressedScale: 0.92))
+                    .disabled(!viewModel.canRedo)
+                    .accessibilityLabel("Redo")
+                }
+
+                Button(action: {
+                    handleContinueTap(game: game)
+                }) {
+                    HStack(spacing: 6) {
+                        Text("Continue")
+                            .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
+                        Image(systemName: "arrow.right.circle.fill")
+                            .font(.system(size: 17))
+                    }
+                    .foregroundStyle(themeAccent.contrastingForeground)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .background(Capsule().fill(themeAccent))
+                }
+                .buttonStyle(KeycapButtonStyle(pressedScale: 0.95))
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(DesignColor.color(.surfaceRaised, theme: visualTheme, colorScheme: colorScheme))
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func selectPlayer(_ id: UUID) {
+        selectedPlayerId = id
+        showingBustBanner = false
+        bustNumber = nil
+    }
+
+    private func syncSelectionIfNeeded() {
+        guard let game = viewModel.game else {
+            selectedPlayerId = nil
+            return
+        }
+        if let current = selectedPlayerId,
+           game.players.contains(where: { $0.id == current }) {
+            return
+        }
+        selectedPlayerId = GameFlow.preferredSelection(in: game, currentSelection: nil)
+    }
+
     private func handleContinueTap(game: Game) {
-        if let nextId = nextInRoundPlayerId(from: selectedPlayerId, players: game.players) {
-            // If the next in-round player is the same as current (last one standing), prompt to finish
+        if let nextId = GameFlow.nextInRoundPlayerId(from: selectedPlayerId, players: game.players) {
             if nextId == selectedPlayerId {
                 activeConfirmation = .newRound
             } else {
-                // Advance to the next in-round player (no layout animation)
                 selectedPlayerId = nextId
-                HapticFeedback.light()
+                showingBustBanner = false
+                bustNumber = nil
+                HapticFeedback.selection()
             }
         } else {
-            // No in-round players remain - prompt to finish round
             activeConfirmation = .newRound
         }
     }
-    
+
     private func confirmationTitle(for confirmation: ActiveConfirmation) -> String {
         switch confirmation {
         case .newRound:
@@ -345,22 +428,21 @@ struct GameView: View {
             return "New Game"
         }
     }
-    
+
     private func confirmationMessage(for confirmation: ActiveConfirmation, game: Game) -> String {
         switch confirmation {
         case .newRound:
             if wouldProduceWinner {
-                // Find the preview winner(s)
                 let previewScores = game.players.map {
                     ($0.name, ScoreEngine.previewTotalScore(player: $0, rules: game.scoringRules))
                 }
-                let maxScore = previewScores.map { $0.1 }.max() ?? 0
+                let maxScore = previewScores.map(\.1).max() ?? 0
                 let winners = previewScores.filter { $0.1 == maxScore && $0.1 >= game.targetScore }
-                
+
                 if winners.count == 1 {
                     return "\(winners[0].0) will win with \(winners[0].1) points!\n\n" + nextRoundConfirmationMessage(game: game)
                 } else {
-                    let names = winners.map { $0.0 }.joined(separator: " & ")
+                    let names = winners.map(\.0).joined(separator: " & ")
                     return "\(names) will tie for the win with \(maxScore) points!\n\n" + nextRoundConfirmationMessage(game: game)
                 }
             } else {
@@ -370,7 +452,7 @@ struct GameView: View {
             return "This will end the current game and return to setup."
         }
     }
-    
+
     private func confirmationButtonTitle(for confirmation: ActiveConfirmation) -> String {
         switch confirmation {
         case .newRound:
@@ -379,40 +461,35 @@ struct GameView: View {
             return "Start New Game"
         }
     }
-    
+
     private func handleNumberTap(playerId: UUID, number: Int) {
         guard let game = viewModel.game,
               let player = game.players.first(where: { $0.id == playerId }) else {
             return
         }
-        
-        // If number is already selected, remove it
+
         if player.currentRound.hand.selectedNumbers.contains(number) {
             viewModel.removeCardFromPlayer(playerId, number: number)
             return
         }
-        
-        // Add the number
+
         let isDuplicate = viewModel.addCardToPlayer(playerId, number: number)
-        
         if isDuplicate {
             bustNumber = number
             showingBustBanner = true
         }
     }
-    
+
     private func nextRoundConfirmationMessage(game: Game) -> String {
         var parts: [String] = []
-        
+
         let bustedPlayers = game.players.filter { $0.currentRound.state == .busted }
         let inRoundPlayers = game.players.filter { $0.currentRound.state == .inRound }
-        
-        // Players who will score points
+
         let scoringPlayers = game.players.filter { player in
-            let score = ScoreEngine.calculateRoundScore(round: player.currentRound, rules: game.scoringRules)
-            return score != 0
+            ScoreEngine.calculateRoundScore(round: player.currentRound, rules: game.scoringRules) != 0
         }
-        
+
         if !scoringPlayers.isEmpty {
             let names = scoringPlayers.map {
                 let score = ScoreEngine.calculateRoundScore(round: $0.currentRound, rules: game.scoringRules)
@@ -420,7 +497,7 @@ struct GameView: View {
             }
             parts.append("Scoring: \(names.joined(separator: ", "))")
         }
-        
+
         if !bustedPlayers.isEmpty {
             let names = bustedPlayers.map { player in
                 let score = ScoreEngine.calculateRoundScore(round: player.currentRound, rules: game.scoringRules)
@@ -428,7 +505,7 @@ struct GameView: View {
             }
             parts.append("Busted\(game.scoringRules.brutalMode ? "" : " (0 pts)"): \(names.joined(separator: ", "))")
         }
-        
+
         if !inRoundPlayers.isEmpty {
             let inRoundWithCards = inRoundPlayers.filter {
                 !$0.currentRound.hand.isEmpty || $0.currentRound.manualScoreOverride != nil
@@ -436,7 +513,7 @@ struct GameView: View {
             let inRoundNoCards = inRoundPlayers.filter {
                 $0.currentRound.hand.isEmpty && $0.currentRound.manualScoreOverride == nil
             }
-            
+
             if !inRoundWithCards.isEmpty {
                 let names = inRoundWithCards.map { player in
                     let score = ScoreEngine.calculateRoundScore(
@@ -448,23 +525,59 @@ struct GameView: View {
                 parts.append("Still in round (will score): \(names.joined(separator: ", "))")
             }
             if !inRoundNoCards.isEmpty {
-                let names = inRoundNoCards.map { $0.name }
+                let names = inRoundNoCards.map(\.name)
                 parts.append("No cards drawn: \(names.joined(separator: ", "))")
             }
         }
-        
+
         if parts.isEmpty {
             return "All scores will be finalized and a new round will begin."
         }
-        
+
         return parts.joined(separator: "\n")
+    }
+}
+
+private struct RoundSettledPlaceholder: View {
+    let inRoundCount: Int
+    let onFinishRound: () -> Void
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: inRoundCount == 0 ? "checkmark.seal.fill" : "hand.tap.fill")
+                .font(.title2)
+                .foregroundStyle(DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride))
+
+            Text(inRoundCount == 0 ? "All players settled" : "Tap a player to score")
+                .font(.system(.headline, design: .rounded, weight: .bold))
+                .foregroundStyle(DesignColor.color(.textPrimary, theme: visualTheme, colorScheme: colorScheme))
+
+            Text(
+                inRoundCount == 0
+                    ? "Tap any player tile to review their hand, or finish this round."
+                    : "Select any player tile above to add cards or modifiers."
+            )
+            .font(DesignTypography.font(.caption))
+            .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
+            .multilineTextAlignment(.center)
+
+            if inRoundCount == 0 {
+                Button("Finish Round", action: onFinishRound)
+                    .buttonStyle(SecondaryButtonStyle())
+                    .padding(.top, 4)
+            }
+        }
+        .padding(DesignSpacing.lg)
+        .frame(maxWidth: .infinity)
+        .cardSurface(cornerRadius: DesignRadius.lg)
     }
 }
 
 // MARK: - Selected Player Panel
 
-/// Extracted panel component for the selected player's card picker and actions.
-/// This is always present in the view hierarchy to prevent layout reflow when selection changes.
 struct SelectedPlayerPanel: View {
     let game: Game
     let selectedPlayerId: UUID?
@@ -473,84 +586,99 @@ struct SelectedPlayerPanel: View {
     @Binding var showingBustBanner: Bool
     @Binding var bustNumber: Int?
     let onNumberTap: (UUID, Int) -> Void
+
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
     @AppStorage("riskInsightsMode") private var riskInsightsModeRaw: String = RiskInsightsMode.off.rawValue
     @State private var showingRiskInsight = false
-    
-    /// Falls back to first player for layout measurement when no selection
+
     private var effectivePlayer: Player {
         if let id = selectedPlayerId,
            let player = game.players.first(where: { $0.id == id }) {
             return player
         }
-        // Fallback to first player to maintain consistent layout height
         return game.players.first ?? Player(name: "")
     }
-    
+
     private var effectivePlayerId: UUID {
         selectedPlayerId ?? (game.players.first?.id ?? UUID())
     }
-    
+
     private var playerIndex: Int {
         game.players.firstIndex(where: { $0.id == effectivePlayerId }) ?? 0
     }
-    
+
     private var playerColor: Color {
-        playerColors[safe: playerIndex] ?? DesignColor.color(.playerHighlight, theme: visualTheme, colorScheme: colorScheme)
+        playerColors[safe: playerIndex] ?? DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride)
     }
 
     private var bonusColor: Color {
-        colorScheme == .dark ? AppBrandPalette.gold : AppBrandPalette.brandBlueDeep
+        DesignColor.color(.brandSecondary, theme: visualTheme, colorScheme: colorScheme)
     }
 
     private var riskInsightsMode: RiskInsightsMode {
         RiskInsightsMode(rawValue: riskInsightsModeRaw) ?? .off
     }
-    
+
     var body: some View {
         let player = effectivePlayer
         let selectedId = effectivePlayerId
-        
+        let availability = viewModel.roundAvailability
+
         VStack(spacing: 8) {
-            // Player header with 7-card bonus
-            HStack {
+            // Player header with mode tag and 7-card bonus badge
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(playerColor)
+                    .frame(width: 10, height: 10)
+
                 Text(player.name)
-                    .font(.system(size: 17, weight: .bold, design: .rounded))
-                    .foregroundStyle(playerColor)
+                    .font(.system(.headline, design: .rounded, weight: .bold))
+                    .foregroundStyle(DesignColor.color(.textPrimary, theme: visualTheme, colorScheme: colorScheme))
                     .lineLimit(1)
                     .truncationMode(.tail)
 
                 Text(game.scoringRules.brutalMode ? "BRUTAL" : game.scoringRules.mode.displayName.uppercased())
                     .font(.system(size: 9, weight: .black, design: .rounded))
-                    .tracking(0.5)
-                    .foregroundStyle(game.scoringRules.brutalMode ? AppBrandPalette.copper : bonusColor)
-                    .padding(.horizontal, 6)
+                    .tracking(0.6)
+                    .foregroundStyle(
+                        game.scoringRules.brutalMode
+                            ? DesignColor.color(.stateDanger, theme: visualTheme, colorScheme: colorScheme)
+                            : DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme)
+                    )
+                    .padding(.horizontal, 7)
                     .padding(.vertical, 3)
-                    .background(Capsule().fill((game.scoringRules.brutalMode ? AppBrandPalette.copper : bonusColor).opacity(0.14)))
-                
+                    .background(
+                        Capsule().fill(
+                            (game.scoringRules.brutalMode
+                                ? DesignColor.color(.stateDanger, theme: visualTheme, colorScheme: colorScheme)
+                                : DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
+                                .opacity(0.14)
+                        )
+                    )
+
                 Spacer()
-                
-                // 7-card bonus indicator - always reserve space to prevent layout shift
+
                 HStack(spacing: 3) {
                     Image(systemName: "star.fill")
-                        .font(.system(size: 12))
+                        .font(.system(size: 11))
                         .foregroundStyle(bonusColor)
-                        .symbolEffect(.bounce, value: player.currentRound.hand.hasSevenCardBonus)
                     Text("+\(AppBrand.sevenCardBonusValue)")
                         .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .monospacedDigit()
                         .foregroundStyle(bonusColor)
                 }
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
                 .background(
                     Capsule()
-                        .fill(AppBrandPalette.gold.opacity(colorScheme == .dark ? 0.20 : 0.26))
+                        .fill(AppBrandPalette.gold.opacity(colorScheme == .dark ? 0.18 : 0.22))
                 )
                 .opacity(player.currentRound.hand.hasSevenCardBonus ? 1 : 0)
                 .accessibilityHidden(!player.currentRound.hand.hasSevenCardBonus)
             }
-            .padding(.horizontal)
+            .padding(.horizontal, 12)
 
             if riskInsightsMode != .off,
                let insight = ProbabilityService.calculatorEstimate(for: selectedId, in: game) {
@@ -562,17 +690,16 @@ struct SelectedPlayerPanel: View {
                     )
                     Spacer()
                 }
-                .padding(.horizontal)
+                .padding(.horizontal, 12)
             }
-            
-            // Action buttons - use fixed height container to prevent layout shifts between states
+
             PlayerActionButtons(
                 player: player,
                 selectedId: selectedId,
                 viewModel: viewModel,
                 scoringRules: game.scoringRules
             )
-            .padding(.horizontal)
+            .padding(.horizontal, 12)
 
             if game.scoringRules.brutalMode && player.currentRound.hand.hasSevenCardBonus {
                 BrutalBonusChoiceRow(
@@ -585,11 +712,9 @@ struct SelectedPlayerPanel: View {
                         )
                     }
                 )
-                .padding(.horizontal)
+                .padding(.horizontal, 12)
             }
-            
-            // Card picker - compute availability outside to help compiler
-            // Editing is locked when: banked, frozen, busted, or manual score override is set
+
             let hasManualOverride = player.currentRound.manualScoreOverride != nil
             let allowsActionEdits = game.scoringRules.mode == .vengeance
                 && player.currentRound.state != .busted
@@ -600,19 +725,18 @@ struct SelectedPlayerPanel: View {
                 && player.currentRound.state == .busted
             let canEditVengeanceModifiers = canEditCards || canEditBrutalModifiers
             let isManualScoreLocked = player.currentRound.state == .busted && !game.scoringRules.brutalMode
-            let x2Enabled = canEditCards && (player.currentRound.hand.x2Count > 0 || viewModel.canAddX2())
-            let divideByTwoEnabled = canEditVengeanceModifiers
-                && (player.currentRound.hand.divideByTwoCount > 0 || viewModel.canAddDivideByTwo())
-            
-            // Check if deck has only one of each modifier (to hide "Hold to remove" hint and badges)
+
             let deckProfile = game.deckProfile
             let hasOnlyOneOfEachModifier = game.scoringRules.mode == .classic
                 ? deckProfile.addModifierCounts.values.allSatisfy { $0 <= 1 } && deckProfile.x2Count <= 1
                 : deckProfile.subtractModifierCounts.values.allSatisfy { $0 <= 1 } && deckProfile.divideByTwoCount <= 1
-            
+
             QuickCardPicker(
                 player: player,
                 scoringRules: game.scoringRules,
+                availability: availability,
+                canEditCards: canEditCards,
+                canEditVengeanceModifiers: canEditVengeanceModifiers,
                 onTapNumber: { number in
                     onNumberTap(selectedId, number)
                 },
@@ -624,7 +748,6 @@ struct SelectedPlayerPanel: View {
                     }
                 },
                 onIncrementModifier: { value in
-                    // If deck has only 1 copy and player already has it, remove on tap
                     let deckCount = game.deckProfile.addModifierCounts[value] ?? 0
                     let playerCount = player.currentRound.hand.addMods[value] ?? 0
                     if deckCount == 1 && playerCount > 0 {
@@ -637,7 +760,6 @@ struct SelectedPlayerPanel: View {
                     viewModel.removeModifierFromPlayer(selectedId, value: value)
                 },
                 onIncrementX2: {
-                    // If deck has only 1 copy and player already has it, remove on tap
                     let deckCount = game.deckProfile.x2Count
                     let playerCount = player.currentRound.hand.x2Count
                     if deckCount == 1 && playerCount > 0 {
@@ -685,44 +807,6 @@ struct SelectedPlayerPanel: View {
                     showingBustBanner = false
                     bustNumber = nil
                 },
-                isNumberEnabled: { number in
-                    // Disabled when editing is locked (banked/frozen/busted/manual score)
-                    if !canEditCards {
-                        return false
-                    }
-                    // Allow if player already has it (can remove) or if available in deck
-                    if player.currentRound.hand.selectedNumbers.contains(number) {
-                        return true // Can always remove
-                    }
-                    return viewModel.canAddNumber(number, toPlayer: selectedId)
-                },
-                isSpecialNumberEnabled: { card in
-                    guard canEditCards else { return false }
-                    if player.currentRound.hand.specialNumbers.contains(card) {
-                        return true
-                    }
-                    return viewModel.canAddSpecialNumber(card, toPlayer: selectedId)
-                },
-                isModifierEnabled: { value in
-                    // Disabled when editing is locked
-                    if !canEditCards {
-                        return false
-                    }
-                    // Allow if player already has it (can remove) or if available in deck
-                    if (player.currentRound.hand.addMods[value] ?? 0) > 0 {
-                        return true // Can always remove
-                    }
-                    return viewModel.canAddModifier(value)
-                },
-                isX2Enabled: x2Enabled,
-                isSubtractModifierEnabled: { value in
-                    guard canEditVengeanceModifiers else { return false }
-                    if (player.currentRound.hand.subtractMods[value] ?? 0) > 0 {
-                        return true
-                    }
-                    return viewModel.canAddSubtractModifier(value)
-                },
-                isDivideByTwoEnabled: divideByTwoEnabled,
                 isManualScoreEnabled: !isManualScoreLocked,
                 onSaveManualScore: { score in
                     viewModel.setManualScoreOverride(selectedId, score: score)
@@ -737,24 +821,25 @@ struct SelectedPlayerPanel: View {
                 },
                 hasOnlyOneOfEachModifier: hasOnlyOneOfEachModifier
             )
-            .padding(.horizontal)
+            .padding(.horizontal, 12)
         }
         .sheet(isPresented: $showingRiskInsight) {
             if let insight = ProbabilityService.calculatorEstimate(for: selectedId, in: game) {
                 RiskInsightSheet(insight: insight)
             }
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: DesignRadius.md)
+            RoundedRectangle(cornerRadius: DesignRadius.lg, style: .continuous)
                 .fill(DesignColor.color(.surfaceSecondary, theme: visualTheme, colorScheme: colorScheme))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: DesignRadius.md)
-                .stroke(AppBrandPalette.cardBorder(colorScheme: colorScheme), lineWidth: 1)
+            RoundedRectangle(cornerRadius: DesignRadius.lg, style: .continuous)
+                .stroke(
+                    visualTheme == .v2 ? AppBrandPalette.cardBorder(colorScheme: colorScheme) : Color(.separator).opacity(0.35),
+                    lineWidth: 1
+                )
         )
-        .padding(.horizontal)
-        .padding(.bottom, 8) // Comfortable gap before the bottom bar
     }
 }
 
@@ -762,19 +847,25 @@ private struct BrutalBonusChoiceRow: View {
     let sourcePlayer: Player
     let players: [Player]
     let onSelectTarget: (UUID?) -> Void
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
 
     private var selectedTarget: Player? {
         guard let targetId = sourcePlayer.currentRound.sevenCardBonusTargetId else { return nil }
         return players.first(where: { $0.id == targetId })
     }
 
+    private var dangerColor: Color {
+        DesignColor.color(.stateDanger, theme: visualTheme, colorScheme: colorScheme)
+    }
+
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "burst.fill")
-                .foregroundStyle(AppBrandPalette.copper)
+                .foregroundStyle(dangerColor)
 
             Text("7-card reward")
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .font(.system(.caption, design: .rounded, weight: .semibold))
 
             Spacer()
 
@@ -794,16 +885,16 @@ private struct BrutalBonusChoiceRow: View {
                 }
             } label: {
                 HStack(spacing: 4) {
-                    Text(selectedTarget.map { "\($0.name) -15" } ?? "Keep +15")
+                    Text(selectedTarget.map { "\($0.name) −15" } ?? "Keep +15")
                         .lineLimit(1)
                     Image(systemName: "chevron.up.chevron.down")
                         .font(.system(size: 9, weight: .bold))
                 }
-                .font(.system(size: 12, weight: .bold, design: .rounded))
-                .foregroundStyle(AppBrandPalette.copper)
+                .font(.system(.caption, design: .rounded, weight: .bold))
+                .foregroundStyle(dangerColor)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(Capsule().fill(AppBrandPalette.copper.opacity(0.14)))
+                .background(Capsule().fill(dangerColor.opacity(0.14)))
             }
         }
         .accessibilityElement(children: .combine)
@@ -812,8 +903,6 @@ private struct BrutalBonusChoiceRow: View {
 
 // MARK: - Player Action Buttons
 
-/// Fixed-height action button row that maintains consistent height regardless of player state.
-/// This prevents layout shifts when switching between inRound/banked/busted/frozen states.
 struct PlayerActionButtons: View {
     let player: Player
     let selectedId: UUID
@@ -821,6 +910,7 @@ struct PlayerActionButtons: View {
     let scoringRules: ScoringRules
     @Environment(\.visualTheme) private var visualTheme
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     private var bankColor: Color {
         DesignColor.color(.stateSuccess, theme: visualTheme, colorScheme: colorScheme)
@@ -830,18 +920,16 @@ struct PlayerActionButtons: View {
         DesignColor.color(.stateDanger, theme: visualTheme, colorScheme: colorScheme)
     }
 
-    private var holdColor: Color {
-        DesignColor.color(.playerHighlight, theme: visualTheme, colorScheme: colorScheme)
+    private var freezeColor: Color {
+        DesignColor.color(.stateFrozen, theme: visualTheme, colorScheme: colorScheme)
     }
 
     private var resumeColor: Color {
         DesignColor.color(.stateWarning, theme: visualTheme, colorScheme: colorScheme)
     }
-    
+
     var body: some View {
-        // Use ZStack with fixed height to prevent layout shifts between states
         ZStack {
-            // In Round: Bank/Stay, Bust, Freeze/Forced Stay
             HStack(spacing: 6) {
                 ActionPillButton(
                     title: scoringRules.mode == .vengeance ? "Stay" : "Bank",
@@ -852,7 +940,7 @@ struct PlayerActionButtons: View {
                         viewModel.bankPlayer(selectedId)
                     }
                 )
-                
+
                 ActionPillButton(
                     title: "Bust",
                     icon: "xmark.circle.fill",
@@ -862,11 +950,11 @@ struct PlayerActionButtons: View {
                         viewModel.bustPlayer(selectedId)
                     }
                 )
-                
+
                 ActionPillButton(
                     title: scoringRules.mode == .vengeance ? "Forced Stay" : "Freeze",
                     icon: "snowflake",
-                    color: holdColor,
+                    color: freezeColor,
                     action: {
                         HapticFeedback.medium()
                         viewModel.freezePlayer(selectedId)
@@ -876,90 +964,56 @@ struct PlayerActionButtons: View {
             .opacity(player.currentRound.state == .inRound ? 1 : 0)
             .allowsHitTesting(player.currentRound.state == .inRound)
             .accessibilityHidden(player.currentRound.state != .inRound)
-            
-            // Busted state
-            HStack(spacing: 6) {
-                HStack(spacing: 4) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 18))
-                        .foregroundStyle(bustColor)
-                    Text("Busted")
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundStyle(bustColor)
-                }
-                .frame(maxWidth: .infinity)
-                
-                ActionPillButton(
-                    title: "Resume",
-                    icon: "arrow.uturn.backward.circle.fill",
-                    color: resumeColor,
-                    foregroundColor: AppBrandPalette.ink,
-                    action: {
-                        HapticFeedback.success()
-                        viewModel.setPlayerState(selectedId, state: .inRound)
-                    }
-                )
-            }
-            .opacity(player.currentRound.state == .busted ? 1 : 0)
-            .allowsHitTesting(player.currentRound.state == .busted)
-            .accessibilityHidden(player.currentRound.state != .busted)
-            
-            // Banked state
-            HStack(spacing: 6) {
-                HStack(spacing: 4) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 18))
-                        .foregroundStyle(bankColor)
-                    Text(scoringRules.mode == .vengeance ? "Stayed" : "Banked")
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundStyle(bankColor)
-                }
-                .frame(maxWidth: .infinity)
-                
-                ActionPillButton(
-                    title: "Resume",
-                    icon: "arrow.uturn.backward.circle.fill",
-                    color: resumeColor,
-                    foregroundColor: AppBrandPalette.ink,
-                    action: {
-                        HapticFeedback.medium()
-                        viewModel.setPlayerState(selectedId, state: .inRound)
-                    }
-                )
-            }
-            .opacity(player.currentRound.state == .banked ? 1 : 0)
-            .allowsHitTesting(player.currentRound.state == .banked)
-            .accessibilityHidden(player.currentRound.state != .banked)
-            
-            // Held state
-            HStack(spacing: 6) {
-                HStack(spacing: 4) {
-                    Image(systemName: "snowflake")
-                        .font(.system(size: 18))
-                        .foregroundStyle(holdColor)
-                    Text(scoringRules.mode == .vengeance ? "Forced Stay" : "Frozen")
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundStyle(holdColor)
-                }
-                .frame(maxWidth: .infinity)
-                
-                ActionPillButton(
-                    title: "Resume",
-                    icon: "arrow.uturn.backward.circle.fill",
-                    color: resumeColor,
-                    foregroundColor: AppBrandPalette.ink,
-                    action: {
-                        HapticFeedback.medium()
-                        viewModel.setPlayerState(selectedId, state: .inRound)
-                    }
-                )
-            }
-            .opacity(player.currentRound.state == .frozen ? 1 : 0)
-            .allowsHitTesting(player.currentRound.state == .frozen)
-            .accessibilityHidden(player.currentRound.state != .frozen)
+
+            settledStateRow(
+                icon: "xmark.circle.fill",
+                label: "Busted",
+                tint: bustColor,
+                isVisible: player.currentRound.state == .busted
+            )
+
+            settledStateRow(
+                icon: "checkmark.circle.fill",
+                label: scoringRules.mode == .vengeance ? "Stayed" : "Banked",
+                tint: bankColor,
+                isVisible: player.currentRound.state == .banked
+            )
+
+            settledStateRow(
+                icon: "snowflake",
+                label: scoringRules.mode == .vengeance ? "Forced Stay" : "Frozen",
+                tint: freezeColor,
+                isVisible: player.currentRound.state == .frozen
+            )
         }
-        // Fixed height ensures consistent layout
-        .frame(height: 36)
+        .frame(height: horizontalSizeClass == .regular ? 46 : 38)
+    }
+
+    private func settledStateRow(icon: String, label: String, tint: Color, isVisible: Bool) -> some View {
+        HStack(spacing: 6) {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(tint)
+                Text(label)
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundStyle(tint)
+            }
+            .frame(maxWidth: .infinity)
+
+            ActionPillButton(
+                title: "Resume",
+                icon: "arrow.uturn.backward.circle.fill",
+                color: resumeColor,
+                action: {
+                    HapticFeedback.medium()
+                    viewModel.setPlayerState(selectedId, state: .inRound)
+                }
+            )
+        }
+        .opacity(isVisible ? 1 : 0)
+        .allowsHitTesting(isVisible)
+        .accessibilityHidden(!isVisible)
     }
 }
 
@@ -969,34 +1023,32 @@ struct ActionPillButton: View {
     let title: String
     let icon: String
     let color: Color
-    var foregroundColor: Color = .white
     let action: () -> Void
-    
-    @State private var isPressed = false
-    
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+
+    private var pillHeight: CGFloat {
+        horizontalSizeClass == .regular ? 44 : 36
+    }
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: 4) {
                 Image(systemName: icon)
-                    .font(.system(size: 12))
+                    .font(.system(size: horizontalSizeClass == .regular ? 14 : 12, weight: .semibold))
                 Text(title)
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .font(.system(size: horizontalSizeClass == .regular ? 14 : 12, weight: .bold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
-            .foregroundStyle(foregroundColor)
+            .foregroundStyle(color.contrastingForeground)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
+            .frame(height: pillHeight)
             .background(
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
                     .fill(color)
             )
-            .scaleEffect(isPressed ? 0.95 : 1.0)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(KeycapButtonStyle(pressedScale: 0.96))
         .accessibilityLabel(title)
-        .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
-            withAnimation(.spring(response: 0.15, dampingFraction: 0.8)) {
-                isPressed = pressing
-            }
-        }, perform: {})
     }
 }

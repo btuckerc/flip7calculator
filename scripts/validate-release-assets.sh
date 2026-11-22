@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ASSETS_DIR="${ASSETS_DIR:-AppStoreAssets/1.3}"
+ASSETS_DIR="${ASSETS_DIR:-AppStoreAssets/1.4}"
 METADATA_FILE="${METADATA_FILE:-$ASSETS_DIR/metadata-en-US.json}"
 ICON_DIR="${ICON_DIR:-flip7calculator/Assets.xcassets/AppIcon.appiconset}"
 RELEASE_STATE_FILE="${RELEASE_STATE_FILE:-AppStoreAssets/release-state.json}"

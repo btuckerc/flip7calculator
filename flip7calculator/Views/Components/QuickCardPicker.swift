@@ -10,6 +10,9 @@ import SwiftUI
 struct QuickCardPicker: View {
     let player: Player
     let scoringRules: ScoringRules
+    let availability: RoundDeckAvailability
+    let canEditCards: Bool
+    let canEditVengeanceModifiers: Bool
     let onTapNumber: (Int) -> Void
     let onTapSpecialNumber: (SpecialNumberCard) -> Void
     let onIncrementModifier: (Int) -> Void
@@ -24,30 +27,22 @@ struct QuickCardPicker: View {
     let bustNumber: Int?
     let onConfirmBust: () -> Void
     let onUndoBust: () -> Void
-    let isNumberEnabled: (Int) -> Bool
-    let isSpecialNumberEnabled: (SpecialNumberCard) -> Bool
-    let isModifierEnabled: (Int) -> Bool
-    let isX2Enabled: Bool
-    let isSubtractModifierEnabled: (Int) -> Bool
-    let isDivideByTwoEnabled: Bool
-    
+
     // Manual score
     let isManualScoreEnabled: Bool
     let onSaveManualScore: (Int) -> Void
-    let onClearManualScore: () -> Void  // Clears only manual override (keeps cards/modifiers)
-    let onClearRound: () -> Void  // Clears entire round (cards + modifiers + manual)
-    
+    let onClearManualScore: () -> Void
+    let onClearRound: () -> Void
+
     // Deck configuration
-    let hasOnlyOneOfEachModifier: Bool  // True when deck has ≤1 of each modifier and ≤1 x2
-    
-    /// Auto score computed from cards (ignoring manual override)
+    let hasOnlyOneOfEachModifier: Bool
+
     private var autoScore: Int {
         ScoreEngine.calculateAutoScore(round: player.currentRound, rules: scoringRules)
     }
-    
+
     var body: some View {
         VStack(spacing: 8) {
-            // Bust banner (if applicable)
             if showingBustBanner, let bustNumber = bustNumber {
                 InlineBustBanner(
                     duplicateNumber: bustNumber,
@@ -55,21 +50,22 @@ struct QuickCardPicker: View {
                     onUndo: onUndoBust
                 )
             }
-            
-            // Numbers section
-            VStack(alignment: .leading, spacing: 4) {
+
+            VStack(alignment: .leading, spacing: 5) {
                 Text("Numbers")
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .foregroundStyle(.secondary)
-                
+                    .textCase(.uppercase)
+
                 NumberChipGrid(
                     mode: scoringRules.mode,
                     selectedNumbers: player.currentRound.hand.selectedNumbers,
                     selectedSpecialNumbers: player.currentRound.hand.specialNumbers,
+                    hasHandEntries: !player.currentRound.hand.isEmpty,
+                    availability: availability,
+                    canEditCards: canEditCards,
                     onTap: onTapNumber,
                     onTapSpecialNumber: onTapSpecialNumber,
-                    isEnabled: isNumberEnabled,
-                    isSpecialNumberEnabled: isSpecialNumberEnabled,
                     manualScoreOverride: player.currentRound.manualScoreOverride,
                     autoScore: autoScore,
                     isManualScoreEnabled: isManualScoreEnabled,
@@ -79,30 +75,32 @@ struct QuickCardPicker: View {
                     allowsNegativeManualScore: scoringRules.brutalMode
                 )
             }
-            
-            // Modifiers section
-            VStack(alignment: .leading, spacing: 4) {
+
+            VStack(alignment: .leading, spacing: 5) {
                 HStack {
                     Text("Modifiers")
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
                         .foregroundStyle(.secondary)
-                    
+                        .textCase(.uppercase)
+
                     Spacer()
-                    
-                    // Only show "Hold to remove" hint when deck has multiple of at least one modifier
+
                     if !hasOnlyOneOfEachModifier {
                         Text("Hold to remove")
                             .font(.system(size: 10, weight: .medium, design: .rounded))
                             .foregroundStyle(.tertiary)
                     }
                 }
-                
+
                 ModifierGrid(
                     mode: scoringRules.mode,
                     addMods: player.currentRound.hand.addMods,
                     x2Count: player.currentRound.hand.x2Count,
                     subtractMods: player.currentRound.hand.subtractMods,
                     divideByTwoCount: player.currentRound.hand.divideByTwoCount,
+                    availability: availability,
+                    canEditClassicModifiers: canEditCards,
+                    canEditVengeanceModifiers: canEditVengeanceModifiers,
                     onTapModifier: onIncrementModifier,
                     onLongPressModifier: onDecrementModifier,
                     onTapX2: onIncrementX2,
@@ -111,14 +109,10 @@ struct QuickCardPicker: View {
                     onLongPressSubtractModifier: onDecrementSubtractModifier,
                     onTapDivideByTwo: onIncrementDivideByTwo,
                     onLongPressDivideByTwo: onDecrementDivideByTwo,
-                    isModifierEnabled: isModifierEnabled,
-                    isX2Enabled: isX2Enabled,
-                    isSubtractModifierEnabled: isSubtractModifierEnabled,
-                    isDivideByTwoEnabled: isDivideByTwoEnabled,
                     showCountBadges: !hasOnlyOneOfEachModifier
                 )
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 2)
     }
 }

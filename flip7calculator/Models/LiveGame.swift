@@ -53,7 +53,7 @@ enum PlayStyle: String, Codable, Equatable {
 enum DealerAvailability {
     static var isPreviewEnabled: Bool {
 #if DEBUG
-        true
+        !ProcessInfo.processInfo.arguments.contains("-releaseMarketingPreview")
 #else
         false
 #endif

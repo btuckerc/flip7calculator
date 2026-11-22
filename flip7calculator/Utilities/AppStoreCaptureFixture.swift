@@ -4,6 +4,7 @@ import SwiftUI
 enum AppStoreCaptureFixture: String {
     case setup
     case live
+    case liveBonus = "live-bonus"
     case dealer
     case gameOver = "game-over"
     case stats
@@ -48,6 +49,7 @@ enum AppStoreCaptureFixture: String {
     static func prepareDefaults() {
         UserDefaults.standard.set("dark", forKey: "appTheme")
         UserDefaults.standard.set(VisualTheme.v2.rawValue, forKey: "visualThemeVersion")
+        UserDefaults.standard.set(PlayerPalette.classic.rawValue, forKey: "playerPalette")
         UserDefaults.standard.set(false, forKey: "showOpeningAnimation")
         UserDefaults.standard.set(GameMode.classic.rawValue, forKey: "defaultGameMode")
         UserDefaults.standard.set(ScoringRules.defaultBrutalMode, forKey: "defaultBrutalMode")
@@ -68,6 +70,8 @@ enum AppStoreCaptureFixture: String {
             return nil
         case .live:
             return liveGame()
+        case .liveBonus:
+            return liveBonusGame()
         case .dealer:
             return dealerGame()
         case .gameOver, .stats:
@@ -111,6 +115,14 @@ enum AppStoreCaptureFixture: String {
             state: .busted,
             hand: hand([4, 7, 8, 10, 12], modifiers: [4: 1, 8: 1])
         )
+        return game
+    }
+
+    private static func liveBonusGame() -> Game {
+        var game = liveGame()
+        // Make Peter active with a 7-card bonus so auto-selection showcases the +15 bonus & full states.
+        game.players[0].currentRound.state = .inRound
+        game.players[1].currentRound.state = .banked
         return game
     }
 
@@ -281,20 +293,12 @@ struct AppStoreCaptureView: View {
             switch fixture {
             case .setup:
                 ActiveGameRoot(viewModel: $viewModel, animateSetupTitle: false)
-            case .live:
+            case .live, .liveBonus:
                 GameView(viewModel: viewModel)
             case .dealer:
                 DealerGameView(viewModel: viewModel)
             case .gameOver:
-                ZStack {
-                    GameView(viewModel: viewModel)
-                    GameOverOverlay(
-                        viewModel: viewModel,
-                        onPlayAgain: {},
-                        onNewGame: {},
-                        onUndo: {}
-                    )
-                }
+                GameView(viewModel: viewModel, hidesWinnerBanner: true)
             case .stats:
                 if let game = viewModel.game {
                     GameOverStatsView(game: game)

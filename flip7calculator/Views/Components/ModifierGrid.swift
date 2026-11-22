@@ -13,6 +13,9 @@ struct ModifierGrid: View {
     let x2Count: Int
     let subtractMods: [Int: Int]
     let divideByTwoCount: Int
+    let availability: RoundDeckAvailability
+    let canEditClassicModifiers: Bool
+    let canEditVengeanceModifiers: Bool
     let onTapModifier: (Int) -> Void
     let onLongPressModifier: (Int) -> Void
     let onTapX2: () -> Void
@@ -21,31 +24,42 @@ struct ModifierGrid: View {
     let onLongPressSubtractModifier: (Int) -> Void
     let onTapDivideByTwo: () -> Void
     let onLongPressDivideByTwo: () -> Void
-    let isModifierEnabled: (Int) -> Bool
-    let isX2Enabled: Bool
-    let isSubtractModifierEnabled: (Int) -> Bool
-    let isDivideByTwoEnabled: Bool
-    let showCountBadges: Bool  // When false, don't show count badges (for singleton decks)
-    
-    // 6 columns - all modifiers in a single row
-    private let columns = [
-        GridItem(.flexible(), spacing: 4),
-        GridItem(.flexible(), spacing: 4),
-        GridItem(.flexible(), spacing: 4),
-        GridItem(.flexible(), spacing: 4),
-        GridItem(.flexible(), spacing: 4),
-        GridItem(.flexible(), spacing: 4)
-    ]
-    
+    let showCountBadges: Bool
+
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
+    @Environment(\.colorScheme) private var colorScheme
+
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 5), count: 6)
+
+    private func isClassicModifierEnabled(_ value: Int) -> Bool {
+        guard canEditClassicModifiers else { return false }
+        return (addMods[value] ?? 0) > 0 || availability.canAddModifier(value)
+    }
+
+    private var isX2Enabled: Bool {
+        canEditClassicModifiers && (x2Count > 0 || availability.x2 > 0)
+    }
+
+    private func isVengeanceModifierEnabled(_ value: Int) -> Bool {
+        guard canEditVengeanceModifiers else { return false }
+        return (subtractMods[value] ?? 0) > 0 || availability.canAddSubtractModifier(value)
+    }
+
+    private var isDivideByTwoEnabled: Bool {
+        canEditVengeanceModifiers && (divideByTwoCount > 0 || availability.divideByTwo > 0)
+    }
+
     var body: some View {
-        LazyVGrid(columns: columns, spacing: 4) {
+        LazyVGrid(columns: columns, spacing: 5) {
             if mode == .classic {
                 ForEach([2, 4, 6, 8, 10], id: \.self) { value in
                     ModifierTile(
                         label: "+\(value)",
+                        accessibilityName: "Plus \(value) modifier",
                         count: addMods[value] ?? 0,
-                        color: AppBrandPalette.gold,
-                        isEnabled: isModifierEnabled(value),
+                        accent: DesignColor.color(.brandSecondary, theme: visualTheme, colorScheme: colorScheme),
+                        isEnabled: isClassicModifierEnabled(value),
                         showCountBadge: showCountBadges,
                         onTap: { onTapModifier(value) },
                         onLongPress: { onLongPressModifier(value) }
@@ -53,9 +67,10 @@ struct ModifierGrid: View {
                 }
 
                 ModifierTile(
-                    label: "x2",
+                    label: "×2",
+                    accessibilityName: "Double score multiplier",
                     count: x2Count,
-                    color: AppBrandPalette.brandBlue,
+                    accent: DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride),
                     isEnabled: isX2Enabled,
                     showCountBadge: showCountBadges,
                     onTap: onTapX2,
@@ -64,10 +79,11 @@ struct ModifierGrid: View {
             } else {
                 ForEach([2, 4, 6, 8, 10], id: \.self) { value in
                     ModifierTile(
-                        label: "-\(value)",
+                        label: "−\(value)",
+                        accessibilityName: "Minus \(value) modifier",
                         count: subtractMods[value] ?? 0,
-                        color: AppBrandPalette.copper,
-                        isEnabled: isSubtractModifierEnabled(value),
+                        accent: DesignColor.color(.stateDanger, theme: visualTheme, colorScheme: colorScheme),
+                        isEnabled: isVengeanceModifierEnabled(value),
                         showCountBadge: showCountBadges,
                         onTap: { onTapSubtractModifier(value) },
                         onLongPress: { onLongPressSubtractModifier(value) }
@@ -76,8 +92,9 @@ struct ModifierGrid: View {
 
                 ModifierTile(
                     label: "÷2",
+                    accessibilityName: "Divide by two modifier",
                     count: divideByTwoCount,
-                    color: AppBrandPalette.brandBlue,
+                    accent: DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride),
                     isEnabled: isDivideByTwoEnabled,
                     showCountBadge: showCountBadges,
                     onTap: onTapDivideByTwo,
@@ -88,85 +105,140 @@ struct ModifierGrid: View {
     }
 }
 
+/// Accessible native Button-backed modifier keycap with clean drag-off cancellation,
+/// optional long-press decrement for multi-copy decks, and VoiceOver custom action.
 struct ModifierTile: View {
     let label: String
+    let accessibilityName: String
     let count: Int
-    let color: Color
+    let accent: Color
     let isEnabled: Bool
-    let showCountBadge: Bool  // When false, don't show count badge even if count > 0
+    let showCountBadge: Bool
     let onTap: () -> Void
     let onLongPress: () -> Void
-    
-    @State private var isPressed = false
-    @State private var longPressTriggered = false
-    @State private var pressStartTime: Date?
-    
-    private let longPressDuration: TimeInterval = 0.35
-    
+
+    @State private var didTriggerLongPress = false
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @AppStorage("reduceAnimations") private var reduceAnimations: Bool = false
+    @ScaledMetric(relativeTo: .subheadline) private var scaledLabelSize: CGFloat = 14
+
+    private var isSelected: Bool { count > 0 }
+
+    private var tileHeight: CGFloat {
+        horizontalSizeClass == .regular ? 50 : 40
+    }
+
+    private var labelFontSize: CGFloat {
+        min(horizontalSizeClass == .regular ? scaledLabelSize + 1 : scaledLabelSize, 19)
+    }
+
+    private var isReducedMotion: Bool {
+        DesignMotion.shouldReduceMotion(
+            reduceAnimations: reduceAnimations,
+            accessibilityReduceMotion: accessibilityReduceMotion
+        )
+    }
+
+    private var fillColor: Color {
+        if isSelected {
+            return accent
+        }
+        return DesignColor.color(.surfaceKeycap, theme: visualTheme, colorScheme: colorScheme)
+            .opacity(isEnabled ? 1 : 0.42)
+    }
+
+    private var borderColor: Color {
+        if isSelected {
+            return accent.opacity(0.45)
+        }
+        if !isEnabled {
+            return Color.clear
+        }
+        return visualTheme == .v2 ? AppBrandPalette.keycapBorder(colorScheme: colorScheme) : Color(.separator).opacity(0.45)
+    }
+
+    private var labelColor: Color {
+        if isSelected {
+            return accent.contrastingForeground
+        }
+        if isEnabled {
+            return DesignColor.color(.textPrimary, theme: visualTheme, colorScheme: colorScheme)
+        }
+        return DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme).opacity(0.38)
+    }
+
     var body: some View {
-        ZStack {
-            Text(label)
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundStyle(count > 0 ? .white : (isEnabled ? .primary : .secondary))
-            
-            // Only show count badge when showCountBadge is true and count > 0
-            if count > 0 && showCountBadge {
-                Text("\(count)")
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 2)
-                    .background(
-                        Capsule()
-                            .fill(color.opacity(0.8))
-                    )
-                    .offset(x: 14, y: -12)
+        Button {
+            if didTriggerLongPress {
+                didTriggerLongPress = false
+                return
+            }
+            guard isEnabled else { return }
+            HapticFeedback.light()
+            onTap()
+        } label: {
+            ZStack(alignment: .topTrailing) {
+                Text(label)
+                    .font(.system(size: labelFontSize, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .minimumScaleFactor(0.72)
+                    .lineLimit(1)
+                    .foregroundStyle(labelColor)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: tileHeight)
+
+                if count > 0 && showCountBadge {
+                    Text("\(count)")
+                        .font(.system(size: 10, weight: .black, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(accent.contrastingForeground)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(Capsule().fill(Color.black.opacity(0.24)))
+                        .padding(3)
+                }
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(fillColor)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(borderColor, lineWidth: 1)
+            )
+        }
+        .buttonStyle(
+            KeycapButtonStyle(
+                pressedScale: 0.94,
+                onPressChanged: { isPressed in
+                    if isPressed {
+                        didTriggerLongPress = false
+                    }
+                }
+            )
+        )
+        .disabled(!isEnabled)
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.35)
+                .onEnded { _ in
+                    guard isEnabled else { return }
+                    didTriggerLongPress = true
+                    guard count > 0 else { return }
+                    HapticFeedback.medium()
+                    onLongPress()
+                }
+        )
+        .animation(DesignMotion.animation(.press, reduced: isReducedMotion), value: count)
+        .accessibilityLabel(accessibilityName)
+        .accessibilityValue(count > 0 ? "\(count) selected" : (isEnabled ? "Not selected" : "Unavailable"))
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityAction(named: "Remove one") {
+            if isEnabled, count > 0 {
+                onLongPress()
             }
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: 36)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(count > 0 ? color : (isEnabled ? Color(.systemGray5) : Color(.systemGray6)))
-        )
-        .scaleEffect(isPressed ? 0.92 : 1.0)
-        .animation(.spring(response: 0.15, dampingFraction: 0.8), value: count)
-        .animation(.spring(response: 0.1, dampingFraction: 0.8), value: isPressed)
-        .animation(.spring(response: 0.15, dampingFraction: 0.8), value: isEnabled)
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    guard isEnabled else { return }
-                    if !isPressed {
-                        isPressed = true
-                        longPressTriggered = false
-                        pressStartTime = Date()
-                        
-                        // Schedule long press check
-                        DispatchQueue.main.asyncAfter(deadline: .now() + longPressDuration) {
-                            if isPressed, let startTime = pressStartTime,
-                               Date().timeIntervalSince(startTime) >= longPressDuration {
-                                longPressTriggered = true
-                                HapticFeedback.medium()
-                                onLongPress()
-                            }
-                        }
-                    }
-                }
-                .onEnded { _ in
-                    guard isEnabled else {
-                        isPressed = false
-                        pressStartTime = nil
-                        return
-                    }
-                    if !longPressTriggered {
-                        // It was a tap
-                        HapticFeedback.light()
-                        onTap()
-                    }
-                    isPressed = false
-                    pressStartTime = nil
-                }
-        )
     }
 }

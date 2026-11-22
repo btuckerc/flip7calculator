@@ -2,84 +2,149 @@
 //  DesignStyles.swift
 //  flip7calculator
 //
-//  Semantic button and surface styles for UI overhaul migration.
+//  Semantic button, keycap, and surface styles.
 //
 
 import SwiftUI
 
+/// Lightweight native ButtonStyle for high-frequency tactile controls (number chips,
+/// modifier chips, player tiles, and action pills). Pre-warms haptics on press-down
+/// and respects both system Reduce Motion and in-app Reduce Animations.
+struct KeycapButtonStyle: ButtonStyle {
+    var pressedScale: CGFloat = 0.96
+    var preparesHaptic: Bool = true
+    var onPressChanged: ((Bool) -> Void)? = nil
+
+    @AppStorage("reduceAnimations") private var reduceAnimations: Bool = false
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+
+    private var isReducedMotion: Bool {
+        DesignMotion.shouldReduceMotion(
+            reduceAnimations: reduceAnimations,
+            accessibilityReduceMotion: accessibilityReduceMotion
+        )
+    }
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && !isReducedMotion ? pressedScale : 1)
+            .opacity(configuration.isPressed ? 0.86 : 1)
+            .animation(DesignMotion.animation(.press, reduced: isReducedMotion), value: configuration.isPressed)
+            .onChange(of: configuration.isPressed) { _, pressed in
+                onPressChanged?(pressed)
+                if pressed && preparesHaptic {
+                    HapticFeedback.prepareLight()
+                }
+            }
+    }
+}
+
 struct PrimaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @AppStorage("reduceAnimations") private var reduceAnimations: Bool = false
+
+    private var isReducedMotion: Bool {
+        DesignMotion.shouldReduceMotion(
+            reduceAnimations: reduceAnimations,
+            accessibilityReduceMotion: accessibilityReduceMotion
+        )
+    }
 
     func makeBody(configuration: Configuration) -> some View {
-        let fillColor = DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
-        let textColor = DesignColor.color(.textInverse, theme: visualTheme, colorScheme: colorScheme)
+        let fillColor = DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride)
+        let textColor = fillColor.contrastingForeground
         let disabledColor = Color(.systemGray4)
 
         return configuration.label
-            .font(.system(size: 17, weight: .semibold, design: .rounded))
-            .foregroundStyle(textColor)
+            .font(.system(.headline, design: .rounded, weight: .semibold))
+            .foregroundStyle(isEnabled ? textColor : Color(.secondaryLabel))
             .padding(.horizontal, DesignSpacing.md)
-            .padding(.vertical, DesignSpacing.sm)
+            .padding(.vertical, 13)
             .frame(maxWidth: .infinity)
             .background(
-                RoundedRectangle(cornerRadius: DesignRadius.md)
+                RoundedRectangle(cornerRadius: DesignRadius.md, style: .continuous)
                     .fill(isEnabled ? fillColor : disabledColor)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: DesignRadius.md)
+                RoundedRectangle(cornerRadius: DesignRadius.md, style: .continuous)
                     .stroke(Color.white.opacity(isEnabled ? 0.14 : 0), lineWidth: 1)
             )
-            .shadow(color: isEnabled ? fillColor.opacity(0.18) : .clear, radius: 12, y: 6)
-            .scaleEffect(configuration.isPressed ? 0.985 : 1)
-            .opacity(configuration.isPressed ? 0.96 : 1)
-            .animation(DesignMotion.animation(.fast), value: configuration.isPressed)
+            .shadow(
+                color: isEnabled && colorScheme == .light ? fillColor.opacity(0.16) : .clear,
+                radius: 8,
+                y: 4
+            )
+            .scaleEffect(configuration.isPressed && !isReducedMotion ? 0.985 : 1)
+            .opacity(configuration.isPressed ? 0.92 : 1)
+            .animation(DesignMotion.animation(.press, reduced: isReducedMotion), value: configuration.isPressed)
     }
 }
 
 struct SecondaryButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @AppStorage("reduceAnimations") private var reduceAnimations: Bool = false
+
+    private var isReducedMotion: Bool {
+        DesignMotion.shouldReduceMotion(
+            reduceAnimations: reduceAnimations,
+            accessibilityReduceMotion: accessibilityReduceMotion
+        )
+    }
 
     func makeBody(configuration: Configuration) -> some View {
-        let brand = DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+        let brand = DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride)
 
         return configuration.label
-            .font(.system(size: 16, weight: .semibold, design: .rounded))
+            .font(.system(.callout, design: .rounded, weight: .semibold))
             .foregroundStyle(isEnabled ? brand : Color(.systemGray3))
             .padding(.horizontal, DesignSpacing.md)
             .padding(.vertical, DesignSpacing.sm)
             .background(
-                RoundedRectangle(cornerRadius: DesignRadius.md)
-                    .stroke(isEnabled ? brand.opacity(0.35) : Color(.systemGray5), lineWidth: 1.5)
-                    .background(
-                        RoundedRectangle(cornerRadius: DesignRadius.md)
-                            .fill(
-                                isEnabled
-                                    ? DesignColor.color(.surfaceRaised, theme: visualTheme, colorScheme: colorScheme)
-                                    : brand.opacity(0.04)
-                            )
+                RoundedRectangle(cornerRadius: DesignRadius.md, style: .continuous)
+                    .fill(
+                        isEnabled
+                            ? DesignColor.color(.surfaceRaised, theme: visualTheme, colorScheme: colorScheme)
+                            : brand.opacity(0.04)
                     )
             )
-            .shadow(color: brand.opacity(isEnabled ? 0.08 : 0), radius: 10, y: 4)
-            .scaleEffect(configuration.isPressed ? 0.985 : 1)
-            .opacity(configuration.isPressed ? 0.94 : 1)
-            .animation(DesignMotion.animation(.fast), value: configuration.isPressed)
+            .overlay(
+                RoundedRectangle(cornerRadius: DesignRadius.md, style: .continuous)
+                    .stroke(isEnabled ? brand.opacity(0.32) : Color(.systemGray5), lineWidth: 1.25)
+            )
+            .scaleEffect(configuration.isPressed && !isReducedMotion ? 0.985 : 1)
+            .opacity(configuration.isPressed ? 0.92 : 1)
+            .animation(DesignMotion.animation(.press, reduced: isReducedMotion), value: configuration.isPressed)
     }
 }
 
 struct GhostButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @AppStorage("reduceAnimations") private var reduceAnimations: Bool = false
+
+    private var isReducedMotion: Bool {
+        DesignMotion.shouldReduceMotion(
+            reduceAnimations: reduceAnimations,
+            accessibilityReduceMotion: accessibilityReduceMotion
+        )
+    }
 
     func makeBody(configuration: Configuration) -> some View {
-        let brand = DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+        let brand = DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride)
 
         return configuration.label
-            .font(.system(size: 15, weight: .medium, design: .rounded))
+            .font(.system(.subheadline, design: .rounded, weight: .medium))
             .foregroundStyle(isEnabled ? brand : Color(.systemGray3))
             .padding(.horizontal, DesignSpacing.sm)
             .padding(.vertical, DesignSpacing.xs)
@@ -95,7 +160,7 @@ struct GhostButtonStyle: ButtonStyle {
                 Capsule()
                     .stroke(brand.opacity(isEnabled ? 0.18 : 0), lineWidth: 1)
             )
-            .animation(DesignMotion.animation(.fast), value: configuration.isPressed)
+            .animation(DesignMotion.animation(.press, reduced: isReducedMotion), value: configuration.isPressed)
     }
 }
 
@@ -103,31 +168,42 @@ struct SelectionCardButtonStyle: ButtonStyle {
     let isSelected: Bool
     @Environment(\.isEnabled) private var isEnabled
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @AppStorage("reduceAnimations") private var reduceAnimations: Bool = false
+
+    private var isReducedMotion: Bool {
+        DesignMotion.shouldReduceMotion(
+            reduceAnimations: reduceAnimations,
+            accessibilityReduceMotion: accessibilityReduceMotion
+        )
+    }
 
     func makeBody(configuration: Configuration) -> some View {
-        let brand = DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
-        let surface = DesignColor.color(.surfaceInteractive, theme: visualTheme, colorScheme: colorScheme)
+        let brand = DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride)
+        let surface = DesignColor.color(.surfaceKeycap, theme: visualTheme, colorScheme: colorScheme)
         let text = DesignColor.color(.textPrimary, theme: visualTheme, colorScheme: colorScheme)
+        let border = DesignColor.border(theme: visualTheme, colorScheme: colorScheme)
 
         return configuration.label
-            .font(.system(size: 14, weight: .semibold, design: .rounded))
+            .font(.system(.subheadline, design: .rounded, weight: .semibold))
             .foregroundStyle(isEnabled ? (isSelected ? brand : text) : Color(.systemGray3))
             .padding(.horizontal, DesignSpacing.sm)
             .padding(.vertical, 11)
             .frame(maxWidth: .infinity, minHeight: 48)
             .background(
-                RoundedRectangle(cornerRadius: DesignRadius.md)
-                    .fill(isSelected ? brand.opacity(0.13) : surface.opacity(isEnabled ? 0.72 : 0.35))
+                RoundedRectangle(cornerRadius: DesignRadius.md, style: .continuous)
+                    .fill(isSelected ? brand.opacity(0.14) : surface.opacity(isEnabled ? 0.92 : 0.42))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: DesignRadius.md)
-                    .stroke(isSelected ? brand : brand.opacity(0.10), lineWidth: isSelected ? 2 : 1)
+                RoundedRectangle(cornerRadius: DesignRadius.md, style: .continuous)
+                    .stroke(isSelected ? brand : border, lineWidth: isSelected ? 1.75 : 1)
             )
-            .scaleEffect(configuration.isPressed ? 0.985 : 1)
-            .opacity(configuration.isPressed ? 0.94 : 1)
-            .animation(DesignMotion.animation(.fast), value: configuration.isPressed)
-            .animation(DesignMotion.animation(.fast), value: isSelected)
+            .scaleEffect(configuration.isPressed && !isReducedMotion ? 0.98 : 1)
+            .opacity(configuration.isPressed ? 0.92 : 1)
+            .animation(DesignMotion.animation(.press, reduced: isReducedMotion), value: configuration.isPressed)
+            .animation(DesignMotion.animation(.fast, reduced: isReducedMotion), value: isSelected)
     }
 }
 
@@ -141,28 +217,21 @@ struct CardSurfaceStyle: ViewModifier {
         let raisedSurface = DesignColor.color(.surfaceRaised, theme: visualTheme, colorScheme: colorScheme)
         let border = visualTheme == .v2
             ? AppBrandPalette.cardBorder(colorScheme: colorScheme)
-            : DesignColor.color(.brandSecondary, theme: visualTheme, colorScheme: colorScheme).opacity(0.2)
+            : Color(.separator).opacity(0.35)
 
         content
             .background(
-                RoundedRectangle(cornerRadius: cornerRadius)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(visualTheme == .v2 ? raisedSurface : surface)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .stroke(border, lineWidth: 1)
             )
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .stroke(Color.white.opacity(visualTheme == .v2 ? 0.08 : 0), lineWidth: 0.8)
-                    .blur(radius: 0.4)
-            )
             .shadow(
-                color: visualTheme == .v2
-                    ? AppBrandPalette.ink.opacity(colorScheme == .dark ? 0.24 : 0.08)
-                    : .clear,
-                radius: visualTheme == .v2 ? 14 : 0,
-                y: visualTheme == .v2 ? 6 : 0
+                color: visualTheme == .v2 && colorScheme == .light ? AppBrandPalette.ink.opacity(0.06) : .clear,
+                radius: visualTheme == .v2 && colorScheme == .light ? 10 : 0,
+                y: visualTheme == .v2 && colorScheme == .light ? 4 : 0
             )
     }
 }
@@ -193,6 +262,7 @@ enum PillBadgeTone {
 
 struct PillBadgeStyle: ViewModifier {
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
     let tone: PillBadgeTone
 
@@ -201,7 +271,7 @@ struct PillBadgeStyle: ViewModifier {
         case .neutral:
             return DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme)
         case .info:
-            return DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+            return DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride)
         case .success:
             return DesignColor.color(.stateSuccess, theme: visualTheme, colorScheme: colorScheme)
         case .warning:
@@ -214,7 +284,7 @@ struct PillBadgeStyle: ViewModifier {
     private var background: Color {
         switch tone {
         case .neutral:
-            return DesignColor.color(.surfaceSecondary, theme: visualTheme, colorScheme: colorScheme)
+            return DesignColor.color(.surfaceKeycap, theme: visualTheme, colorScheme: colorScheme)
         case .info, .success, .warning, .danger:
             return foreground.opacity(0.15)
         }
@@ -225,7 +295,7 @@ struct PillBadgeStyle: ViewModifier {
             .font(DesignTypography.font(.label))
             .foregroundStyle(foreground)
             .padding(.horizontal, DesignSpacing.sm)
-            .padding(.vertical, DesignSpacing.xs)
+            .padding(.vertical, 6)
             .background(Capsule().fill(background))
     }
 }

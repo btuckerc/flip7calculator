@@ -277,8 +277,19 @@ final class flip7calculatorUITests: XCTestCase {
         )
 
         let vengeance = app.buttons["Vengeance"]
-        for _ in 0..<4 where !vengeance.isHittable {
-            app.swipeUp()
+        let settingsNavBar = app.navigationBars["Settings"]
+        let settingsList = app.collectionViews.firstMatch
+        for _ in 0..<6 {
+            if vengeance.exists && vengeance.isHittable && vengeance.frame.minY > settingsNavBar.frame.maxY + 8 {
+                break
+            }
+            if settingsList.exists {
+                let start = settingsList.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.72))
+                let end = settingsList.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.42))
+                start.press(forDuration: 0.01, thenDragTo: end)
+            } else {
+                app.swipeUp()
+            }
         }
         XCTAssertTrue(vengeance.isHittable, "The Vengeance mode chip was not reachable in Settings")
         vengeance.tap()

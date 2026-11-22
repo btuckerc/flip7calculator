@@ -12,37 +12,44 @@ struct PlayerGrid: View {
     let playerColors: [Color]
     let selectedPlayerId: UUID?
     let scoringRules: ScoringRules
+    var isRegularPortrait: Bool = false
     let onSelect: (UUID) -> Void
-    
-    @AppStorage("showRoundScorePreview") private var showRoundScorePreview: Bool = true
 
-    private let minimumTileHeight: CGFloat = 82
-    
-    /// Number of columns based on player count
+    @AppStorage("showRoundScorePreview") private var showRoundScorePreview: Bool = true
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @ScaledMetric(relativeTo: .body) private var scaledMinimumTileHeight: CGFloat = 84
+
+    private var minimumTileHeight: CGFloat {
+        min(max(84, scaledMinimumTileHeight), 156)
+    }
+
     private var columnCount: Int {
-        // 2 columns for 2-4 players, 3 for 5-6, 4 for 7-8
-        players.count <= 4 ? 2 : (players.count <= 6 ? 3 : 4)
+        if horizontalSizeClass == .regular {
+            return isRegularPortrait && players.count >= 5 ? 3 : 2
+        }
+        return players.count <= 4 ? 2 : (players.count <= 6 ? 3 : 4)
     }
-    
-    /// Number of rows needed
+
     private var rowCount: Int {
-        (players.count + columnCount - 1) / columnCount
+        max(1, (players.count + columnCount - 1) / columnCount)
     }
-    
-    /// Grid spacing - tighter for more players
+
     private var gridSpacing: CGFloat {
-        players.count >= 7 ? 8 : 12
+        players.count >= 7 && horizontalSizeClass != .regular ? 8 : 10
     }
-    
+
     var body: some View {
         GeometryReader { geometry in
             let availableHeight = geometry.size.height
             let availableWidth = geometry.size.width
-            let totalVerticalSpacing = gridSpacing * CGFloat(rowCount - 1)
+            let totalVerticalSpacing = gridSpacing * CGFloat(max(0, rowCount - 1))
             let fittedTileHeight = (availableHeight - totalVerticalSpacing) / CGFloat(rowCount)
-            let tileHeight = max(minimumTileHeight, fittedTileHeight)
+            let cappedMaxHeight: CGFloat = horizontalSizeClass == .regular
+                ? (isRegularPortrait ? 340 : 210)
+                : 220
+            let tileHeight = min(cappedMaxHeight, max(minimumTileHeight, fittedTileHeight))
             let contentHeight = tileHeight * CGFloat(rowCount) + totalVerticalSpacing
-            let totalHorizontalSpacing = gridSpacing * CGFloat(columnCount - 1)
+            let totalHorizontalSpacing = gridSpacing * CGFloat(max(0, columnCount - 1))
             let tileWidth = max(
                 0,
                 (availableWidth - totalHorizontalSpacing) / CGFloat(columnCount)
@@ -52,6 +59,7 @@ struct PlayerGrid: View {
                 ScrollView(.vertical) {
                     playerRows(tileWidth: tileWidth, tileHeight: tileHeight)
                 }
+                .scrollIndicators(.hidden)
                 .scrollBounceBehavior(.basedOnSize)
             } else {
                 playerRows(tileWidth: tileWidth, tileHeight: tileHeight)
@@ -94,166 +102,151 @@ struct PlayerTile: View {
     let isSelected: Bool
     let showScorePreview: Bool
     let scoringRules: ScoringRules
-    var tileHeight: CGFloat = 120 // Default height, will be overridden by grid
+    var tileHeight: CGFloat = 120
     let onTap: () -> Void
-    
-    @State private var isPressed = false
+
     @AppStorage("reduceAnimations") private var reduceAnimations: Bool = false
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
-    
-    // MARK: - Adaptive sizing based on tile height
-    
-    /// Determines sizing tier based on available tile height
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
+    @ScaledMetric(relativeTo: .body) private var typeScale: CGFloat = 17
+
+    private var dynamicTypeMultiplier: CGFloat {
+        min(max(typeScale / 17.0, 0.9), 1.45)
+    }
+
+    private enum SizeTier {
+        case compact, medium, large, extraLarge
+    }
+
     private var sizeTier: SizeTier {
-        if tileHeight < 90 {
+        if tileHeight < 92 {
             return .compact
-        } else if tileHeight < 130 {
+        } else if tileHeight < 128 {
             return .medium
-        } else {
+        } else if tileHeight < 210 {
             return .large
+        } else {
+            return .extraLarge
         }
     }
-    
-    private enum SizeTier {
-        case compact, medium, large
+
+    private var isReducedMotion: Bool {
+        DesignMotion.shouldReduceMotion(
+            reduceAnimations: reduceAnimations,
+            accessibilityReduceMotion: accessibilityReduceMotion
+        )
     }
-    
+
     private var verticalPadding: CGFloat {
         switch sizeTier {
         case .compact: return 6
-        case .medium: return 10
-        case .large: return 14
+        case .medium: return 9
+        case .large: return 12
+        case .extraLarge: return 18
         }
     }
-    
+
     private var verticalSpacing: CGFloat {
         switch sizeTier {
         case .compact: return 2
         case .medium: return 4
         case .large: return 6
+        case .extraLarge: return 10
         }
     }
-    
-    private var nameFontSize: CGFloat {
+
+    private var horizontalPadding: CGFloat {
+        switch sizeTier {
+        case .compact: return 6
+        case .medium: return 8
+        case .large: return 10
+        case .extraLarge: return 16
+        }
+    }
+
+    private var cornerRadius: CGFloat {
         switch sizeTier {
         case .compact: return 12
         case .medium: return 14
         case .large: return 16
+        case .extraLarge: return 20
         }
     }
-    
+
+    private var nameFontSize: CGFloat {
+        let base: CGFloat = switch sizeTier {
+        case .compact: 12
+        case .medium: 14
+        case .large: 17
+        case .extraLarge: 21
+        }
+        return base * dynamicTypeMultiplier
+    }
+
     private var scoreFontSize: CGFloat {
-        switch sizeTier {
-        case .compact: return 20
-        case .medium: return 24
-        case .large: return 28
+        let base: CGFloat = switch sizeTier {
+        case .compact: 21
+        case .medium: 25
+        case .large: 32
+        case .extraLarge: 46
         }
+        return base * min(dynamicTypeMultiplier, 1.3)
     }
-    
-    private var stateLabelFontSize: CGFloat {
-        switch sizeTier {
-        case .compact: return 8
-        case .medium: return 9
-        case .large: return 10
-        }
-    }
-    
+
     private var previewFontSize: CGFloat {
-        switch sizeTier {
-        case .compact: return 10
-        case .medium: return 11
-        case .large: return 13
+        let base: CGFloat = switch sizeTier {
+        case .compact: 10
+        case .medium: 12
+        case .large: 14
+        case .extraLarge: 17
         }
+        return base * dynamicTypeMultiplier
     }
-    
-    private var cornerRadius: CGFloat {
-        switch sizeTier {
-        case .compact: return 10
-        case .medium: return 12
-        case .large: return 16
+
+    private var stateLabelFontSize: CGFloat {
+        let base: CGFloat = switch sizeTier {
+        case .compact: 8
+        case .medium: 9
+        case .large: 11
+        case .extraLarge: 12
         }
+        return base * dynamicTypeMultiplier
     }
-    
-    private var horizontalPadding: CGFloat {
-        switch sizeTier {
-        case .compact: return 4
-        case .medium: return 6
-        case .large: return 8
-        }
-    }
-    
-    private var stateLabelPaddingH: CGFloat {
-        switch sizeTier {
-        case .compact: return 4
-        case .medium: return 5
-        case .large: return 6
-        }
-    }
-    
-    private var stateLabelPaddingV: CGFloat {
-        switch sizeTier {
-        case .compact: return 1
-        case .medium: return 1
-        case .large: return 2
-        }
-    }
-    
-    private var shouldAnimate: Bool {
-        !reduceAnimations && !accessibilityReduceMotion
-    }
-    
+
     private var roundScore: Int {
         ScoreEngine.calculateRoundScore(round: player.currentRound, rules: scoringRules)
     }
-    
+
     private var potentialTotal: Int {
         ScoreEngine.previewTotalScore(player: player, rules: scoringRules)
     }
-    
+
     private var hasManualOverride: Bool {
         player.currentRound.manualScoreOverride != nil
     }
-    
+
     private var playerState: PlayerRoundState {
         player.currentRound.state
     }
-    
+
     private var hasStateFrame: Bool {
         playerState != .inRound
     }
-    
-    /// The best contrasting foreground color for when this tile is selected.
-    /// Uses the player color's luminance to determine black vs white.
-    private var selectedForeground: Color {
-        color.contrastingForeground
-    }
-    
-    /// Frame color based on player state
-    private var stateFrameColor: Color {
+
+    private var stateAccentColor: Color {
         switch playerState {
-        case .inRound: return .clear
-        case .banked: return ReservedColors.bankedFrameGreen
-        case .busted: return ReservedColors.bustedFrameRed
-        case .frozen: return ReservedColors.frozenFrameCyan
+        case .inRound:
+            return color
+        case .banked:
+            return DesignColor.color(.stateSuccess, theme: visualTheme, colorScheme: colorScheme)
+        case .busted:
+            return DesignColor.color(.stateDanger, theme: visualTheme, colorScheme: colorScheme)
+        case .frozen:
+            return DesignColor.color(.stateFrozen, theme: visualTheme, colorScheme: colorScheme)
         }
     }
-    
-    /// Secondary frost color for frozen state
-    private var frozenHighlightColor: Color {
-        ReservedColors.frozenHighlight
-    }
 
-    private var stateTintColor: Color {
-        playerState == .frozen ? frozenHighlightColor : stateFrameColor
-    }
-
-    private var stateTintOverlay: some View {
-        RoundedRectangle(cornerRadius: cornerRadius)
-            .fill(stateTintColor.opacity(hasStateFrame ? 0.08 : 0))
-            .opacity(hasStateFrame ? 1 : 0)
-    }
-    
-    /// State label text for non-inRound states
     private var stateLabel: String? {
         switch playerState {
         case .inRound: return nil
@@ -262,84 +255,123 @@ struct PlayerTile: View {
         case .frozen: return scoringRules.mode == .vengeance ? "FORCED" : "FROZEN"
         }
     }
-    
-    /// Whether to show the round score preview (respects toggle, requires meaningful input, excludes busted)
-    private var shouldShowRoundScorePreview: Bool {
-        guard showScorePreview else { return false }
-        guard playerState != .busted else { return false }
-        return roundScore != 0 || hasManualOverride
-    }
-    
-    /// Preview text showing round delta and potential total
-    private var roundScorePreviewText: String {
-        if hasManualOverride {
-            return "\(signedScore(roundScore)) ✎ -> \(potentialTotal)"
+
+    private var stateSymbol: String? {
+        switch playerState {
+        case .inRound: return nil
+        case .banked: return "checkmark"
+        case .busted: return "xmark"
+        case .frozen: return "snowflake"
         }
-        return "\(signedScore(roundScore)) -> \(potentialTotal)"
     }
 
-    private func signedScore(_ score: Int) -> String {
-        score > 0 ? "+\(score)" : "\(score)"
+    private var shouldShowRoundScorePreview: Bool {
+        guard showScorePreview else { return false }
+        guard playerState != .busted || scoringRules.brutalMode else { return false }
+        return roundScore != 0 || hasManualOverride
     }
-    
-    /// Preview text color (subtle, doesn't compete with selection)
-    private var roundScorePreviewColor: Color {
-        if isSelected {
-            return selectedForeground.opacity(0.8)
+
+    private var roundScorePreviewText: String {
+        let delta = roundScore > 0 ? "+\(roundScore)" : "\(roundScore)"
+        if hasManualOverride {
+            return "\(delta) ✎ → \(potentialTotal)"
         }
-        // Use secondary for all cases to keep it subtle
-        return .secondary
+        return "\(delta) → \(potentialTotal)"
     }
-    
+
+    private var tileFill: Color {
+        DesignColor.color(.surfaceRaised, theme: visualTheme, colorScheme: colorScheme)
+    }
+
+    private var tintOverlayColor: Color {
+        if hasStateFrame {
+            return stateAccentColor.opacity(colorScheme == .dark ? 0.12 : 0.08)
+        }
+        if isSelected {
+            return color.opacity(colorScheme == .dark ? 0.16 : 0.10)
+        }
+        return .clear
+    }
+
+    private var borderColor: Color {
+        if isSelected {
+            return color
+        }
+        if hasStateFrame {
+            return stateAccentColor.opacity(colorScheme == .dark ? 0.78 : 0.70)
+        }
+        return visualTheme == .v2 ? AppBrandPalette.cardBorder(colorScheme: colorScheme) : Color(.separator).opacity(0.45)
+    }
+
+    private var borderWidth: CGFloat {
+        if isSelected { return 2.5 }
+        if hasStateFrame { return 1.75 }
+        return 1
+    }
+
     var body: some View {
         Button(action: {
-            HapticFeedback.light()
+            HapticFeedback.selection()
             onTap()
         }) {
             VStack(spacing: verticalSpacing) {
-                // State label (replaces status icon for non-inRound states)
-                if let label = stateLabel {
-                    Text(label)
-                        .font(.system(size: stateLabelFontSize, weight: .bold, design: .rounded))
-                        .tracking(0.5)
-                        .foregroundStyle(isSelected ? selectedForeground.opacity(0.9) : stateFrameColor)
-                        .padding(.horizontal, stateLabelPaddingH)
-                        .padding(.vertical, stateLabelPaddingV)
-                        .background(
-                            Capsule()
-                                .fill(isSelected ? stateFrameColor.opacity(0.3) : stateFrameColor.opacity(0.15))
-                        )
+                // Status badge or calm placeholder to keep row rhythm aligned
+                if let label = stateLabel, let symbol = stateSymbol {
+                    HStack(spacing: 3) {
+                        Image(systemName: symbol)
+                            .font(.system(size: stateLabelFontSize, weight: .bold))
+                        Text(label)
+                            .font(.system(size: stateLabelFontSize, weight: .bold, design: .rounded))
+                            .tracking(0.4)
+                    }
+                    .foregroundStyle(stateAccentColor)
+                    .padding(.horizontal, sizeTier == .compact ? 5 : 7)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(stateAccentColor.opacity(colorScheme == .dark ? 0.20 : 0.14)))
                 } else {
-                    // Reserve space when in round (no label)
                     Text(" ")
                         .font(.system(size: stateLabelFontSize, weight: .bold, design: .rounded))
-                        .padding(.horizontal, stateLabelPaddingH)
-                        .padding(.vertical, stateLabelPaddingV)
+                        .padding(.vertical, 2)
                         .opacity(0)
                 }
-                
-                // Player name
-                Text(player.name)
-                    .font(.system(size: nameFontSize, weight: .bold, design: .rounded))
-                    .foregroundStyle(isSelected ? selectedForeground : .primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-                
+
+                // Player identity dot + name
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(color)
+                        .frame(width: sizeTier == .compact ? 7 : 8, height: sizeTier == .compact ? 7 : 8)
+
+                    Text(player.name)
+                        .font(.system(size: nameFontSize, weight: .bold, design: .rounded))
+                        .foregroundStyle(DesignColor.color(.textPrimary, theme: visualTheme, colorScheme: colorScheme))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.72)
+                }
+
                 // Total score
                 Text("\(player.totalScore)")
                     .font(.system(size: scoreFontSize, weight: .heavy, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(isSelected ? selectedForeground : .primary)
-                
-                // Round score preview (always reserve space when enabled)
+                    .foregroundStyle(
+                        playerState == .busted
+                            ? DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme)
+                            : DesignColor.color(.textPrimary, theme: visualTheme, colorScheme: colorScheme)
+                    )
+                    .contentTransition(.numericText())
+
+                // Round score preview (reserved space keeps layout stable)
                 if showScorePreview {
-                    Text(roundScorePreviewText)
+                    Text(shouldShowRoundScorePreview ? roundScorePreviewText : " ")
                         .font(.system(size: previewFontSize, weight: .semibold, design: .rounded))
                         .monospacedDigit()
-                        .foregroundStyle(roundScorePreviewColor)
+                        .foregroundStyle(
+                            hasStateFrame
+                                ? stateAccentColor
+                                : DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme)
+                        )
                         .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                        .opacity(shouldShowRoundScorePreview ? 1.0 : 0.0)
+                        .minimumScaleFactor(0.72)
+                        .opacity(shouldShowRoundScorePreview ? 1 : 0)
                         .accessibilityHidden(!shouldShowRoundScorePreview)
                 }
             }
@@ -347,78 +379,39 @@ struct PlayerTile: View {
             .padding(.vertical, verticalPadding)
             .padding(.horizontal, horizontalPadding)
             .background(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .fill(isSelected ? color : color.opacity(0.15))
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(tileFill)
             )
-            // Base border (subtle when no state frame)
             .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .stroke(
-                        isSelected ? color.opacity(0.0) : color.opacity(0.3),
-                        lineWidth: 2
-                    )
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(tintOverlayColor)
             )
-            // Inner glow/tint that bleeds into the tile
-            .overlay(stateTintOverlay)
-            // State frame overlay (soft outer glow layer)
             .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius + 2)
-                    .stroke(
-                        (playerState == .frozen ? frozenHighlightColor : stateFrameColor).opacity(hasStateFrame ? 0.5 : 0),
-                        lineWidth: 10
-                    )
-                    .blur(radius: 6)
-                    .padding(-3)
-                    .opacity(hasStateFrame ? 1 : 0)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(borderColor, lineWidth: borderWidth)
             )
-            // State frame overlay (mid glow for depth)
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius + 1)
-                    .stroke(
-                        stateFrameColor.opacity(hasStateFrame ? 0.4 : 0),
-                        lineWidth: 5
-                    )
-                    .blur(radius: 2)
-                    .padding(-1)
-                    .opacity(hasStateFrame ? 1 : 0)
+            .shadow(
+                color: colorScheme == .light ? AppBrandPalette.ink.opacity(isSelected ? 0.09 : 0.04) : .clear,
+                radius: isSelected ? 8 : 4,
+                y: isSelected ? 3 : 1
             )
-            // State frame overlay (crisp inner stroke)
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius)
-                    .stroke(
-                        stateFrameColor.opacity(hasStateFrame ? (isSelected ? 0.75 : 0.9) : 0),
-                        lineWidth: 2.5
-                    )
-                    .opacity(hasStateFrame ? 1 : 0)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
-            .scaleEffect(isPressed ? 0.95 : 1.0)
-            .animation(shouldAnimate ? .easeInOut(duration: 0.25) : .none, value: playerState)
+            .animation(DesignMotion.animation(.fast, reduced: isReducedMotion), value: playerState)
+            .animation(DesignMotion.animation(.fast, reduced: isReducedMotion), value: isSelected)
         }
-        .buttonStyle(.plain)
-        .onLongPressGesture(minimumDuration: 0, maximumDistance: .infinity, pressing: { pressing in
-            withAnimation(.spring(response: 0.2, dampingFraction: 0.7)) {
-                isPressed = pressing
-            }
-        }, perform: {})
-        .accessibilityLabel(accessibilityLabelText)
+        .buttonStyle(KeycapButtonStyle(pressedScale: 0.96))
+        .accessibilityLabel(player.name)
         .accessibilityValue(accessibilityValueText)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
-    
-    // MARK: - Accessibility
-    
-    private var accessibilityLabelText: String {
-        player.name
-    }
-    
+
     private var accessibilityValueText: String {
-        var parts: [String] = []
-        parts.append("\(player.totalScore) points")
+        var parts: [String] = ["\(player.totalScore) points"]
         if let state = stateLabel {
             parts.append(state.lowercased())
         }
         if shouldShowRoundScorePreview {
-            parts.append("plus \(roundScore) this round, would be \(potentialTotal) total")
+            let signed = roundScore >= 0 ? "plus \(roundScore)" : "minus \(abs(roundScore))"
+            parts.append("\(signed) this round, projected \(potentialTotal) total")
         }
         return parts.joined(separator: ", ")
     }

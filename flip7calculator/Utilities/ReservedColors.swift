@@ -186,10 +186,19 @@ extension Color {
         relativeLuminance > 0.5
     }
     
-    /// Returns the best contrasting foreground color (black or white)
+    /// Returns the WCAG-optimal contrasting foreground color (black or white).
     var contrastingForeground: Color {
-        // Use a threshold slightly below 0.5 to favor white text (better readability on medium colors)
-        relativeLuminance > 0.45 ? .black : .white
+        let l = relativeLuminance
+        let contrastWithBlack = (l + 0.05) / 0.05
+        let contrastWithWhite = 1.05 / (l + 0.05)
+        return contrastWithBlack >= contrastWithWhite ? .black : .white
+    }
+
+    /// Computes WCAG 2.1 contrast ratio against another color (1.0 to 21.0).
+    func contrastRatio(with other: Color) -> Double {
+        let l1 = max(relativeLuminance, other.relativeLuminance)
+        let l2 = min(relativeLuminance, other.relativeLuminance)
+        return (l1 + 0.05) / (l2 + 0.05)
     }
     
     /// Creates a Color from a hex string (e.g., "#FF5733" or "FF5733")

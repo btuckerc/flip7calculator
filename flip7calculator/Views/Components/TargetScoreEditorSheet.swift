@@ -12,55 +12,57 @@ struct TargetScoreEditorSheet: View {
     let onSave: (Int) -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
-    
+
     @State private var inputText: String
     @FocusState private var isTextFieldFocused: Bool
-    
+
     private let minScore = 50
     private let maxScore = 5000
-    
+    private let defaultScore = 200
+
     init(targetScore: Binding<Int>, onSave: @escaping (Int) -> Void) {
         self._targetScore = targetScore
         self.onSave = onSave
         self._inputText = State(initialValue: "\(targetScore.wrappedValue)")
     }
-    
+
     private var clampedScore: Int {
         let value = Int(inputText) ?? minScore
         return max(minScore, min(maxScore, value))
     }
-    
-    private let defaultScore = 200
 
     private var accentColor: Color {
-        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride)
     }
-    
+
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                // Instructions
+            VStack(spacing: 22) {
                 Text("Enter target score")
-                    .font(.system(size: 17, weight: .regular, design: .rounded))
-                    .foregroundStyle(.secondary)
+                    .font(.system(.body, design: .rounded, weight: .medium))
+                    .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
                     .padding(.top, 8)
-                
-                // Text field
+
                 TextField("", text: $inputText)
                     .keyboardType(.numberPad)
-                    .font(.system(size: 48, weight: .bold, design: .rounded))
+                    .font(.system(size: 46, weight: .bold, design: .rounded))
+                    .monospacedDigit()
                     .multilineTextAlignment(.center)
                     .focused($isTextFieldFocused)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                     .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color(.systemGray6))
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(DesignColor.color(.surfaceKeycap, theme: visualTheme, colorScheme: colorScheme))
                     )
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(isTextFieldFocused ? accentColor : Color.clear, lineWidth: 2)
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(
+                                isTextFieldFocused ? accentColor : DesignColor.keycapBorder(theme: visualTheme, colorScheme: colorScheme),
+                                lineWidth: isTextFieldFocused ? 2 : 1
+                            )
                     )
                     .toolbar {
                         ToolbarItemGroup(placement: .keyboard) {
@@ -68,32 +70,32 @@ struct TargetScoreEditorSheet: View {
                             Button("Done") {
                                 isTextFieldFocused = false
                             }
-                            .font(.system(size: 17, weight: .semibold, design: .rounded))
+                            .font(.system(.body, design: .rounded, weight: .semibold))
                         }
                     }
-                
-                // Range hint and reset
+
                 HStack {
-                    Text("Range: \(minScore) - \(maxScore)")
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundStyle(.tertiary)
-                    
+                    Text("Range: \(minScore) – \(maxScore)")
+                        .font(DesignTypography.font(.caption))
+                        .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
+
                     Spacer()
-                    
+
                     if Int(inputText) != defaultScore {
                         Button("Reset to \(defaultScore)") {
                             inputText = "\(defaultScore)"
                             HapticFeedback.light()
                         }
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .font(.system(.footnote, design: .rounded, weight: .semibold))
                         .foregroundStyle(accentColor)
                     }
                 }
-                
+
                 Spacer()
             }
             .padding(.horizontal, 24)
-            .padding(.top, 32)
+            .padding(.top, 24)
+            .appChromeBackground()
             .navigationTitle("Target Score")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -102,7 +104,7 @@ struct TargetScoreEditorSheet: View {
                         dismiss()
                     }
                 }
-                
+
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") {
                         let finalScore = clampedScore
@@ -114,7 +116,6 @@ struct TargetScoreEditorSheet: View {
                 }
             }
             .onAppear {
-                // Focus text field when sheet appears
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                     isTextFieldFocused = true
                 }

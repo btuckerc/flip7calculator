@@ -8,8 +8,7 @@
 import SwiftUI
 import UIKit
 
-// MARK: - Sheet Content for Manual Score Entry
-
+/// Sheet content for manual round score entry.
 struct ManualScoreSheetContent: View {
     let autoScore: Int
     let currentManualScore: Int?
@@ -18,12 +17,14 @@ struct ManualScoreSheetContent: View {
     let allowsNegative: Bool
     let onDismiss: () -> Void
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
-    
+
     @State private var inputText: String
-    
+    @State private var didCompleteExplicitAction = false
+
     private let maxScore = 9999
-    
+
     init(
         autoScore: Int,
         currentManualScore: Int?,
@@ -40,32 +41,31 @@ struct ManualScoreSheetContent: View {
         self.onDismiss = onDismiss
         self._inputText = State(initialValue: currentManualScore.map { "\($0)" } ?? "")
     }
-    
+
     private var parsedScore: Int? {
         Int(inputText)
     }
-    
+
     private var isValidInput: Bool {
         parsedScore != nil && !inputText.isEmpty
     }
-    
+
     private func submitScore() {
         if isValidInput, let score = parsedScore {
+            didCompleteExplicitAction = true
             HapticFeedback.light()
             onSave(clamped(score))
             onDismiss()
         }
     }
-    
-    /// Check if input differs from current saved value (to avoid unnecessary saves)
+
     private var hasChanges: Bool {
         guard let score = parsedScore else { return false }
-        let clampedScore = clamped(score)
-        return clampedScore != currentManualScore
+        return clamped(score) != currentManualScore
     }
-    
-    /// Save valid input when sheet is dismissed
+
     private func saveIfValid() {
+        guard !didCompleteExplicitAction else { return }
         if isValidInput && hasChanges, let score = parsedScore {
             onSave(clamped(score))
         }
@@ -84,59 +84,58 @@ struct ManualScoreSheetContent: View {
     }
 
     private var accentColor: Color {
-        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride)
     }
-    
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 16) {
-                // Text field - submit via toolbar checkmark
                 ScoreInputField(
                     text: $inputText,
                     isValid: isValidInput,
                     onSubmit: submitScore
                 )
-                .frame(width: 140, height: 56)
+                .frame(width: 148, height: 56)
 
                 if allowsNegative {
                     Button(action: toggleSign) {
                         Label("Toggle positive or negative", systemImage: "plus.forwardslash.minus")
-                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .font(.system(.footnote, design: .rounded, weight: .semibold))
                     }
                     .buttonStyle(.bordered)
                 }
-                
-                // From cards score hint + revert button
+
                 HStack(spacing: 8) {
                     HStack(spacing: 4) {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 12))
+                            .font(.caption)
                             .foregroundStyle(.secondary)
-                        
+
                         Text("From cards: \(autoScore)")
-                            .font(.system(size: 14, weight: .medium, design: .rounded))
+                            .font(.system(.subheadline, design: .rounded, weight: .medium))
                             .foregroundStyle(.secondary)
+                            .monospacedDigit()
                     }
-                    
-                    // Show "Use from cards" button only when a manual override exists
+
                     if currentManualScore != nil {
                         Button(action: {
+                            didCompleteExplicitAction = true
                             HapticFeedback.light()
                             onClearManualScore()
                             onDismiss()
                         }) {
                             Text("Use from cards")
-                                .font(.system(size: 13, weight: .medium, design: .rounded))
+                                .font(.system(.footnote, design: .rounded, weight: .semibold))
                                 .foregroundStyle(accentColor)
                         }
                     }
                 }
-                
+
                 Spacer()
             }
             .padding(.top, 12)
             .frame(maxWidth: .infinity)
-            .background(DesignColor.color(.surfacePrimary, theme: visualTheme, colorScheme: colorScheme))
+            .appChromeBackground()
             .navigationTitle("Manual Score")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -147,107 +146,33 @@ struct ManualScoreSheetContent: View {
                             .foregroundStyle(isValidInput ? accentColor : .gray.opacity(0.4))
                     }
                     .disabled(!isValidInput)
+                    .accessibilityLabel("Save manual score")
                 }
             }
             .onDisappear {
-                // Save valid input when user dismisses sheet
                 saveIfValid()
             }
         }
     }
 }
 
-// MARK: - Legacy Popover (kept for reference)
-
-struct ManualScorePopover: View {
-    let autoScore: Int
-    let currentManualScore: Int?
-    let onSave: (Int) -> Void
-    let onClearManualScore: () -> Void
-    let onDismiss: () -> Void
-    @Environment(\.visualTheme) private var visualTheme
-    @Environment(\.colorScheme) private var colorScheme
-    
-    @State private var inputText: String
-    
-    private let maxScore = 9999
-    
-    init(autoScore: Int, currentManualScore: Int?, onSave: @escaping (Int) -> Void, onClearManualScore: @escaping () -> Void, onDismiss: @escaping () -> Void) {
-        self.autoScore = autoScore
-        self.currentManualScore = currentManualScore
-        self.onSave = onSave
-        self.onClearManualScore = onClearManualScore
-        self.onDismiss = onDismiss
-        self._inputText = State(initialValue: currentManualScore.map { "\($0)" } ?? "")
-    }
-    
-    private var parsedScore: Int? {
-        Int(inputText)
-    }
-    
-    private var isValidInput: Bool {
-        parsedScore != nil && !inputText.isEmpty
-    }
-    
-    private func submitScore() {
-        if isValidInput, let score = parsedScore {
-            HapticFeedback.light()
-            onSave(max(0, min(maxScore, score)))
-            onDismiss()
-        }
-    }
-    
-    var body: some View {
-        VStack(spacing: 8) {
-            ScoreInputField(
-                text: $inputText,
-                isValid: isValidInput,
-                onSubmit: submitScore
-            )
-            .frame(width: 120, height: 52)
-            
-            HStack(spacing: 4) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
-                
-                Text("From cards: \(autoScore)")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(DesignColor.color(.surfacePrimary, theme: visualTheme, colorScheme: colorScheme))
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-    }
-}
-
-// MARK: - UIKit TextField (no accessory view - toolbar checkmark is used instead)
-
+/// UIKit-backed numeric input field with instant auto-focus.
 struct ScoreInputField: UIViewRepresentable {
     @Binding var text: String
     let isValid: Bool
     let onSubmit: () -> Void
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
 
     private var backgroundColor: UIColor {
-        UIColor(
-            visualTheme == .v2
-                ? AppBrandPalette.panelFill(colorScheme: colorScheme)
-                : Color(.systemGray6)
-        )
+        UIColor(DesignColor.color(.surfaceKeycap, theme: visualTheme, colorScheme: colorScheme))
     }
 
     private var borderColor: UIColor {
-        UIColor(
-            visualTheme == .v2
-                ? AppBrandPalette.brandBlue.opacity(0.45)
-                : AppBrandPalette.brandBlue.opacity(0.5)
-        )
+        UIColor(DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride).opacity(0.5))
     }
-    
+
     func makeUIView(context: Context) -> UITextField {
         let textField = UITextField()
         textField.keyboardType = .numberPad
@@ -255,20 +180,19 @@ struct ScoreInputField: UIViewRepresentable {
         textField.textAlignment = .center
         textField.textColor = UIColor(DesignColor.color(.textPrimary, theme: visualTheme, colorScheme: colorScheme))
         textField.backgroundColor = backgroundColor
-        textField.layer.cornerRadius = 10
+        textField.layer.cornerRadius = 12
         textField.layer.borderWidth = 1.5
         textField.layer.borderColor = borderColor.cgColor
         textField.delegate = context.coordinator
         textField.addTarget(context.coordinator, action: #selector(Coordinator.textChanged(_:)), for: .editingChanged)
-        
-        // Auto-focus
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
             textField.becomeFirstResponder()
         }
-        
+
         return textField
     }
-    
+
     func updateUIView(_ uiView: UITextField, context: Context) {
         if uiView.text != text {
             uiView.text = text
@@ -277,159 +201,28 @@ struct ScoreInputField: UIViewRepresentable {
         uiView.backgroundColor = backgroundColor
         uiView.layer.borderColor = borderColor.cgColor
     }
-    
+
     func makeCoordinator() -> Coordinator {
         Coordinator(text: $text, onSubmit: onSubmit)
     }
-    
+
     class Coordinator: NSObject, UITextFieldDelegate {
         @Binding var text: String
         let onSubmit: () -> Void
-        
+
         init(text: Binding<String>, onSubmit: @escaping () -> Void) {
             _text = text
             self.onSubmit = onSubmit
         }
-        
+
         @objc func textChanged(_ textField: UITextField) {
             text = textField.text ?? ""
         }
-        
+
         func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-            // Only allow digits
             let allowedCharacters = CharacterSet.decimalDigits
             let characterSet = CharacterSet(charactersIn: string)
             return allowedCharacters.isSuperset(of: characterSet)
-        }
-    }
-}
-
-// MARK: - Legacy Sheet (kept for reference, not used)
-
-struct ManualScoreEditorSheet: View {
-    let autoScore: Int
-    let currentManualScore: Int?
-    let onSave: (Int) -> Void
-    let onClearManualScore: () -> Void
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.visualTheme) private var visualTheme
-    @Environment(\.colorScheme) private var colorScheme
-    
-    @State private var inputText: String
-    @FocusState private var isTextFieldFocused: Bool
-    
-    private let maxScore = 9999
-    
-    init(autoScore: Int, currentManualScore: Int?, onSave: @escaping (Int) -> Void, onClearManualScore: @escaping () -> Void) {
-        self.autoScore = autoScore
-        self.currentManualScore = currentManualScore
-        self.onSave = onSave
-        self.onClearManualScore = onClearManualScore
-        self._inputText = State(initialValue: currentManualScore.map { "\($0)" } ?? "")
-    }
-    
-    private var parsedScore: Int? {
-        Int(inputText)
-    }
-    
-    private var clampedScore: Int {
-        max(0, min(maxScore, parsedScore ?? 0))
-    }
-    
-    private var isValidInput: Bool {
-        parsedScore != nil && !inputText.isEmpty
-    }
-
-    private var accentColor: Color {
-        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
-    }
-    
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 24) {
-                Text("Enter round score")
-                    .font(.system(size: 17, weight: .regular, design: .rounded))
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 8)
-                
-                TextField("", text: $inputText)
-                    .keyboardType(.numberPad)
-                    .font(.system(size: 48, weight: .bold, design: .rounded))
-                    .multilineTextAlignment(.center)
-                    .focused($isTextFieldFocused)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(DesignColor.color(.surfaceSecondary, theme: visualTheme, colorScheme: colorScheme))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(isTextFieldFocused ? accentColor : Color.clear, lineWidth: 2)
-                    )
-                    .toolbar {
-                        ToolbarItemGroup(placement: .keyboard) {
-                            Spacer()
-                            Button("Done") {
-                                isTextFieldFocused = false
-                            }
-                            .font(.system(size: 17, weight: .semibold, design: .rounded))
-                        }
-                    }
-                
-                HStack {
-                    HStack(spacing: 4) {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                        Text("From cards: +\(autoScore)")
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                            .foregroundStyle(.secondary)
-                    }
-                    
-                    Spacer()
-                    
-                    if currentManualScore != nil {
-                        Button("Use from cards") {
-                            HapticFeedback.light()
-                            onClearManualScore()
-                            dismiss()
-                        }
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundStyle(accentColor)
-                    }
-                }
-                
-                Spacer()
-            }
-            .padding(.horizontal, 24)
-            .padding(.top, 32)
-            .background(DesignColor.color(.surfacePrimary, theme: visualTheme, colorScheme: colorScheme))
-            .navigationTitle("Manual Score")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-                
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
-                        if isValidInput {
-                            onSave(clampedScore)
-                        }
-                        dismiss()
-                    }
-                    .fontWeight(.semibold)
-                    .disabled(!isValidInput)
-                }
-            }
-            .onAppear {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    isTextFieldFocused = true
-                }
-            }
         }
     }
 }

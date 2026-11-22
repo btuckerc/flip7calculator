@@ -36,41 +36,45 @@ enum AppBrand {
 }
 
 enum AppBrandPalette {
-    static let ink = Color.hex("1E2636")
+    static let ink = Color.hex("182233")
     static let outline = Color.hex("213042")
-    static let brandBlue = Color.hex("205EA4")
-    static let brandBlueDeep = Color.hex("184D8A")
-    static let brandBlueSky = Color.hex("4A79C5")
-    static let blueGlow = Color.hex("6BA8E5")
-    static let gold = Color.hex("F1C24B")
-    static let goldDeep = Color.hex("885600")
-    static let copper = Color.hex("E47B58")
-    static let parchment = Color.hex("FFF7EB")
+    static let brandBlue = Color.hex("1F5CA3")
+    static let brandBlueDeep = Color.hex("16447A")
+    static let brandBlueSky = Color.hex("4682CA")
+    static let blueGlow = Color.hex("6AA9E8")
+    static let gold = Color.hex("F0C14B")
+    static let goldDeep = Color.hex("8A5800")
+    static let copper = Color.hex("E06B56")
+    static let parchment = Color.hex("FFF9F0")
     static let sage = Color.hex("EDF3FB")
     static let mist = Color.hex("DCE6F0")
     static let jade = brandBlueSky
     static let slate = Color.hex("8FA1B5")
-    static let night = Color.hex("0F3158")
-    static let nightDeep = Color.hex("14243D")
+    static let night = Color.hex("0E2542")
+    static let nightDeep = Color.hex("0E1B2E")
     static let card = parchment
 
-    // Compatibility aliases while the rebrand migrates older color names.
+    // Compatibility aliases while older references resolve.
     static let emerald = brandBlue
     static let emeraldDeep = brandBlueDeep
 
     static func screenBackground(colorScheme: ColorScheme?) -> Color {
-        colorScheme == .dark ? nightDeep : Color.hex("F2F5F9")
+        colorScheme == .dark ? nightDeep : Color.hex("F3F6FA")
     }
 
     static func panelFill(colorScheme: ColorScheme?) -> Color {
-        colorScheme == .dark ? Color.hex("122038") : Color.hex("EAF1FA")
+        colorScheme == .dark ? Color.hex("142338") : Color.hex("FFFFFF")
     }
 
     static func cardFill(colorScheme: ColorScheme?) -> Color {
-        colorScheme == .dark ? Color.hex("16263D") : parchment
+        colorScheme == .dark ? Color.hex("162740") : parchment
     }
 
     static func cardBorder(colorScheme: ColorScheme?) -> Color {
-        colorScheme == .dark ? mist.opacity(0.18) : brandBlue.opacity(0.14)
+        colorScheme == .dark ? Color.white.opacity(0.09) : brandBlue.opacity(0.12)
+    }
+
+    static func keycapBorder(colorScheme: ColorScheme?) -> Color {
+        colorScheme == .dark ? Color.white.opacity(0.11) : brandBlue.opacity(0.14)
     }
 }

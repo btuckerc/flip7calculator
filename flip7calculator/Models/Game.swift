@@ -124,9 +124,21 @@ struct Game: Codable, Equatable {
         currentRoundIndex += 1
     }
     
-    /// Ends the current round and banks all players (same as startNewRound but doesn't increment round)
-    /// Use this when you want to finalize scores without moving to a new round (e.g., game end)
+    /// True once the current round has already been finalized into `gameHistory`.
+    var isCurrentRoundFinalized: Bool {
+        gameHistory.last?.roundNumber == currentRoundNumber
+    }
+
+    /// True only when a finalized round has produced a winner (prevents premature Game Over
+    /// if the target score is lowered mid-round while unbanked hands are still being entered).
+    var isCompletedWithWinner: Bool {
+        hasWinner && isCurrentRoundFinalized
+    }
+
+    /// Ends the current round and banks all players (same as startNewRound but doesn't increment round).
+    /// Idempotent if the current round was already finalized in `gameHistory`.
     mutating func endRound() {
+        guard !isCurrentRoundFinalized else { return }
         // Save round to history with full snapshots
         let roundResults = players.map { player -> RoundResult in
             let roundScore = ScoreEngine.calculateRoundScore(round: player.currentRound, rules: scoringRules)

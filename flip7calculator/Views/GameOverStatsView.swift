@@ -10,50 +10,76 @@ import Charts
 
 struct GameOverStatsView: View {
     let game: Game
+    private let stats: GameStats
+    private let cumulativeData: [RoundDataPoint]
+    private let rankedPlayers: [Player]
+    private let playerStatsById: [UUID: PlayerGameStats]
+    private let mostConsistentHighlight: (player: Player, stdDev: Double)?
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
     @State private var selectedPlayerForChart: UUID?
     @State private var selectedPlayerForDetail: Player?
-    
+
     @AppStorage("playerPalette") private var playerPaletteRaw: String = PlayerPalette.classic.rawValue
-    
+
+    init(game: Game) {
+        self.game = game
+        let computed = GameStats(game: game)
+        self.stats = computed
+        self.cumulativeData = computed.cumulativeChartData()
+        self.rankedPlayers = computed.rankedPlayers
+        var byId: [UUID: PlayerGameStats] = [:]
+        var bestConsistent: (player: Player, stdDev: Double)?
+        for player in game.players {
+            let playerStat = PlayerGameStats(playerId: player.id, game: game)
+            byId[player.id] = playerStat
+            if let stdDev = playerStat.scoreStandardDeviation,
+               playerStat.nonBustRoundScores.count >= 2,
+               bestConsistent == nil || stdDev < bestConsistent!.stdDev {
+                bestConsistent = (player, stdDev)
+            }
+        }
+        self.playerStatsById = byId
+        self.mostConsistentHighlight = bestConsistent
+        self._selectedPlayerForChart = State(initialValue: game.players.first?.id)
+    }
+
     private var selectedPalette: PlayerPalette {
         PlayerPalette(rawValue: playerPaletteRaw) ?? PlayerPalette.fromLegacyRawValue(playerPaletteRaw)
     }
-    
-    private var stats: GameStats {
-        GameStats(game: game)
-    }
-    
+
     private var playerColors: [Color] {
         PlayerColorResolver.colors(count: game.players.count, palette: selectedPalette)
     }
-    
+
     private func colorForPlayer(_ playerId: UUID) -> Color {
         guard let index = game.players.firstIndex(where: { $0.id == playerId }) else {
-            return AppBrandPalette.brandBlue
+            return accentColor
         }
-        return playerColors[safe: index] ?? AppBrandPalette.brandBlue
+        return playerColors[safe: index] ?? accentColor
     }
 
     private var accentColor: Color {
-        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride)
     }
-    
+
+    private var rowBackground: Color {
+        DesignColor.listRowBackground(theme: visualTheme, colorScheme: colorScheme)
+    }
+
+    private var rowSeparator: Color {
+        DesignColor.border(theme: visualTheme, colorScheme: colorScheme)
+    }
+
     var body: some View {
         NavigationStack {
             List {
-                // Highlights Section
                 highlightsSection
-                
-                // Charts Section
                 chartsSection
-                
-                // Player Stats Section
                 playerStatsSection
-                
-                // Round History Section
                 roundHistorySection
             }
             .scrollContentBackground(.hidden)
@@ -78,31 +104,25 @@ struct GameOverStatsView: View {
                 )
             }
             .tint(accentColor)
-            .onAppear {
-                if selectedPlayerForChart == nil, let first = game.players.first {
-                    selectedPlayerForChart = first.id
-                }
-            }
         }
     }
-    
+
     // MARK: - Highlights Section
-    
+
     @ViewBuilder
     private var highlightsSection: some View {
         Section {
-            // Winner and margin
             if !stats.winners.isEmpty {
                 HighlightRow(
                     icon: "crown.fill",
                     iconColor: AppBrandPalette.gold,
                     title: stats.winners.count > 1 ? "Winners" : "Winner",
-                    value: stats.winners.map { $0.name }.joined(separator: ", "),
+                    value: stats.winners.map(\.name).joined(separator: ", "),
                     detail: stats.winningMargin > 0 ? "Won by \(stats.winningMargin) pts" : nil
                 )
+                .statsRowStyle(background: rowBackground, separator: rowSeparator)
             }
-            
-            // Lead changes
+
             if stats.leadChanges > 0 {
                 HighlightRow(
                     icon: "arrow.left.arrow.right",
@@ -111,20 +131,20 @@ struct GameOverStatsView: View {
                     value: "\(stats.leadChanges)",
                     detail: nil
                 )
+                .statsRowStyle(background: rowBackground, separator: rowSeparator)
             }
-            
-            // Biggest comeback
+
             if let comeback = stats.biggestComeback, comeback.deficit > 10 {
                 HighlightRow(
                     icon: "arrow.up.right",
-                    iconColor: AppBrandPalette.brandBlue,
+                    iconColor: DesignColor.color(.stateSuccess, theme: visualTheme, colorScheme: colorScheme),
                     title: "Biggest Comeback",
                     value: comeback.player.name,
                     detail: "Overcame \(comeback.deficit) pt deficit"
                 )
+                .statsRowStyle(background: rowBackground, separator: rowSeparator)
             }
-            
-            // Best single round
+
             if let best = stats.bestRoundScore {
                 HighlightRow(
                     icon: "flame.fill",
@@ -133,20 +153,20 @@ struct GameOverStatsView: View {
                     value: "\(best.score) pts",
                     detail: "\(best.playerName) in R\(best.round)"
                 )
+                .statsRowStyle(background: rowBackground, separator: rowSeparator)
             }
-            
-            // Most consistent (if meaningful)
-            if let consistent = stats.mostConsistent, stats.roundsPlayed >= 3 {
+
+            if let consistent = mostConsistentHighlight, stats.roundsPlayed >= 3 {
                 HighlightRow(
                     icon: "target",
-                    iconColor: AppBrandPalette.brandBlueDeep,
+                    iconColor: accentColor,
                     title: "Most Consistent",
                     value: consistent.player.name,
                     detail: "σ = \(String(format: "%.1f", consistent.stdDev))"
                 )
+                .statsRowStyle(background: rowBackground, separator: rowSeparator)
             }
-            
-            // Aggregate fun facts
+
             if stats.totalSevenCardBonuses > 0 {
                 HighlightRow(
                     icon: "7.circle.fill",
@@ -155,72 +175,74 @@ struct GameOverStatsView: View {
                     value: "\(stats.totalSevenCardBonuses)",
                     detail: nil
                 )
+                .statsRowStyle(background: rowBackground, separator: rowSeparator)
             }
-            
+
             if stats.totalBusts > 0 {
                 HighlightRow(
                     icon: "xmark.circle.fill",
-                    iconColor: AppBrandPalette.copper,
+                    iconColor: DesignColor.color(.stateDanger, theme: visualTheme, colorScheme: colorScheme),
                     title: "Total Busts",
                     value: "\(stats.totalBusts)",
                     detail: nil
                 )
+                .statsRowStyle(background: rowBackground, separator: rowSeparator)
             }
 
             if stats.totalNegativeModifierPoints > 0 {
                 HighlightRow(
                     icon: "minus.circle.fill",
-                    iconColor: AppBrandPalette.copper,
+                    iconColor: DesignColor.color(.stateDanger, theme: visualTheme, colorScheme: colorScheme),
                     title: "Negative Modifiers",
-                    value: "-\(stats.totalNegativeModifierPoints)",
+                    value: "−\(stats.totalNegativeModifierPoints)",
                     detail: stats.totalDivideByTwoUsed > 0 ? "\(stats.totalDivideByTwoUsed) divide-by-2" : nil
                 )
+                .statsRowStyle(background: rowBackground, separator: rowSeparator)
             }
 
             if stats.totalRedirectedSevenCardBonuses > 0 {
                 HighlightRow(
                     icon: "burst.fill",
-                    iconColor: AppBrandPalette.copper,
+                    iconColor: DesignColor.color(.stateDanger, theme: visualTheme, colorScheme: colorScheme),
                     title: "Redirected Bonuses",
                     value: "\(stats.totalRedirectedSevenCardBonuses)",
-                    detail: "-\(stats.totalRedirectedSevenCardBonuses * ScoreEngine.sevenCardBonus) pts sent"
+                    detail: "−\(stats.totalRedirectedSevenCardBonuses * ScoreEngine.sevenCardBonus) pts sent"
                 )
+                .statsRowStyle(background: rowBackground, separator: rowSeparator)
             }
         } header: {
             Text("Highlights")
         }
     }
-    
+
     // MARK: - Charts Section
-    
+
     @ViewBuilder
     private var chartsSection: some View {
         Section {
-            // Cumulative score line chart
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
                 Text("Score Progression")
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .font(.system(.footnote, design: .rounded, weight: .semibold))
                     .foregroundStyle(.secondary)
-                
+
                 CumulativeScoreChart(
-                    dataPoints: stats.cumulativeChartData(),
+                    dataPoints: cumulativeData,
                     players: game.players,
                     playerColors: playerColors
                 )
-                .frame(height: 180)
+                .frame(height: 190)
             }
-            .padding(.vertical, 4)
-            
-            // Per-player round scores bar chart
-            VStack(alignment: .leading, spacing: 8) {
+            .padding(.vertical, 6)
+            .statsRowStyle(background: rowBackground, separator: rowSeparator)
+
+            VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     Text("Round Scores")
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .font(.system(.footnote, design: .rounded, weight: .semibold))
                         .foregroundStyle(.secondary)
-                    
+
                     Spacer()
-                    
-                    // Player picker
+
                     Menu {
                         ForEach(game.players) { player in
                             Button {
@@ -235,74 +257,83 @@ struct GameOverStatsView: View {
                             }
                         }
                     } label: {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 5) {
                             if let playerId = selectedPlayerForChart,
                                let player = game.players.first(where: { $0.id == playerId }) {
                                 Circle()
                                     .fill(colorForPlayer(playerId))
                                     .frame(width: 8, height: 8)
                                 Text(player.name)
-                                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                                    .font(.system(.footnote, design: .rounded, weight: .semibold))
                             }
                             Image(systemName: "chevron.down")
                                 .font(.system(size: 10, weight: .semibold))
                         }
                         .foregroundStyle(.primary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(
+                            Capsule().fill(DesignColor.color(.surfaceKeycap, theme: visualTheme, colorScheme: colorScheme))
+                        )
                     }
+                    .accessibilityLabel("Select player for round scores chart")
                 }
-                
+
                 if let playerId = selectedPlayerForChart {
                     RoundScoreBarChart(
                         dataPoints: stats.roundScoreChartData(for: playerId),
                         playerColor: colorForPlayer(playerId)
                     )
-                    .frame(height: 140)
+                    .frame(height: 145)
                 }
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 6)
+            .statsRowStyle(background: rowBackground, separator: rowSeparator)
         } header: {
             Text("Charts")
         }
     }
-    
+
     // MARK: - Player Stats Section
-    
+
     @ViewBuilder
     private var playerStatsSection: some View {
         Section {
-            ForEach(Array(stats.rankedPlayers.enumerated()), id: \.element.id) { index, player in
+            ForEach(Array(rankedPlayers.enumerated()), id: \.element.id) { index, player in
                 Button {
                     selectedPlayerForDetail = player
                 } label: {
                     PlayerStatRow(
                         player: player,
                         rank: index + 1,
-                        game: game,
+                        playerStats: playerStatsById[player.id] ?? PlayerGameStats(playerId: player.id, game: game),
                         playerColor: colorForPlayer(player.id)
                     )
                 }
                 .buttonStyle(.plain)
+                .statsRowStyle(background: rowBackground, separator: rowSeparator)
             }
         } header: {
             Text("Player Stats")
         } footer: {
             Text("Tap a player for detailed breakdown")
-                .font(.system(size: 12, design: .rounded))
+                .font(DesignTypography.font(.caption))
         }
     }
-    
+
     // MARK: - Round History Section
-    
+
     @ViewBuilder
     private var roundHistorySection: some View {
         Section {
-            ForEach(game.gameHistory.reversed(), id: \.roundNumber) { gameRound in
+            ForEach(Array(game.gameHistory.enumerated().reversed()), id: \.offset) { _, gameRound in
                 RoundHistoryRow(
                     gameRound: gameRound,
                     playerColors: playerColors,
                     players: game.players,
                     scoringRules: game.rules(for: gameRound)
                 )
+                .statsRowStyle(background: rowBackground, separator: rowSeparator)
             }
         } header: {
             Text("Round History")
@@ -314,6 +345,23 @@ struct GameOverStatsView: View {
     }
 }
 
+private struct StatsRowChrome: ViewModifier {
+    let background: Color
+    let separator: Color
+
+    func body(content: Content) -> some View {
+        content
+            .listRowBackground(background)
+            .listRowSeparatorTint(separator.opacity(0.6))
+    }
+}
+
+private extension View {
+    func statsRowStyle(background: Color, separator: Color) -> some View {
+        modifier(StatsRowChrome(background: background, separator: separator))
+    }
+}
+
 // MARK: - Highlight Row
 
 private struct HighlightRow: View {
@@ -322,38 +370,40 @@ private struct HighlightRow: View {
     let title: String
     let value: String
     let detail: String?
-    
+
     var body: some View {
         HStack(spacing: 12) {
             ZStack {
                 Circle()
-                    .fill(iconColor.opacity(0.15))
+                    .fill(iconColor.opacity(0.16))
                     .frame(width: 32, height: 32)
-                
+
                 Image(systemName: icon)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(iconColor)
             }
-            
+            .accessibilityHidden(true)
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 13, design: .rounded))
+                    .font(DesignTypography.font(.caption))
                     .foregroundStyle(.secondary)
-                
+
                 HStack(spacing: 6) {
                     Text(value)
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    
-                    if let detail = detail {
+                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .monospacedDigit()
+
+                    if let detail {
                         Text("·")
                             .foregroundStyle(.secondary)
                         Text(detail)
-                            .font(.system(size: 13, design: .rounded))
+                            .font(.system(.footnote, design: .rounded))
                             .foregroundStyle(.secondary)
                     }
                 }
             }
-            
+
             Spacer()
         }
         .padding(.vertical, 2)
@@ -365,57 +415,63 @@ private struct HighlightRow: View {
 private struct PlayerStatRow: View {
     let player: Player
     let rank: Int
-    let game: Game
     let playerColor: Color
+    private let playerStats: PlayerGameStats
+    private let bustCount: Int
+    private let sevenCardBonusCount: Int
+
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
-    
-    private var playerStats: PlayerGameStats {
-        PlayerGameStats(playerId: player.id, game: game)
+
+    init(player: Player, rank: Int, playerStats: PlayerGameStats, playerColor: Color) {
+        self.player = player
+        self.rank = rank
+        self.playerColor = playerColor
+        self.playerStats = playerStats
+        self.bustCount = playerStats.bustCount
+        self.sevenCardBonusCount = playerStats.sevenCardBonusCount
     }
 
     private var accentColor: Color {
-        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride)
     }
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Player header
             HStack {
-                // Rank badge
                 ZStack {
                     Circle()
                         .fill(rankColor.opacity(0.2))
                         .frame(width: 26, height: 26)
-                    
+
                     if rank == 1 {
                         Image(systemName: "crown.fill")
                             .font(.system(size: 11))
                             .foregroundStyle(rankColor)
                     } else {
                         Text("\(rank)")
-                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .font(.system(.caption, design: .rounded, weight: .bold))
                             .foregroundStyle(rankColor)
                     }
                 }
-                
+
                 Text(player.name)
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                
+                    .font(.system(.body, design: .rounded, weight: .semibold))
+
                 Spacer()
-                
+
                 Text("\(player.totalScore) pts")
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .font(.system(.body, design: .rounded, weight: .bold))
+                    .monospacedDigit()
                     .foregroundStyle(rank == 1 ? accentColor : playerColor)
-                
+
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(.tertiary)
             }
-            
-            // Mini sparkline + stats
+
             HStack(spacing: 16) {
-                // Sparkline
                 if !playerStats.roundScores.isEmpty {
                     ScoreSparkline(
                         scores: playerStats.roundScores,
@@ -424,20 +480,19 @@ private struct PlayerStatRow: View {
                     )
                     .frame(width: 60)
                 }
-                
-                // Quick stats
+
                 MiniStat(label: "Best", value: "\(playerStats.bestRoundScore)")
                 MiniStat(label: "Avg", value: String(format: "%.0f", playerStats.averageRoundScore))
-                MiniStat(label: "Busts", value: "\(playerStats.bustCount)", isNegative: playerStats.bustCount > 0)
-                
-                if playerStats.sevenCardBonusCount > 0 {
-                    MiniStat(label: "7-Card", value: "\(playerStats.sevenCardBonusCount)", isPositive: true)
+                MiniStat(label: "Busts", value: "\(bustCount)", isNegative: bustCount > 0)
+
+                if sevenCardBonusCount > 0 {
+                    MiniStat(label: "7-Card", value: "\(sevenCardBonusCount)", isPositive: true)
                 }
             }
         }
         .padding(.vertical, 4)
     }
-    
+
     private var rankColor: Color {
         switch rank {
         case 1: return AppBrandPalette.gold
@@ -455,19 +510,21 @@ private struct MiniStat: View {
     let value: String
     var isNegative: Bool = false
     var isPositive: Bool = false
-    
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         VStack(spacing: 2) {
             Text(value)
-                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .font(.system(.subheadline, design: .rounded, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(
                     isNegative
-                        ? AppBrandPalette.copper
-                        : (isPositive ? AppBrandPalette.gold : .primary)
+                        ? DesignColor.color(.stateDanger, theme: visualTheme, colorScheme: colorScheme)
+                        : (isPositive ? DesignColor.color(.brandSecondary, theme: visualTheme, colorScheme: colorScheme) : .primary)
                 )
             Text(label)
-                .font(.system(size: 11, design: .rounded))
+                .font(.system(.caption2, design: .rounded))
                 .foregroundStyle(.secondary)
         }
         .frame(minWidth: 40)
@@ -481,36 +538,46 @@ private struct RoundHistoryRow: View {
     let playerColors: [Color]
     let players: [Player]
     let scoringRules: ScoringRules
-    
+
     @State private var isExpanded = false
-    
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @AppStorage("reduceAnimations") private var reduceAnimations: Bool = false
+
+    private var isReducedMotion: Bool {
+        DesignMotion.shouldReduceMotion(
+            reduceAnimations: reduceAnimations,
+            accessibilityReduceMotion: accessibilityReduceMotion
+        )
+    }
+
     private var sortedResults: [RoundResult] {
         gameRound.results.sorted { $0.roundScore > $1.roundScore }
     }
-    
+
     private func colorForPlayer(_ playerId: UUID) -> Color {
         guard let index = players.firstIndex(where: { $0.id == playerId }) else {
             return AppBrandPalette.brandBlue
         }
         return playerColors[safe: index] ?? AppBrandPalette.brandBlue
     }
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Round header (tappable to expand)
             Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
+                withAnimation(DesignMotion.animation(.fast, reduced: isReducedMotion)) {
                     isExpanded.toggle()
                 }
             } label: {
                 HStack {
                     Text("Round \(gameRound.roundNumber)")
-                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
                         .foregroundStyle(.secondary)
-                    
+
                     Spacer()
-                    
-                    // Quick summary
+
                     HStack(spacing: 8) {
                         if let winner = sortedResults.first {
                             HStack(spacing: 4) {
@@ -518,21 +585,21 @@ private struct RoundHistoryRow: View {
                                     .fill(colorForPlayer(winner.playerId))
                                     .frame(width: 8, height: 8)
                                 Text("\(winner.roundScore)")
-                                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                                    .font(.system(.footnote, design: .rounded, weight: .semibold))
                                     .monospacedDigit()
                             }
                         }
-                        
+
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.caption2.weight(.semibold))
                             .foregroundStyle(.tertiary)
                             .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     }
                 }
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            
-            // Expanded details
+
             if isExpanded {
                 VStack(spacing: 6) {
                     ForEach(sortedResults, id: \.playerId) { result in
@@ -540,90 +607,83 @@ private struct RoundHistoryRow: View {
                             Circle()
                                 .fill(colorForPlayer(result.playerId))
                                 .frame(width: 8, height: 8)
-                            
+
                             Text(result.playerName)
-                                .font(.system(size: 14, design: .rounded))
+                                .font(.system(.subheadline, design: .rounded))
                                 .foregroundStyle(result.isBusted ? .secondary : .primary)
                                 .lineLimit(1)
-                            
-                            // State badge
+
                             if let state = result.state {
                                 StateBadge(state: state, mode: scoringRules.mode)
                             }
-                            
-                            // 7-card bonus indicator
+
                             if result.hasSevenCardBonus {
                                 Image(systemName: "7.circle.fill")
-                                    .font(.system(size: 12))
+                                    .font(.caption)
                                     .foregroundStyle(AppBrandPalette.gold)
                             }
-                            
-                            // x2 indicator
+
                             if result.x2Count > 0 {
-                                Text("×\(Int(pow(2.0, Double(result.x2Count))))")
-                                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                                Text("×\(1 << min(result.x2Count, 10))")
+                                    .font(.system(.caption2, design: .rounded, weight: .semibold))
                                     .foregroundStyle(AppBrandPalette.brandBlueSky)
                             }
 
                             if result.divideByTwoCount > 0 {
                                 Text("÷2")
-                                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                                    .font(.system(.caption2, design: .rounded, weight: .semibold))
                                     .foregroundStyle(AppBrandPalette.brandBlueSky)
                             }
 
                             if result.subtractModifierTotal > 0 {
-                                Text("-\(result.subtractModifierTotal)")
-                                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                                    .foregroundStyle(AppBrandPalette.copper)
+                                Text("−\(result.subtractModifierTotal)")
+                                    .font(.system(.caption2, design: .rounded, weight: .semibold))
+                                    .foregroundStyle(DesignColor.color(.stateDanger, theme: visualTheme, colorScheme: colorScheme))
                             }
 
                             if result.specialNumberCount > 0 {
                                 Label("\(result.specialNumberCount)", systemImage: "sparkles")
-                                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                                    .font(.system(.caption2, design: .rounded, weight: .semibold))
                                     .foregroundStyle(AppBrandPalette.gold)
                                     .labelStyle(.titleAndIcon)
                             }
-                            
+
                             Spacer()
-                            
+
                             if result.isBusted {
                                 Text(scoringRules.brutalMode && result.roundScore < 0 ? "Bust \(result.roundScore)" : "Bust")
-                                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                                    .foregroundStyle(AppBrandPalette.copper)
+                                    .font(.system(.footnote, design: .rounded, weight: .semibold))
+                                    .foregroundStyle(DesignColor.color(.stateDanger, theme: visualTheme, colorScheme: colorScheme))
                             } else {
                                 Text(result.roundScore > 0 ? "+\(result.roundScore)" : "\(result.roundScore)")
-                                    .font(.system(size: 14, weight: .medium, design: .rounded))
-                                    .foregroundStyle(AppBrandPalette.brandBlue)
+                                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                                    .foregroundStyle(DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride))
                                     .monospacedDigit()
                             }
                         }
                     }
                 }
                 .padding(.leading, 4)
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .transition(.opacity)
             }
         }
         .padding(.vertical, 4)
     }
 }
 
-// MARK: - State Badge
-
 private struct StateBadge: View {
     let state: PlayerRoundState
     let mode: GameMode
-    
+    @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
         switch state {
-        case .banked:
-            EmptyView()
         case .frozen:
-            Text(mode == .vengeance ? "FORCED" : "HOLD")
+            Text(mode == .vengeance ? "FORCED" : "FROZEN")
                 .font(.system(size: 8, weight: .bold, design: .rounded))
-                .foregroundStyle(AppBrandPalette.brandBlueSky)
-        case .busted:
-            EmptyView() // Already shown with "Bust" text
-        case .inRound:
+                .foregroundStyle(DesignColor.color(.stateFrozen, theme: visualTheme, colorScheme: colorScheme))
+        case .banked, .busted, .inRound:
             EmptyView()
         }
     }
@@ -635,21 +695,24 @@ struct PlayerDetailView: View {
     let player: Player
     let game: Game
     let playerColor: Color
+    private let stats: PlayerGameStats
+    private let chartPoints: [RoundDataPoint]
+    private let rank: Int
+
     @Environment(\.dismiss) private var dismiss
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
-    
-    private var stats: PlayerGameStats {
-        PlayerGameStats(playerId: player.id, game: game)
-    }
-    
-    private var gameStats: GameStats {
-        GameStats(game: game)
-    }
-    
-    private var rank: Int {
+
+    init(player: Player, game: Game, playerColor: Color) {
+        self.player = player
+        self.game = game
+        self.playerColor = playerColor
+        self.stats = PlayerGameStats(playerId: player.id, game: game)
+        let gameStats = GameStats(game: game)
+        self.chartPoints = gameStats.roundScoreChartData(for: player.id)
         let ranked = game.players.sorted { $0.totalScore > $1.totalScore }
-        return (ranked.firstIndex(where: { $0.id == player.id }) ?? 0) + 1
+        self.rank = (ranked.firstIndex(where: { $0.id == player.id }) ?? 0) + 1
     }
 
     private var usesMixedModes: Bool {
@@ -671,104 +734,107 @@ struct PlayerDetailView: View {
         return game.scoringRules.mode == .classic ? "Bonuses & Multipliers" : "Special Cards & Modifiers"
     }
 
-    private var surfaceColor: Color {
-        DesignColor.color(.surfacePrimary, theme: visualTheme, colorScheme: colorScheme)
+    private var rowBackground: Color {
+        DesignColor.listRowBackground(theme: visualTheme, colorScheme: colorScheme)
     }
-    
+
+    private var rowSeparator: Color {
+        DesignColor.border(theme: visualTheme, colorScheme: colorScheme)
+    }
+
     var body: some View {
         NavigationStack {
             List {
-                // Header with final score
                 Section {
-                    VStack(spacing: 12) {
-                        // Rank badge
+                    VStack(spacing: 10) {
                         ZStack {
                             Circle()
                                 .fill(playerColor.opacity(0.2))
-                                .frame(width: 60, height: 60)
-                            
+                                .frame(width: 58, height: 58)
+
                             if rank == 1 {
                                 Image(systemName: "crown.fill")
-                                    .font(.system(size: 24))
+                                    .font(.title2)
                                     .foregroundStyle(AppBrandPalette.gold)
                             } else {
                                 Text("#\(rank)")
-                                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                                    .font(.system(.title3, design: .rounded, weight: .bold))
                                     .foregroundStyle(playerColor)
                             }
                         }
-                        
+
                         Text("\(player.totalScore)")
-                            .font(.system(size: 36, weight: .bold, design: .rounded))
-                        
+                            .font(.system(.largeTitle, design: .rounded, weight: .black))
+                            .monospacedDigit()
+
                         Text("Total Points")
-                            .font(.system(size: 14, design: .rounded))
+                            .font(DesignTypography.font(.caption))
                             .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
+                    .statsRowStyle(background: rowBackground, separator: rowSeparator)
                 }
-                
-                // Round-by-round chart
+
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Round Performance")
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .font(.system(.footnote, design: .rounded, weight: .semibold))
                             .foregroundStyle(.secondary)
-                        
+
                         RoundScoreBarChart(
-                            dataPoints: gameStats.roundScoreChartData(for: player.id),
+                            dataPoints: chartPoints,
                             playerColor: playerColor
                         )
                         .frame(height: 140)
                     }
                     .padding(.vertical, 4)
+                    .statsRowStyle(background: rowBackground, separator: rowSeparator)
                 } header: {
                     Text("Performance")
                 }
-                
-                // Core stats
+
                 Section {
                     DetailStatRow(label: "Best Round", value: "\(stats.bestRoundScore)")
+                        .statsRowStyle(background: rowBackground, separator: rowSeparator)
                     DetailStatRow(label: "Average", value: String(format: "%.1f", stats.averageRoundScore))
+                        .statsRowStyle(background: rowBackground, separator: rowSeparator)
                     DetailStatRow(label: "Median", value: "\(stats.medianRoundScore)")
-                    
+                        .statsRowStyle(background: rowBackground, separator: rowSeparator)
+
                     if let stdDev = stats.scoreStandardDeviation {
                         DetailStatRow(label: "Consistency (σ)", value: String(format: "%.1f", stdDev))
+                            .statsRowStyle(background: rowBackground, separator: rowSeparator)
                     }
-                    
+
                     if let worstNonBust = stats.worstNonBustScore {
                         DetailStatRow(label: "Worst (non-bust)", value: "\(worstNonBust)")
+                            .statsRowStyle(background: rowBackground, separator: rowSeparator)
                     }
                 } header: {
                     Text("Scoring")
                 }
-                
-                // Outcomes
+
                 Section {
                     DetailStatRow(
                         label: "Busts",
                         value: "\(stats.bustCount)",
                         detail: String(format: "%.0f%% of rounds", stats.bustRate * 100),
-                        valueColor: stats.bustCount > 0 ? AppBrandPalette.copper : nil
+                        valueColor: stats.bustCount > 0 ? DesignColor.color(.stateDanger, theme: visualTheme, colorScheme: colorScheme) : nil
                     )
-                    
-                    DetailStatRow(
-                        label: bankedOutcomeLabel,
-                        value: "\(stats.bankedCount)"
-                    )
-                    
+                    .statsRowStyle(background: rowBackground, separator: rowSeparator)
+
+                    DetailStatRow(label: bankedOutcomeLabel, value: "\(stats.bankedCount)")
+                        .statsRowStyle(background: rowBackground, separator: rowSeparator)
+
                     if stats.heldCount > 0 {
-                        DetailStatRow(
-                            label: heldOutcomeLabel,
-                            value: "\(stats.heldCount)"
-                        )
+                        DetailStatRow(label: heldOutcomeLabel, value: "\(stats.heldCount)")
+                            .statsRowStyle(background: rowBackground, separator: rowSeparator)
                     }
                 } header: {
                     Text("Outcomes")
                 }
-                
-                // Bonuses & Multipliers
+
                 Section {
                     DetailStatRow(
                         label: "7-Card Bonuses",
@@ -776,6 +842,7 @@ struct PlayerDetailView: View {
                         detail: sevenCardBonusDetail,
                         valueColor: stats.sevenCardBonusCount > 0 ? AppBrandPalette.gold : nil
                     )
+                    .statsRowStyle(background: rowBackground, separator: rowSeparator)
 
                     if game.modesUsed.contains(.classic) {
                         DetailStatRow(
@@ -784,12 +851,14 @@ struct PlayerDetailView: View {
                             detail: stats.totalMultiplierEffect > 0 ? "+\(stats.totalMultiplierEffect) pts" : nil,
                             valueColor: stats.totalX2Used > 0 ? AppBrandPalette.brandBlueSky : nil
                         )
+                        .statsRowStyle(background: rowBackground, separator: rowSeparator)
 
                         DetailStatRow(
                             label: "Modifier Points",
                             value: "+\(stats.totalModifiersUsed)",
                             valueColor: stats.totalModifiersUsed > 0 ? AppBrandPalette.copper : nil
                         )
+                        .statsRowStyle(background: rowBackground, separator: rowSeparator)
                     }
 
                     if game.modesUsed.contains(.vengeance) {
@@ -798,41 +867,46 @@ struct PlayerDetailView: View {
                             value: "\(stats.totalDivideByTwoUsed)",
                             valueColor: stats.totalDivideByTwoUsed > 0 ? AppBrandPalette.brandBlueSky : nil
                         )
+                        .statsRowStyle(background: rowBackground, separator: rowSeparator)
 
                         DetailStatRow(
                             label: "Negative Modifier Points",
-                            value: "-\(stats.totalNegativeModifierPoints)",
-                            valueColor: stats.totalNegativeModifierPoints > 0 ? AppBrandPalette.copper : nil
+                            value: "−\(stats.totalNegativeModifierPoints)",
+                            valueColor: stats.totalNegativeModifierPoints > 0 ? DesignColor.color(.stateDanger, theme: visualTheme, colorScheme: colorScheme) : nil
                         )
+                        .statsRowStyle(background: rowBackground, separator: rowSeparator)
 
                         DetailStatRow(
                             label: "Special Number Cards",
                             value: "\(stats.totalSpecialNumbersUsed)",
                             valueColor: stats.totalSpecialNumbersUsed > 0 ? AppBrandPalette.gold : nil
                         )
+                        .statsRowStyle(background: rowBackground, separator: rowSeparator)
 
                         if stats.redirectedSevenCardBonusCount > 0 {
                             DetailStatRow(
                                 label: "Bonuses Redirected",
                                 value: "\(stats.redirectedSevenCardBonusCount)",
-                                detail: "-\(stats.redirectedSevenCardBonusCount * ScoreEngine.sevenCardBonus) pts sent",
-                                valueColor: AppBrandPalette.copper
+                                detail: "−\(stats.redirectedSevenCardBonusCount * ScoreEngine.sevenCardBonus) pts sent",
+                                valueColor: DesignColor.color(.stateDanger, theme: visualTheme, colorScheme: colorScheme)
                             )
+                            .statsRowStyle(background: rowBackground, separator: rowSeparator)
                         }
                     }
                 } header: {
                     Text(cardStatsHeader)
                 }
-                
-                // Streaks
+
                 if stats.longestNonBustStreak > 1 || stats.longestHighScoringStreak > 1 {
                     Section {
                         if stats.longestNonBustStreak > 1 {
                             DetailStatRow(label: "Longest Safe Streak", value: "\(stats.longestNonBustStreak) rounds")
+                                .statsRowStyle(background: rowBackground, separator: rowSeparator)
                         }
-                        
+
                         if stats.longestHighScoringStreak > 1 {
                             DetailStatRow(label: "Hot Streak", value: "\(stats.longestHighScoringStreak) rounds", detail: "Above median")
+                                .statsRowStyle(background: rowBackground, separator: rowSeparator)
                         }
                     } header: {
                         Text("Streaks")
@@ -840,9 +914,7 @@ struct PlayerDetailView: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(Color.clear)
             .listStyle(.insetGrouped)
-            .background(surfaceColor)
             .navigationTitle(player.name)
             .navigationBarTitleDisplayMode(.inline)
             .appChromeBackground()
@@ -867,148 +939,38 @@ struct PlayerDetailView: View {
     }
 }
 
-// MARK: - Detail Stat Row
-
 private struct DetailStatRow: View {
     let label: String
     let value: String
     var detail: String? = nil
     var valueColor: Color? = nil
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
 
     private var accentColor: Color {
-        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride)
     }
-    
+
     var body: some View {
         HStack {
             Text(label)
-                .font(.system(size: 15, design: .rounded))
-            
+                .font(.system(.subheadline, design: .rounded))
+
             Spacer()
-            
+
             HStack(spacing: 6) {
                 Text(value)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
                     .foregroundStyle(valueColor ?? accentColor)
                     .monospacedDigit()
-                
-                if let detail = detail {
+
+                if let detail {
                     Text(detail)
-                        .font(.system(size: 13, design: .rounded))
+                        .font(.system(.caption, design: .rounded))
                         .foregroundStyle(.secondary)
                 }
             }
         }
     }
-}
-
-// MARK: - Previews
-
-#Preview {
-    GameOverStatsView(game: {
-        var game = Game(players: [
-            Player(name: "Alice"),
-            Player(name: "Bob"),
-            Player(name: "Charlie")
-        ], targetScore: 200)
-        
-        // Simulate some game history with snapshots
-        game.gameHistory = [
-            GameRound(roundNumber: 1, results: [
-                RoundResult(
-                    playerId: game.players[0].id,
-                    playerName: "Alice",
-                    roundScore: 45,
-                    state: .banked,
-                    manualScoreOverride: nil,
-                    handSnapshot: RoundHand(selectedNumbers: [2, 5, 8, 10, 12], x2Count: 0, addMods: [4: 1]),
-                    autoScore: 45
-                ),
-                RoundResult(
-                    playerId: game.players[1].id,
-                    playerName: "Bob",
-                    roundScore: 32,
-                    state: .banked,
-                    manualScoreOverride: nil,
-                    handSnapshot: RoundHand(selectedNumbers: [3, 7, 11, 9], x2Count: 0, addMods: [:]),
-                    autoScore: 32
-                ),
-                RoundResult(
-                    playerId: game.players[2].id,
-                    playerName: "Charlie",
-                    roundScore: 0,
-                    state: .busted,
-                    manualScoreOverride: nil,
-                    handSnapshot: RoundHand(selectedNumbers: [1, 4, 6], x2Count: 0, addMods: [:]),
-                    autoScore: 0
-                )
-            ]),
-            GameRound(roundNumber: 2, results: [
-                RoundResult(
-                    playerId: game.players[0].id,
-                    playerName: "Alice",
-                    roundScore: 0,
-                    state: .busted,
-                    manualScoreOverride: nil,
-                    handSnapshot: RoundHand(selectedNumbers: [1, 3], x2Count: 0, addMods: [:]),
-                    autoScore: 0
-                ),
-                RoundResult(
-                    playerId: game.players[1].id,
-                    playerName: "Bob",
-                    roundScore: 58,
-                    state: .banked,
-                    manualScoreOverride: nil,
-                    handSnapshot: RoundHand(selectedNumbers: [0, 2, 4, 6, 8, 10, 12], x2Count: 0, addMods: [:]),
-                    autoScore: 58
-                ),
-                RoundResult(
-                    playerId: game.players[2].id,
-                    playerName: "Charlie",
-                    roundScore: 41,
-                    state: .frozen,
-                    manualScoreOverride: nil,
-                    handSnapshot: RoundHand(selectedNumbers: [5, 7, 9, 11], x2Count: 0, addMods: [6: 1]),
-                    autoScore: 41
-                )
-            ]),
-            GameRound(roundNumber: 3, results: [
-                RoundResult(
-                    playerId: game.players[0].id,
-                    playerName: "Alice",
-                    roundScore: 82,
-                    state: .banked,
-                    manualScoreOverride: nil,
-                    handSnapshot: RoundHand(selectedNumbers: [0, 1, 2, 3, 4, 5, 6], x2Count: 1, addMods: [:]),
-                    autoScore: 82
-                ),
-                RoundResult(
-                    playerId: game.players[1].id,
-                    playerName: "Bob",
-                    roundScore: 25,
-                    state: .banked,
-                    manualScoreOverride: nil,
-                    handSnapshot: RoundHand(selectedNumbers: [3, 7, 12], x2Count: 0, addMods: [:]),
-                    autoScore: 25
-                ),
-                RoundResult(
-                    playerId: game.players[2].id,
-                    playerName: "Charlie",
-                    roundScore: 38,
-                    state: .banked,
-                    manualScoreOverride: nil,
-                    handSnapshot: RoundHand(selectedNumbers: [2, 8, 11], x2Count: 0, addMods: [8: 1, 4: 1]),
-                    autoScore: 38
-                )
-            ])
-        ]
-        
-        game.players[0].totalScore = 127
-        game.players[1].totalScore = 115
-        game.players[2].totalScore = 79
-        
-        return game
-    }())
 }

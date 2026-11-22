@@ -31,13 +31,23 @@ struct PlayersEditorCard: View {
     var onReset: (() -> Void)? = nil
     var showsPlayerSummary = true
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @AppStorage("reduceAnimations") private var reduceAnimations: Bool = false
     
     @State private var draggedRowId: UUID?
     @State private var isEditMode = false
 
+    private var isReducedMotion: Bool {
+        DesignMotion.shouldReduceMotion(
+            reduceAnimations: reduceAnimations,
+            accessibilityReduceMotion: accessibilityReduceMotion
+        )
+    }
+
     private var accentColor: Color {
-        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride)
     }
 
     private var raisedSurfaceColor: Color {
@@ -112,6 +122,7 @@ struct PlayersEditorCard: View {
                         item: row,
                         items: $playerRows,
                         draggedItem: $draggedRowId,
+                        isReducedMotion: isReducedMotion,
                         onReorder: onPersist
                     ))
                     
@@ -161,10 +172,10 @@ struct PlayersEditorCard: View {
                         editButton
                             .frame(minWidth: 44, minHeight: 44)
                             .opacity(canEditPlayers ? 1 : 0)
-                            .scaleEffect(canEditPlayers ? 1 : 0.94)
+                            .scaleEffect(canEditPlayers || isReducedMotion ? 1 : 0.94)
                             .allowsHitTesting(canEditPlayers)
                             .accessibilityHidden(!canEditPlayers)
-                            .animation(.easeOut(duration: 0.16), value: canEditPlayers)
+                            .animation(DesignMotion.animation(.fast, reduced: isReducedMotion), value: canEditPlayers)
                     }
                 }
                 .frame(minHeight: 56)
@@ -199,7 +210,7 @@ struct PlayersEditorCard: View {
 
     private var editButton: some View {
         Button(action: {
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(DesignMotion.animation(.fast, reduced: isReducedMotion)) {
                 isEditMode.toggle()
             }
         }) {
@@ -234,7 +245,7 @@ struct PlayersEditorCard: View {
         guard playerRows.count < 8 else { return }
         HapticFeedback.light()
         let newRow = PlayerNameRow()
-        withAnimation(.smooth(duration: 0.24)) {
+        withAnimation(DesignMotion.animation(.normal, reduced: isReducedMotion)) {
             playerRows.append(newRow)
         }
         focusCoordinator.setOrder(playerRows.map { $0.id })
@@ -261,7 +272,7 @@ struct PlayersEditorCard: View {
             newFocusId = focusCoordinator.focusedId
         }
         
-        withAnimation(.smooth(duration: 0.24)) {
+        withAnimation(DesignMotion.animation(.normal, reduced: isReducedMotion)) {
             playerRows.remove(at: indexToRemove)
             if playerRows.count == 2 {
                 isEditMode = false
@@ -284,6 +295,7 @@ struct PlayerRowDropDelegate: DropDelegate {
     let item: PlayerNameRow
     @Binding var items: [PlayerNameRow]
     @Binding var draggedItem: UUID?
+    let isReducedMotion: Bool
     let onReorder: () -> Void
     
     func performDrop(info: DropInfo) -> Bool {
@@ -299,7 +311,7 @@ struct PlayerRowDropDelegate: DropDelegate {
             return
         }
         
-        withAnimation(.easeInOut(duration: 0.2)) {
+        withAnimation(DesignMotion.animation(.fast, reduced: isReducedMotion)) {
             items.move(fromOffsets: IndexSet(integer: fromIndex), toOffset: toIndex > fromIndex ? toIndex + 1 : toIndex)
         }
         
@@ -321,6 +333,8 @@ struct SwipeToDeleteWrapper<Content: View>: View {
     @ViewBuilder let content: () -> Content
     @Environment(\.visualTheme) private var visualTheme
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @AppStorage("reduceAnimations") private var reduceAnimations: Bool = false
     
     @State private var offset: CGFloat = 0
     @State private var isSwiping = false
@@ -328,6 +342,13 @@ struct SwipeToDeleteWrapper<Content: View>: View {
     private let deleteButtonWidth: CGFloat = 80
     private let deleteThreshold: CGFloat = 50
     private let dragHandleZoneWidth: CGFloat = 56
+
+    private var isReducedMotion: Bool {
+        DesignMotion.shouldReduceMotion(
+            reduceAnimations: reduceAnimations,
+            accessibilityReduceMotion: accessibilityReduceMotion
+        )
+    }
     
     var body: some View {
         GeometryReader { geometry in
@@ -356,7 +377,7 @@ struct SwipeToDeleteWrapper<Content: View>: View {
         .onChange(of: isEditMode) { _, newValue in
             // Close swipe menu when entering edit mode
             if newValue && offset != 0 {
-                withAnimation(.easeInOut(duration: 0.2)) {
+                withAnimation(DesignMotion.animation(.fast, reduced: isReducedMotion)) {
                     offset = 0
                 }
             }
@@ -366,7 +387,7 @@ struct SwipeToDeleteWrapper<Content: View>: View {
     private var deleteButton: some View {
         Button {
             HapticFeedback.medium()
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(DesignMotion.animation(.fast, reduced: isReducedMotion)) {
                 offset = 0
             }
             onDelete()
@@ -444,7 +465,7 @@ struct SwipeToDeleteWrapper<Content: View>: View {
                 // Determine if we should snap open or closed based on position and velocity
                 let shouldOpen = (-offset > deleteThreshold) || (velocity < -200 && offset < 0)
                 
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                withAnimation(DesignMotion.animation(.normal, reduced: isReducedMotion)) {
                     if shouldOpen {
                         offset = -deleteButtonWidth
                         HapticFeedback.light()
@@ -470,6 +491,7 @@ struct PlayerInputRow: View {
     let onDelete: () -> Void
     let onDragStart: () -> Void
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
     
     private var isDragging: Bool {
@@ -493,7 +515,7 @@ struct PlayerInputRow: View {
     }
 
     private var accentColor: Color {
-        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride)
     }
     
     /// Display name for drag preview

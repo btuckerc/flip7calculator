@@ -64,12 +64,12 @@ enum PlayerPalette: String, CaseIterable {
     private static let classicColors: [Color] = [
         Color.hex("FBBF24"),  // Gold
         Color.hex("8B5CF6"),  // Purple
-        Color.hex("7E22CE"),  // Plum
-        Color.hex("2563EB"),  // Blue
-        Color.hex("64748B"),  // Slate
-        Color.hex("D97706"),  // Amber
-        Color.hex("D946EF"),  // Fuchsia
         Color.hex("0D9488"),  // Teal
+        Color.hex("2563EB"),  // Blue
+        Color.hex("D946EF"),  // Fuchsia
+        Color.hex("D97706"),  // Amber
+        Color.hex("64748B"),  // Slate
+        Color.hex("7E22CE"),  // Plum
     ]
     
     // MARK: - Ocean Theme

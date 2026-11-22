@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
-"""Generate the Flipping Seven Calculator app icon variants."""
+"""Generate crisp, 4x-supersampled Flipping Seven Calculator app icon variants.
+
+Produces opaque 1024x1024 Light, Dark, and Tinted PNG icons following Apple HIG
+and APP264401-I originality constraints: pure minimalist two-card + sculpted '7'
+silhouette designed for 29pt, 60pt, and 1024pt clarity.
+"""
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -19,189 +25,206 @@ DARK_OUT = OUTPUT_DIR / "AppIcon-1024-dark.png"
 TINTED_OUT = OUTPUT_DIR / "AppIcon-1024-tinted.png"
 
 SIZE = 1024
+SCALE = 4
+WORK = SIZE * SCALE
 
 
 def rgb(hex_value: str) -> tuple[int, int, int]:
     value = hex_value.removeprefix("#")
-    return tuple(int(value[index:index + 2], 16) for index in (0, 2, 4))
+    return tuple(int(value[i : i + 2], 16) for i in (0, 2, 4))
+
+
+def lerp_color(
+    c1: tuple[int, int, int], c2: tuple[int, int, int], t: float
+) -> tuple[int, int, int]:
+    t = max(0.0, min(1.0, t))
+    return (
+        int(round(c1[0] + (c2[0] - c1[0]) * t)),
+        int(round(c1[1] + (c2[1] - c1[1]) * t)),
+        int(round(c1[2] + (c2[2] - c1[2]) * t)),
+    )
 
 
 @dataclass(frozen=True)
 class IconTheme:
-    background: tuple[int, int, int]
-    back_card: tuple[int, int, int]
+    bg_center: tuple[int, int, int]
+    bg_edge: tuple[int, int, int]
+    back_card_top: tuple[int, int, int]
+    back_card_bottom: tuple[int, int, int]
     back_border: tuple[int, int, int]
-    front_card: tuple[int, int, int]
+    back_border_alpha: int
+    front_card_top: tuple[int, int, int]
+    front_card_bottom: tuple[int, int, int]
     front_border: tuple[int, int, int]
-    seven: tuple[int, int, int]
-    seven_shadow: tuple[int, int, int]
-    gold: tuple[int, int, int]
-    copper: tuple[int, int, int]
-    shadow: tuple[int, int, int]
+    front_border_alpha: int
+    seven_color: tuple[int, int, int]
+    shadow_color: tuple[int, int, int]
+    shadow_alpha_back: int
+    shadow_alpha_front: int
 
 
 LIGHT = IconTheme(
-    background=rgb("184D8A"),
-    back_card=rgb("205EA4"),
-    back_border=rgb("FFF7EB"),
-    front_card=rgb("FFF7EB"),
-    front_border=rgb("F1C24B"),
-    seven=rgb("205EA4"),
-    seven_shadow=rgb("D99A20"),
-    gold=rgb("F1C24B"),
-    copper=rgb("E47B58"),
-    shadow=rgb("0B243D"),
+    bg_center=rgb("286BB8"),
+    bg_edge=rgb("153B6E"),
+    back_card_top=rgb("3B7EC9"),
+    back_card_bottom=rgb("2761A6"),
+    back_border=rgb("EAF2FC"),
+    back_border_alpha=155,
+    front_card_top=rgb("FFFCF7"),
+    front_card_bottom=rgb("F5EFE4"),
+    front_border=rgb("F0C14B"),
+    front_border_alpha=240,
+    seven_color=rgb("154175"),
+    shadow_color=rgb("07172B"),
+    shadow_alpha_back=72,
+    shadow_alpha_front=86,
 )
 
 DARK = IconTheme(
-    background=rgb("0A1728"),
-    back_card=rgb("184D8A"),
-    back_border=rgb("DCE6F0"),
-    front_card=rgb("16263D"),
-    front_border=rgb("E7C65D"),
-    seven=rgb("F5F7FA"),
-    seven_shadow=rgb("B47A18"),
-    gold=rgb("E7C65D"),
-    copper=rgb("EF8D6C"),
-    shadow=rgb("010407"),
+    bg_center=rgb("102038"),
+    bg_edge=rgb("050B14"),
+    back_card_top=rgb("244775"),
+    back_card_bottom=rgb("183254"),
+    back_border=rgb("9CC4F0"),
+    back_border_alpha=115,
+    front_card_top=rgb("2D5282"),
+    front_card_bottom=rgb("1F3B61"),
+    front_border=rgb("F2C755"),
+    front_border_alpha=235,
+    seven_color=rgb("FFFBF2"),
+    shadow_color=rgb("010408"),
+    shadow_alpha_back=110,
+    shadow_alpha_front=125,
 )
 
 TINTED = IconTheme(
-    background=rgb("000000"),
-    back_card=rgb("727272"),
-    back_border=rgb("FFFFFF"),
-    front_card=rgb("C9C9C9"),
+    bg_center=rgb("141414"),
+    bg_edge=rgb("000000"),
+    back_card_top=rgb("6E6E6E"),
+    back_card_bottom=rgb("545454"),
+    back_border=rgb("E0E0E0"),
+    back_border_alpha=150,
+    front_card_top=rgb("F5F5F5"),
+    front_card_bottom=rgb("DCDCDC"),
     front_border=rgb("FFFFFF"),
-    seven=rgb("000000"),
-    seven_shadow=rgb("FFFFFF"),
-    gold=rgb("FFFFFF"),
-    copper=rgb("8A8A8A"),
-    shadow=rgb("000000"),
+    front_border_alpha=245,
+    seven_color=rgb("0B0B0B"),
+    shadow_color=rgb("000000"),
+    shadow_alpha_back=110,
+    shadow_alpha_front=125,
 )
 
 
-def font(size: int) -> ImageFont.FreeTypeFont:
-    return ImageFont.truetype(str(FONT_PATH), size=size)
+def make_radial_background(
+    size: int, center_rgb: tuple[int, int, int], edge_rgb: tuple[int, int, int]
+) -> Image.Image:
+    grid = 256
+    bg = Image.new("RGB", (grid, grid))
+    px = bg.load()
+    cx = grid * 0.48
+    cy = grid * 0.36
+    max_r = math.hypot(grid * 0.72, grid * 0.78)
+    for y in range(grid):
+        for x in range(grid):
+            d = math.hypot(x - cx, y - cy) / max_r
+            t = min(1.0, d * d * 0.88 + d * 0.12)
+            px[x, y] = lerp_color(center_rgb, edge_rgb, t)
+    return bg.resize((size, size), resample=Image.Resampling.BICUBIC).convert("RGBA")
+
+
+def make_vertical_gradient(
+    width: int, height: int, top_rgb: tuple[int, int, int], bottom_rgb: tuple[int, int, int]
+) -> Image.Image:
+    strip = Image.new("RGB", (1, 256))
+    px = strip.load()
+    for y in range(256):
+        px[0, y] = lerp_color(top_rgb, bottom_rgb, y / 255.0)
+    return strip.resize((width, height), resample=Image.Resampling.BILINEAR).convert("RGBA")
+
+
+def make_rounded_mask(size: tuple[int, int], box: tuple[int, int, int, int], radius: int) -> Image.Image:
+    mask = Image.new("L", size, 0)
+    draw = ImageDraw.Draw(mask)
+    draw.rounded_rectangle(box, radius=radius, fill=255)
+    return mask
 
 
 def make_card(theme: IconTheme, *, front: bool) -> Image.Image:
-    width, height, padding = 468, 650, 86
-    canvas = Image.new("RGBA", (width + padding * 2, height + padding * 2), (0, 0, 0, 0))
+    width = (516 if front else 468) * SCALE
+    height = (696 if front else 636) * SCALE
+    pad = 120 * SCALE
+    radius = (78 if front else 72) * SCALE
+    canvas_w = width + pad * 2
+    canvas_h = height + pad * 2
+    canvas = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
 
-    shadow_layer = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-    shadow_draw = ImageDraw.Draw(shadow_layer)
-    shadow_draw.rounded_rectangle(
-        (padding + 14, padding + 24, padding + width + 14, padding + height + 24),
-        radius=70,
-        fill=(*theme.shadow, 150 if front else 96),
+    # Crisp grounded shadow tuned to avoid smudging at 29pt/60pt
+    shadow = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
+    sdraw = ImageDraw.Draw(shadow)
+    base_alpha = theme.shadow_alpha_front if front else theme.shadow_alpha_back
+    sdraw.rounded_rectangle(
+        (pad + 8 * SCALE, pad + 18 * SCALE, pad + width + 8 * SCALE, pad + height + 18 * SCALE),
+        radius=radius,
+        fill=(*theme.shadow_color, base_alpha),
     )
-    shadow_layer = shadow_layer.filter(ImageFilter.GaussianBlur(radius=28))
-    canvas.alpha_composite(shadow_layer)
+    shadow = shadow.filter(ImageFilter.GaussianBlur(radius=22 * SCALE))
+    canvas.alpha_composite(shadow)
+
+    card_box = (pad, pad, pad + width, pad + height)
+    grad = make_vertical_gradient(
+        width,
+        height,
+        theme.front_card_top if front else theme.back_card_top,
+        theme.front_card_bottom if front else theme.back_card_bottom,
+    )
+    fill_layer = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
+    fill_layer.paste(grad, (pad, pad))
+    mask = make_rounded_mask((canvas_w, canvas_h), card_box, radius)
+    fill_layer.putalpha(mask)
+    canvas.alpha_composite(fill_layer)
 
     draw = ImageDraw.Draw(canvas)
-    card_box = (padding, padding, padding + width, padding + height)
-    fill = theme.front_card if front else theme.back_card
-    border = theme.front_border if front else theme.back_border
-    draw.rounded_rectangle(card_box, radius=70, fill=fill, outline=border, width=24)
+    border_width = (15 if front else 10) * SCALE
+    border_color = (
+        (*theme.front_border, theme.front_border_alpha)
+        if front
+        else (*theme.back_border, theme.back_border_alpha)
+    )
+    draw.rounded_rectangle(card_box, radius=radius, outline=border_color, width=border_width)
 
     if front:
-        draw_front_card(draw, theme, padding, width, height)
-    else:
-        draw_back_card(draw, theme, padding, width, height)
+        number_font = ImageFont.truetype(str(FONT_PATH), size=535 * SCALE)
+        cx = pad + width // 2 - 4 * SCALE
+        cy = pad + height // 2 + 12 * SCALE
+        draw.text(
+            (cx, cy),
+            "7",
+            font=number_font,
+            fill=(*theme.seven_color, 255),
+            anchor="mm",
+        )
 
     return canvas
 
 
-def draw_back_card(
-    draw: ImageDraw.ImageDraw,
-    theme: IconTheme,
-    padding: int,
-    width: int,
-    height: int,
-) -> None:
-    inset = 44
-    draw.rounded_rectangle(
-        (
-            padding + inset,
-            padding + inset,
-            padding + width - inset,
-            padding + height - inset,
-        ),
-        radius=48,
-        outline=(*theme.back_border, 220),
-        width=10,
-    )
-
-    center_x = padding + width // 2
-    center_y = padding + height // 2
-    bars = (
-        (theme.gold, 188, -48),
-        (theme.back_border, 244, 0),
-        (theme.copper, 150, 48),
-    )
-    for color, bar_width, offset_y in bars:
-        draw.rounded_rectangle(
-            (
-                center_x - bar_width // 2,
-                center_y + offset_y - 12,
-                center_x + bar_width // 2,
-                center_y + offset_y + 12,
-            ),
-            radius=12,
-            fill=color,
-        )
-
-
-def draw_front_card(
-    draw: ImageDraw.ImageDraw,
-    theme: IconTheme,
-    padding: int,
-    width: int,
-    height: int,
-) -> None:
-    number_font = font(430)
-    center_x = padding + width // 2
-    center_y = padding + height // 2 + 22
-
-    draw.text(
-        (center_x + 11, center_y + 13),
-        "7",
-        font=number_font,
-        fill=theme.seven_shadow,
-        anchor="mm",
-        stroke_width=3,
-        stroke_fill=theme.seven_shadow,
-    )
-    draw.text(
-        (center_x, center_y),
-        "7",
-        font=number_font,
-        fill=theme.seven,
-        anchor="mm",
-    )
-
-    dot_radius = 18
-    dot_x = padding + 60
-    dot_y = padding + 60
-    draw.ellipse(
-        (dot_x - dot_radius, dot_y - dot_radius, dot_x + dot_radius, dot_y + dot_radius),
-        fill=theme.copper,
-    )
-
-def rotate(image: Image.Image, degrees: float) -> Image.Image:
+def rotate_high_quality(image: Image.Image, degrees: float) -> Image.Image:
     return image.rotate(degrees, resample=Image.Resampling.BICUBIC, expand=True)
 
 
 def create_icon(theme: IconTheme) -> Image.Image:
-    base = Image.new("RGBA", (SIZE, SIZE), (*theme.background, 255))
+    canvas = make_radial_background(WORK, theme.bg_center, theme.bg_edge)
 
-    back_card = rotate(make_card(theme, front=False), -14)
-    base.alpha_composite(back_card, dest=(-24, 82))
+    back_card = rotate_high_quality(make_card(theme, front=False), 12)
+    bx = (WORK - back_card.width) // 2 - 140 * SCALE
+    by = (WORK - back_card.height) // 2 + 14 * SCALE
+    canvas.alpha_composite(back_card, dest=(bx, by))
 
-    front_card = rotate(make_card(theme, front=True), 9)
-    base.alpha_composite(front_card, dest=(284, 62))
+    front_card = rotate_high_quality(make_card(theme, front=True), -6)
+    fx = (WORK - front_card.width) // 2 + 74 * SCALE
+    fy = (WORK - front_card.height) // 2 - 2 * SCALE
+    canvas.alpha_composite(front_card, dest=(fx, fy))
 
-    return base.convert("RGB")
+    return canvas.convert("RGB").resize((SIZE, SIZE), resample=Image.Resampling.LANCZOS)
 
 
 def save_icon(image: Image.Image, destination: Path) -> None:
@@ -213,7 +236,6 @@ def main() -> None:
     save_icon(create_icon(LIGHT), LIGHT_OUT)
     save_icon(create_icon(DARK), DARK_OUT)
     save_icon(create_icon(TINTED), TINTED_OUT)
-
     print(f"Wrote {LIGHT_OUT}")
     print(f"Wrote {DARK_OUT}")
     print(f"Wrote {TINTED_OUT}")

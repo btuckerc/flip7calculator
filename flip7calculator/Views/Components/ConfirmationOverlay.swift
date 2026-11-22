@@ -16,11 +16,15 @@ struct ConfirmationOverlay: View {
     let onPrimary: () -> Void
     let onSecondary: () -> Void
     let onDismiss: () -> Void
+
     @Environment(\.visualTheme) private var visualTheme
+    @Environment(\.appAccentOverride) private var appAccentOverride
     @Environment(\.colorScheme) private var colorScheme
-    
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
+    @AppStorage("reduceAnimations") private var reduceAnimations: Bool = false
+
     @State private var isPresented = false
-    
+
     init(
         title: String,
         message: String,
@@ -42,91 +46,100 @@ struct ConfirmationOverlay: View {
     }
 
     private var accentColor: Color {
-        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme)
+        DesignColor.color(.brandPrimary, theme: visualTheme, colorScheme: colorScheme, accentOverride: appAccentOverride)
     }
-    
+
+    private var dangerColor: Color {
+        DesignColor.color(.stateDanger, theme: visualTheme, colorScheme: colorScheme)
+    }
+
+    private var isReducedMotion: Bool {
+        DesignMotion.shouldReduceMotion(
+            reduceAnimations: reduceAnimations,
+            accessibilityReduceMotion: accessibilityReduceMotion
+        )
+    }
+
     var body: some View {
         ZStack {
-            // Dimmed backdrop
-            Color.black.opacity(0.4)
+            Color.black.opacity(isPresented ? 0.52 : 0)
                 .ignoresSafeArea()
                 .onTapGesture {
                     onDismiss()
                 }
-            
-            // Centered card
+                .accessibilityHidden(true)
+
             VStack(spacing: 0) {
-                // Title
                 Text(title)
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundStyle(.primary)
+                    .font(.system(.title3, design: .rounded, weight: .bold))
+                    .foregroundStyle(DesignColor.color(.textPrimary, theme: visualTheme, colorScheme: colorScheme))
                     .multilineTextAlignment(.center)
                     .padding(.top, 24)
                     .padding(.horizontal, 24)
-                
-                // Message
-                Text(message)
-                    .font(.system(size: 15, weight: .regular, design: .rounded))
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.top, 12)
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 24)
-                
+
+                ViewThatFits(in: .vertical) {
+                    messageContent
+                    ScrollView {
+                        messageContent
+                    }
+                    .frame(maxHeight: 240)
+                }
+
                 Divider()
-                
-                // Buttons
+                    .overlay(visualTheme == .v2 ? AppBrandPalette.cardBorder(colorScheme: colorScheme) : Color(.separator))
+
                 HStack(spacing: 0) {
-                    // Secondary button (Cancel)
                     Button(action: {
                         onSecondary()
                         onDismiss()
                     }) {
                         Text(secondaryActionTitle)
-                            .font(.system(size: 17, weight: .regular, design: .rounded))
-                            .foregroundStyle(accentColor)
+                            .font(.system(.body, design: .rounded, weight: .medium))
+                            .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
                             .frame(maxWidth: .infinity)
-                            .frame(height: 56)
+                            .frame(minHeight: 52)
                     }
-                    
-                    if primaryActionRole == .destructive {
-                        Divider()
-                            .frame(height: 56)
-                    }
-                    
-                    // Primary button
+
+                    Divider()
+                        .overlay(visualTheme == .v2 ? AppBrandPalette.cardBorder(colorScheme: colorScheme) : Color(.separator))
+                        .frame(height: 52)
+
                     Button(action: {
                         onPrimary()
                         onDismiss()
                     }) {
                         Text(primaryActionTitle)
-                            .font(.system(size: 17, weight: .semibold, design: .rounded))
-                            .foregroundStyle(primaryActionRole == .destructive ? .red : accentColor)
+                            .font(.system(.body, design: .rounded, weight: .semibold))
+                            .foregroundStyle(primaryActionRole == .destructive ? dangerColor : accentColor)
                             .frame(maxWidth: .infinity)
-                            .frame(height: 56)
+                            .frame(minHeight: 52)
                     }
                 }
             }
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(.regularMaterial)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color(.separator).opacity(0.2), lineWidth: 0.5)
-                    )
-            )
-            .frame(maxWidth: 320)
-            .padding(.horizontal, 40)
-            .scaleEffect(isPresented ? 1.0 : 0.9)
+            .cardSurface(cornerRadius: 20)
+            .frame(maxWidth: 332)
+            .padding(.horizontal, 32)
+            .scaleEffect(isPresented || isReducedMotion ? 1.0 : 0.96)
+            .offset(y: isPresented || isReducedMotion ? 0 : 8)
             .opacity(isPresented ? 1.0 : 0.0)
+            .accessibilityAddTraits(.isModal)
         }
-        .transition(.scale(scale: 0.9).combined(with: .opacity))
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isModal)
         .onAppear {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            withAnimation(DesignMotion.animation(.normal, reduced: isReducedMotion)) {
                 isPresented = true
             }
         }
+    }
+
+    private var messageContent: some View {
+        Text(message)
+            .font(.system(.subheadline, design: .rounded))
+            .foregroundStyle(DesignColor.color(.textSecondary, theme: visualTheme, colorScheme: colorScheme))
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity)
+            .padding(.top, 10)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 22)
     }
 }

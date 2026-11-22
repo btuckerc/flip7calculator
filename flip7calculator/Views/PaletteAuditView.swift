@@ -6,6 +6,7 @@
 //  Shows how colors look in tiles and charts, plus distance metrics.
 //
 
+#if DEBUG
 import SwiftUI
 
 struct PaletteAuditView: View {
@@ -315,3 +316,4 @@ private struct AuditTilePreview: View {
 #Preview {
     PaletteAuditView()
 }
+#endif

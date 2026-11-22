@@ -10,6 +10,7 @@ import SwiftUI
 struct DeckManagementView: View {
     @Bindable var viewModel: GameViewModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @AppStorage("defaultGameMode") private var defaultGameModeRaw: String = GameMode.classic.rawValue
     @AppStorage("defaultBrutalMode") private var defaultBrutalMode: Bool = ScoringRules.defaultBrutalMode
     @State private var deckProfile: DeckProfile = .standard
@@ -42,6 +43,9 @@ struct DeckManagementView: View {
             actionCardsSection
             resetSection
         }
+        .scrollContentBackground(.hidden)
+        .listStyle(.insetGrouped)
+        .appChromeBackground()
         .navigationTitle("Deck Profile")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

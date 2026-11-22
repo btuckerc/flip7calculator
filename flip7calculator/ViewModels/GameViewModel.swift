@@ -8,27 +8,125 @@
 import Foundation
 import SwiftUI
 
+/// Precomputed per-round remaining deck capacities so keypad rendering and
+/// mutation guards stay O(1) instead of rescanning every player's hand per chip.
+struct RoundDeckAvailability: Equatable {
+    var numbers: [Int: Int] = [:]
+    var addModifiers: [Int: Int] = [:]
+    var subtractModifiers: [Int: Int] = [:]
+    var specialNumbers: [SpecialNumberCard: Int] = [:]
+    var x2: Int = 0
+    var divideByTwo: Int = 0
+
+    static let empty = RoundDeckAvailability()
+
+    static func compute(for game: Game?) -> RoundDeckAvailability {
+        guard let game else { return .empty }
+
+        var usedNumbers: [Int: Int] = [:]
+        var usedAddMods: [Int: Int] = [:]
+        var usedSubtractMods: [Int: Int] = [:]
+        var usedSpecials: [SpecialNumberCard: Int] = [:]
+        var usedX2 = 0
+        var usedDiv2 = 0
+
+        for player in game.players {
+            let hand = player.currentRound.hand
+            for number in hand.selectedNumbers {
+                usedNumbers[number, default: 0] += 1
+            }
+            for (value, count) in hand.addMods {
+                usedAddMods[value, default: 0] += count
+            }
+            for (value, count) in hand.subtractMods {
+                usedSubtractMods[value, default: 0] += count
+            }
+            for special in hand.specialNumbers {
+                usedSpecials[special, default: 0] += 1
+            }
+            usedX2 += hand.x2Count
+            usedDiv2 += hand.divideByTwoCount
+        }
+
+        let profile = game.deckProfile
+        var remaining = RoundDeckAvailability()
+        remaining.numbers.reserveCapacity(profile.numberCardCounts.count)
+        remaining.addModifiers.reserveCapacity(profile.addModifierCounts.count)
+        remaining.subtractModifiers.reserveCapacity(profile.subtractModifierCounts.count)
+        remaining.specialNumbers.reserveCapacity(SpecialNumberCard.allCases.count)
+
+        for (number, deckCount) in profile.numberCardCounts {
+            remaining.numbers[number] = max(0, deckCount - (usedNumbers[number] ?? 0))
+        }
+        for (value, deckCount) in profile.addModifierCounts {
+            remaining.addModifiers[value] = max(0, deckCount - (usedAddMods[value] ?? 0))
+        }
+        for (value, deckCount) in profile.subtractModifierCounts {
+            remaining.subtractModifiers[value] = max(0, deckCount - (usedSubtractMods[value] ?? 0))
+        }
+        for special in SpecialNumberCard.allCases {
+            let deckCount = profile.specialNumberCount(special)
+            remaining.specialNumbers[special] = max(0, deckCount - (usedSpecials[special] ?? 0))
+        }
+        remaining.x2 = max(0, profile.x2Count - usedX2)
+        remaining.divideByTwo = max(0, profile.divideByTwoCount - usedDiv2)
+        return remaining
+    }
+
+    func remainingNumberCount(_ number: Int) -> Int {
+        numbers[number] ?? 0
+    }
+
+    func canAddNumber(_ number: Int, to hand: RoundHand) -> Bool {
+        !hand.selectedNumbers.contains(number) && (numbers[number] ?? 0) > 0
+    }
+
+    func canAddSpecialNumber(_ card: SpecialNumberCard, to hand: RoundHand) -> Bool {
+        !hand.specialNumbers.contains(card) && (specialNumbers[card] ?? 0) > 0
+    }
+
+    func canAddModifier(_ value: Int) -> Bool {
+        (addModifiers[value] ?? 0) > 0
+    }
+
+    func canAddSubtractModifier(_ value: Int) -> Bool {
+        (subtractModifiers[value] ?? 0) > 0
+    }
+}
+
 @Observable
 class GameViewModel {
+    private static let persistenceKey = "currentGame"
+    private static let encoder = JSONEncoder()
+    private static let decoder = JSONDecoder()
+
     var game: Game? {
         didSet {
-            saveGame()
+            roundAvailability = RoundDeckAvailability.compute(for: game)
+            if !isLoading {
+                saveGameIfNeeded()
+            }
         }
     }
-    
+
+    private(set) var roundAvailability: RoundDeckAvailability = .empty
+
     private var undoStack: [Game] = []
     private var redoStack: [Game] = []
-    private let maxUndoStackSize = 50
-    private let defaults: UserDefaults
+    @ObservationIgnored private let maxUndoStackSize = 50
+    @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private var isLoading = false
+    @ObservationIgnored private var lastPersistedGame: Game?
+
     var liveErrorMessage: String?
-    
+
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         loadGame()
     }
-    
+
     // MARK: - Game Management
-    
+
     @discardableResult
     func startNewGame(
         players: [String],
@@ -58,36 +156,32 @@ class GameViewModel {
             }
         }
 
-        game = newGame
         undoStack.removeAll()
         redoStack.removeAll()
         liveErrorMessage = nil
-        saveGame()
+        game = newGame
         return true
     }
-    
+
     func endGame() {
-        game = nil
         undoStack.removeAll()
         redoStack.removeAll()
-        saveGame()
+        liveErrorMessage = nil
+        game = nil
     }
-    
-    /// Restarts the game with the same players, target score, and deck profile
+
+    /// Restarts the game with the same players, target score, and deck profile.
     func restartGameKeepingSettings() {
         guard let currentGame = game else { return }
-        
-        // Preserve current settings
-        let playerNames = currentGame.players.map { $0.name }
+
+        let playerNames = currentGame.players.map(\.name)
         let targetScore = currentGame.targetScore
         let deckProfile = currentGame.deckProfile
         let scoringRules = currentGame.scoringRules
         let playStyle = currentGame.playStyle
-        
-        // Create fresh players with the same names
+
         let freshPlayers = playerNames.map { Player(name: $0) }
-        
-        // Start new game with preserved settings
+
         var restartedGame = Game(
             players: freshPlayers,
             targetScore: targetScore,
@@ -106,11 +200,10 @@ class GameViewModel {
                 return
             }
         }
-        game = restartedGame
         undoStack.removeAll()
         redoStack.removeAll()
         liveErrorMessage = nil
-        saveGame()
+        game = restartedGame
     }
 
     func switchGameMode(
@@ -208,189 +301,98 @@ class GameViewModel {
         reconcileBrutalBonusRedirects(in: &currentGame)
         game = currentGame
     }
-    
+
     // MARK: - Round Management
-    
+
     func startNewRound() {
         guard var currentGame = game, currentGame.playStyle == .scorekeeper else { return }
         saveStateForUndo()
         currentGame.startNewRound()
         game = currentGame
     }
-    
+
     func endRound() {
-        guard var currentGame = game, currentGame.playStyle == .scorekeeper else { return }
+        guard var currentGame = game,
+              currentGame.playStyle == .scorekeeper,
+              !currentGame.isCurrentRoundFinalized else { return }
         saveStateForUndo()
         currentGame.endRound()
         game = currentGame
     }
-    
-    // MARK: - Deck Management
-    
-    private struct RoundCardCounts {
-        var numbers: [Int: Int] = [:]
-        var addModifiers: [Int: Int] = [:]
-        var subtractModifiers: [Int: Int] = [:]
-        var specialNumbers: [SpecialNumberCard: Int] = [:]
-        var x2 = 0
-        var divideByTwo = 0
-    }
+
+    // MARK: - Deck Availability (O(1) via cached snapshot)
 
     private func availableNumberCards(in profile: DeckProfile) -> Set<Int> {
         Set(profile.numberCardCounts.compactMap { number, count in count > 0 ? number : nil })
     }
 
-    /// Computes score-relevant cards still in front of players this round.
-    private func currentRoundUsedCounts() -> RoundCardCounts {
-        guard let currentGame = game else {
-            return RoundCardCounts()
-        }
-        
-        var counts = RoundCardCounts()
-        
-        for player in currentGame.players {
-            for number in player.currentRound.hand.selectedNumbers {
-                counts.numbers[number, default: 0] += 1
-            }
-
-            for (value, count) in player.currentRound.hand.addMods {
-                counts.addModifiers[value, default: 0] += count
-            }
-
-            for (value, count) in player.currentRound.hand.subtractMods {
-                counts.subtractModifiers[value, default: 0] += count
-            }
-
-            for specialNumber in player.currentRound.hand.specialNumbers {
-                counts.specialNumbers[specialNumber, default: 0] += 1
-            }
-
-            counts.x2 += player.currentRound.hand.x2Count
-            counts.divideByTwo += player.currentRound.hand.divideByTwoCount
-        }
-        
-        return counts
-    }
-    
-    private func currentRoundRemainingCounts() -> RoundCardCounts {
-        guard let currentGame = game else {
-            return RoundCardCounts()
-        }
-        
-        let used = currentRoundUsedCounts()
-        let profile = currentGame.deckProfile
-        var remaining = RoundCardCounts()
-        
-        for (number, deckCount) in profile.numberCardCounts {
-            remaining.numbers[number] = max(0, deckCount - (used.numbers[number] ?? 0))
-        }
-
-        for (value, deckCount) in profile.addModifierCounts {
-            remaining.addModifiers[value] = max(0, deckCount - (used.addModifiers[value] ?? 0))
-        }
-
-        for (value, deckCount) in profile.subtractModifierCounts {
-            remaining.subtractModifiers[value] = max(0, deckCount - (used.subtractModifiers[value] ?? 0))
-        }
-
-        for specialNumber in SpecialNumberCard.allCases {
-            let deckCount = profile.specialNumberCount(specialNumber)
-            remaining.specialNumbers[specialNumber] = max(
-                0,
-                deckCount - (used.specialNumbers[specialNumber] ?? 0)
-            )
-        }
-
-        remaining.x2 = max(0, profile.x2Count - used.x2)
-        remaining.divideByTwo = max(0, profile.divideByTwoCount - used.divideByTwo)
-        return remaining
-    }
-    
-    /// Checks if a number card can be added (either not already selected by this player, or if already selected, there are remaining copies)
     func canAddNumber(_ number: Int, toPlayer playerId: UUID) -> Bool {
         guard let currentGame = game,
               let player = currentGame.players.first(where: { $0.id == playerId }) else {
             return false
         }
-        
-        // If player already has this number, they can't add another (duplicate = bust)
-        if player.currentRound.hand.selectedNumbers.contains(number) {
-            return false
-        }
-        
-        // Check if there are remaining copies in the deck
-        let remaining = currentRoundRemainingCounts()
-        return (remaining.numbers[number] ?? 0) > 0
+        return roundAvailability.canAddNumber(number, to: player.currentRound.hand)
     }
-    
-    /// Checks if a modifier card can be added
+
     func canAddModifier(_ value: Int) -> Bool {
-        let remaining = currentRoundRemainingCounts()
-        return (remaining.addModifiers[value] ?? 0) > 0
+        roundAvailability.canAddModifier(value)
     }
-    
-    /// Checks if an x2 card can be added
+
     func canAddX2() -> Bool {
-        let remaining = currentRoundRemainingCounts()
-        return remaining.x2 > 0
+        roundAvailability.x2 > 0
     }
 
     func canAddSubtractModifier(_ value: Int) -> Bool {
-        (currentRoundRemainingCounts().subtractModifiers[value] ?? 0) > 0
+        roundAvailability.canAddSubtractModifier(value)
     }
 
     func canAddDivideByTwo() -> Bool {
-        currentRoundRemainingCounts().divideByTwo > 0
+        roundAvailability.divideByTwo > 0
     }
 
     func canAddSpecialNumber(_ card: SpecialNumberCard, toPlayer playerId: UUID) -> Bool {
         guard let currentGame = game,
-              let player = currentGame.players.first(where: { $0.id == playerId }),
-              !player.currentRound.hand.specialNumbers.contains(card) else {
+              let player = currentGame.players.first(where: { $0.id == playerId }) else {
             return false
         }
-        return (currentRoundRemainingCounts().specialNumbers[card] ?? 0) > 0
+        return roundAvailability.canAddSpecialNumber(card, to: player.currentRound.hand)
     }
-    
+
     // MARK: - Player Actions
-    
+
     func addCardToPlayer(_ playerId: UUID, number: Int) -> Bool {
         guard var currentGame = game,
               currentGame.playStyle == .scorekeeper,
               let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
             return false
         }
-        
-        // Check if we can add this card (enforce deck limits)
-        if !canAddNumber(number, toPlayer: playerId) {
+
+        guard roundAvailability.canAddNumber(number, to: currentGame.players[playerIndex].currentRound.hand) else {
             return false
         }
-        
+
         saveStateForUndo()
-        
+
         let isDuplicate = currentGame.players[playerIndex].currentRound.hand.addNumber(number)
-        
+
         if isDuplicate {
             currentGame.players[playerIndex].currentRound.state = .busted
         }
-        
+
         game = currentGame
         return isDuplicate
     }
-    
+
     func removeCardFromPlayer(_ playerId: UUID, number: Int) {
         guard var currentGame = game,
               currentGame.playStyle == .scorekeeper,
               let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
             return
         }
-        
+
         saveStateForUndo()
         currentGame.players[playerIndex].currentRound.hand.removeNumber(number)
         reconcileBrutalBonusRedirects(in: &currentGame)
-        // Note: Busted state is sticky - removing cards does not auto-reset to inRound.
-        // User must explicitly un-bust to continue editing.
-        
         game = currentGame
     }
 
@@ -398,7 +400,7 @@ class GameViewModel {
         guard var currentGame = game,
               currentGame.playStyle == .scorekeeper,
               let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }),
-              canAddSpecialNumber(card, toPlayer: playerId) else {
+              roundAvailability.canAddSpecialNumber(card, to: currentGame.players[playerIndex].currentRound.hand) else {
             return
         }
 
@@ -421,31 +423,28 @@ class GameViewModel {
         reconcileBrutalBonusRedirects(in: &currentGame)
         game = currentGame
     }
-    
+
     func addModifierToPlayer(_ playerId: UUID, value: Int) {
         guard var currentGame = game,
               currentGame.playStyle == .scorekeeper,
-              let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
+              let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }),
+              canAddModifier(value) else {
             return
         }
-        
-        // Check if we can add this modifier (enforce deck limits)
-        if !canAddModifier(value) {
-            return
-        }
-        
+
         saveStateForUndo()
         currentGame.players[playerIndex].currentRound.hand.addModifier(value)
         game = currentGame
     }
-    
+
     func removeModifierFromPlayer(_ playerId: UUID, value: Int) {
         guard var currentGame = game,
               currentGame.playStyle == .scorekeeper,
-              let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
+              let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }),
+              (currentGame.players[playerIndex].currentRound.hand.addMods[value] ?? 0) > 0 else {
             return
         }
-        
+
         saveStateForUndo()
         currentGame.players[playerIndex].currentRound.hand.removeModifier(value)
         game = currentGame
@@ -467,7 +466,8 @@ class GameViewModel {
     func removeSubtractModifierFromPlayer(_ playerId: UUID, value: Int) {
         guard var currentGame = game,
               currentGame.playStyle == .scorekeeper,
-              let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
+              let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }),
+              (currentGame.players[playerIndex].currentRound.hand.subtractMods[value] ?? 0) > 0 else {
             return
         }
 
@@ -475,31 +475,28 @@ class GameViewModel {
         currentGame.players[playerIndex].currentRound.hand.removeSubtractModifier(value)
         game = currentGame
     }
-    
+
     func addX2ToPlayer(_ playerId: UUID) {
         guard var currentGame = game,
               currentGame.playStyle == .scorekeeper,
-              let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
+              let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }),
+              canAddX2() else {
             return
         }
-        
-        // Check if we can add x2 (enforce deck limits)
-        if !canAddX2() {
-            return
-        }
-        
+
         saveStateForUndo()
         currentGame.players[playerIndex].currentRound.hand.addX2()
         game = currentGame
     }
-    
+
     func removeX2FromPlayer(_ playerId: UUID) {
         guard var currentGame = game,
               currentGame.playStyle == .scorekeeper,
-              let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
+              let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }),
+              currentGame.players[playerIndex].currentRound.hand.x2Count > 0 else {
             return
         }
-        
+
         saveStateForUndo()
         currentGame.players[playerIndex].currentRound.hand.removeX2()
         game = currentGame
@@ -521,7 +518,8 @@ class GameViewModel {
     func removeDivideByTwoFromPlayer(_ playerId: UUID) {
         guard var currentGame = game,
               currentGame.playStyle == .scorekeeper,
-              let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
+              let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }),
+              currentGame.players[playerIndex].currentRound.hand.divideByTwoCount > 0 else {
             return
         }
 
@@ -529,107 +527,99 @@ class GameViewModel {
         currentGame.players[playerIndex].currentRound.hand.removeDivideByTwo()
         game = currentGame
     }
-    
+
     func setPlayerState(_ playerId: UUID, state: PlayerRoundState) {
         guard var currentGame = game,
               currentGame.playStyle == .scorekeeper,
-              let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
+              let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }),
+              currentGame.players[playerIndex].currentRound.state != state else {
             return
         }
-        
+
         saveStateForUndo()
         currentGame.players[playerIndex].currentRound.state = state
         game = currentGame
     }
-    
+
     func bankPlayer(_ playerId: UUID) {
         setPlayerState(playerId, state: .banked)
     }
-    
+
     func bustPlayer(_ playerId: UUID) {
         setPlayerState(playerId, state: .busted)
     }
-    
+
     func freezePlayer(_ playerId: UUID) {
         setPlayerState(playerId, state: .frozen)
     }
-    
+
     func clearPlayerRound(_ playerId: UUID) {
         guard var currentGame = game,
               currentGame.playStyle == .scorekeeper,
               let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
             return
         }
-        
+
         saveStateForUndo()
         clearBrutalBonusRedirect(forPlayerAt: playerIndex, in: &currentGame)
         currentGame.players[playerIndex].clearRound()
         game = currentGame
     }
-    
-    /// Clears the player's current round hand and manual override, but preserves state
-    /// This is used by the "Clear" button in the calculator
+
+    /// Clears the player's current round hand and manual override, preserving state.
     func clearPlayerRoundEntry(_ playerId: UUID) {
         guard var currentGame = game,
               currentGame.playStyle == .scorekeeper,
               let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
             return
         }
-        
+
         let hand = currentGame.players[playerIndex].currentRound.hand
         let hasOverride = currentGame.players[playerIndex].currentRound.manualScoreOverride != nil
-        
-        // Only save undo state if there's something to clear
+
         guard !hand.isEmpty || hasOverride else {
             return
         }
-        
+
         saveStateForUndo()
-        
-        // Clear hand (numbers, modifiers, x2) but preserve state
         currentGame.players[playerIndex].currentRound.hand = RoundHand()
         currentGame.players[playerIndex].currentRound.manualScoreOverride = nil
         reconcileBrutalBonusRedirects(in: &currentGame)
-        
         game = currentGame
     }
-    
+
     // MARK: - Manual Score Override
-    
-    /// Sets a manual score override for the player's current round
+
     func setManualScoreOverride(_ playerId: UUID, score: Int) {
         guard var currentGame = game,
               currentGame.playStyle == .scorekeeper,
               let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
             return
         }
-        
+
+        let clampedScore = currentGame.scoringRules.brutalMode ? score : max(0, score)
+        guard currentGame.players[playerIndex].currentRound.manualScoreOverride != clampedScore else {
+            return
+        }
+
         saveStateForUndo()
-        currentGame.players[playerIndex].currentRound.manualScoreOverride = currentGame.scoringRules.brutalMode
-            ? score
-            : max(0, score)
+        currentGame.players[playerIndex].currentRound.manualScoreOverride = clampedScore
         game = currentGame
     }
-    
-    /// Clears the manual score override for the player's current round
+
     func clearManualScoreOverride(_ playerId: UUID) {
         guard var currentGame = game,
               currentGame.playStyle == .scorekeeper,
-              let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }) else {
+              let playerIndex = currentGame.players.firstIndex(where: { $0.id == playerId }),
+              currentGame.players[playerIndex].currentRound.manualScoreOverride != nil else {
             return
         }
-        
-        // Only save undo state if there's actually an override to clear
-        guard currentGame.players[playerIndex].currentRound.manualScoreOverride != nil else {
-            return
-        }
-        
+
         saveStateForUndo()
         currentGame.players[playerIndex].currentRound.manualScoreOverride = nil
         game = currentGame
     }
-    
-    /// Checks if a player has a manual score override set
+
     func hasManualScoreOverride(_ playerId: UUID) -> Bool {
         guard let currentGame = game,
               let player = currentGame.players.first(where: { $0.id == playerId }) else {
@@ -637,10 +627,9 @@ class GameViewModel {
         }
         return player.currentRound.manualScoreOverride != nil
     }
-    
+
     // MARK: - Deck Profile Management
-    
-    /// Updates the deck profile for the active game
+
     func updateDeckProfile(_ newProfile: DeckProfile) {
         guard var currentGame = game, currentGame.playStyle == .scorekeeper else { return }
         saveStateForUndo()
@@ -677,94 +666,75 @@ class GameViewModel {
 
         game = currentGame
     }
-    
+
     // MARK: - Target Score Management
-    
+
     func updateTargetScore(_ newScore: Int) {
         guard var currentGame = game, currentGame.playStyle == .scorekeeper else { return }
+        let clamped = max(50, min(5000, newScore))
+        guard currentGame.targetScore != clamped else { return }
         saveStateForUndo()
-        currentGame.targetScore = max(50, min(5000, newScore))
+        currentGame.targetScore = clamped
         game = currentGame
     }
-    
+
     // MARK: - Player Management
-    
-    /// Reorders players in the active game based on the provided order of player IDs
+
     func reorderPlayers(playerIds: [UUID]) {
         guard var currentGame = game, currentGame.playStyle == .scorekeeper else { return }
         saveStateForUndo()
-        
-        // Create a dictionary mapping player IDs to players
-        var playerMap: [UUID: Player] = [:]
-        for player in currentGame.players {
-            playerMap[player.id] = player
-        }
-        
-        // Reorder players based on the provided order
+
+        let playerMap = Dictionary(uniqueKeysWithValues: currentGame.players.map { ($0.id, $0) })
         var reorderedPlayers: [Player] = []
+        reorderedPlayers.reserveCapacity(currentGame.players.count)
+
+        let idSet = Set(playerIds)
         for id in playerIds {
             if let player = playerMap[id] {
                 reorderedPlayers.append(player)
             }
         }
-        
-        // Add any players not in the new order (shouldn't happen, but safety check)
-        for player in currentGame.players {
-            if !playerIds.contains(player.id) {
-                reorderedPlayers.append(player)
-            }
+        for player in currentGame.players where !idSet.contains(player.id) {
+            reorderedPlayers.append(player)
         }
-        
+
         currentGame.players = reorderedPlayers
         game = currentGame
     }
-    
-    /// Updates player names in the active game based on the provided mapping
+
     func updatePlayerNames(nameMap: [UUID: String]) {
         guard var currentGame = game, currentGame.playStyle == .scorekeeper else { return }
         saveStateForUndo()
-        
+
         for index in currentGame.players.indices {
             if let newName = nameMap[currentGame.players[index].id] {
                 currentGame.players[index].name = newName
             }
         }
-        
+
         game = currentGame
     }
-    
-    /// Updates players in the active game: reorders, updates names, adds new players, removes players
+
     func updatePlayers(playerRows: [PlayerNameRow]) {
         guard var currentGame = game, currentGame.playStyle == .scorekeeper else { return }
         saveStateForUndo()
-        
-        // Create maps for lookup
-        var existingPlayerMap: [UUID: Player] = [:]
-        for player in currentGame.players {
-            existingPlayerMap[player.id] = player
-        }
-        
-        // Build new players array in the order specified by playerRows
+
+        let existingPlayerMap = Dictionary(uniqueKeysWithValues: currentGame.players.map { ($0.id, $0) })
         var newPlayers: [Player] = []
-        var nameMap: [UUID: String] = [:]
-        
+        newPlayers.reserveCapacity(playerRows.count)
+
         for row in playerRows {
             let trimmedName = row.name.trimmingCharacters(in: .whitespaces)
             let finalName = trimmedName.isEmpty ? "Player \(newPlayers.count + 1)" : trimmedName
-            
-            if let existingPlayer = existingPlayerMap[row.id] {
-                // Existing player - update name and add to new array
-                var updatedPlayer = existingPlayer
-                updatedPlayer.name = finalName
-                newPlayers.append(updatedPlayer)
+
+            if var existingPlayer = existingPlayerMap[row.id] {
+                existingPlayer.name = finalName
+                newPlayers.append(existingPlayer)
             } else {
-                // New player - create new Player
-                let newPlayer = Player(name: finalName)
-                newPlayers.append(newPlayer)
+                newPlayers.append(Player(name: finalName))
             }
-            nameMap[row.id] = finalName
         }
-        
+
         currentGame.players = newPlayers
         let validPlayerIds = Set(newPlayers.map(\.id))
         for progressIndex in currentGame.modeRoundProgress.indices {
@@ -838,7 +808,8 @@ class GameViewModel {
 
     @discardableResult
     func finishLiveGameRound() -> Bool {
-        applyLiveCommand(.finishGame)
+        guard let currentGame = game, !currentGame.isCurrentRoundFinalized else { return false }
+        return applyLiveCommand(.finishGame)
     }
 
     var liveEligibleTargets: [Player] {
@@ -850,10 +821,10 @@ class GameViewModel {
         guard var currentGame = game, currentGame.playStyle == .digitalDealer else { return }
         currentGame.playStyle = .scorekeeper
         currentGame.liveSession = nil
-        game = currentGame
         undoStack.removeAll()
         redoStack.removeAll()
         liveErrorMessage = nil
+        game = currentGame
     }
 
     @discardableResult
@@ -866,77 +837,80 @@ class GameViewModel {
         do {
             try LiveGameReducer.apply(command, to: &updatedGame)
             saveStateForUndo()
-            game = updatedGame
             liveErrorMessage = nil
+            game = updatedGame
             return true
         } catch {
             liveErrorMessage = error.localizedDescription
             return false
         }
     }
-    
+
     // MARK: - Undo/Redo
-    
+
     func undo() {
         guard !undoStack.isEmpty, let currentGame = game else { return }
-        // Save current state to redo stack
         redoStack.append(currentGame)
         if redoStack.count > maxUndoStackSize {
             redoStack.removeFirst()
         }
-        // Restore previous state
         game = undoStack.removeLast()
     }
-    
+
     func redo() {
         guard !redoStack.isEmpty else { return }
-        // Save current state to undo stack
         if let currentGame = game {
             undoStack.append(currentGame)
             if undoStack.count > maxUndoStackSize {
                 undoStack.removeFirst()
             }
         }
-        // Restore next state
         game = redoStack.removeLast()
     }
-    
+
     var canUndo: Bool {
         !undoStack.isEmpty
     }
-    
+
     var canRedo: Bool {
         !redoStack.isEmpty
     }
-    
+
     private func saveStateForUndo() {
         guard let currentGame = game else { return }
         undoStack.append(currentGame)
         if undoStack.count > maxUndoStackSize {
             undoStack.removeFirst()
         }
-        // Clear redo stack when new action is taken
         redoStack.removeAll()
     }
-    
+
     // MARK: - Persistence
-    
-    private func saveGame() {
-        guard let game = game else {
-            defaults.removeObject(forKey: "currentGame")
+
+    private func saveGameIfNeeded() {
+        if game == lastPersistedGame {
             return
         }
-        
-        if let encoded = try? JSONEncoder().encode(game) {
-            defaults.set(encoded, forKey: "currentGame")
+        lastPersistedGame = game
+
+        guard let game else {
+            defaults.removeObject(forKey: Self.persistenceKey)
+            return
+        }
+
+        if let encoded = try? Self.encoder.encode(game) {
+            defaults.set(encoded, forKey: Self.persistenceKey)
         }
     }
-    
+
     private func loadGame() {
-        guard let data = defaults.data(forKey: "currentGame"),
-              let decoded = try? JSONDecoder().decode(Game.self, from: data) else {
+        guard let data = defaults.data(forKey: Self.persistenceKey),
+              let decoded = try? Self.decoder.decode(Game.self, from: data) else {
             return
         }
+        isLoading = true
+        lastPersistedGame = decoded
         game = decoded
+        isLoading = false
     }
 }
