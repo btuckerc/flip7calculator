@@ -126,6 +126,13 @@ The version `1.4` screenshots are composed on macOS from deterministic real app 
 3. `03-stats-charts.png` — Stats after every game
 4. `04-game-over.png` — Final standings
 
+### Header & Search Results Creative Assets (iOS 27 / iPadOS 27)
+
+Text-free opaque RGB PNGs shared across `en-US` and `es-MX`, rendered via [render-appstore-creative.py](scripts/render-appstore-creative.py) using the same dark icon card geometry and twilight palette:
+
+- **Product Page Header** (`3840 x 1646`, 21:9): `AppStoreAssets/1.4/Creative/header-3840x1646.png` (`PRODUCT_PAGE_HEADER_ASSET`)
+- **Search Results Asset** (`3840 x 2560`, 3:2): `AppStoreAssets/1.4/Creative/search-3840x2560.png` (`APP_STORE_SEARCH_RESULTS_ASSET`)
+
 Source asset documentation lives in [AppStoreAssets/1.4/README.md](AppStoreAssets/1.4/README.md).
 
 ## App Icon

@@ -86,6 +86,27 @@ check_screenshot_directory() {
 check_screenshot_directory "$ASSETS_DIR/iPhone-6.9" 1320 2868
 check_screenshot_directory "$ASSETS_DIR/iPad-13" 2064 2752
 
+check_opaque_creative() {
+  local path="$1"
+  local expected_width="$2"
+  local expected_height="$3"
+  [[ -f "$path" ]] || fail "missing creative asset: $path"
+  local properties width height alpha
+  properties="$(sips -g pixelWidth -g pixelHeight -g hasAlpha "$path" 2>/dev/null)"
+  width="$(awk '/pixelWidth:/ {print $2}' <<<"$properties")"
+  height="$(awk '/pixelHeight:/ {print $2}' <<<"$properties")"
+  alpha="$(awk '/hasAlpha:/ {print $2}' <<<"$properties")"
+  [[ "$width" == "$expected_width" && "$height" == "$expected_height" ]] \
+    || fail "$(basename "$path") is ${width}x${height}; expected ${expected_width}x${expected_height}"
+  [[ "$alpha" == no ]] || fail "$(basename "$path") must not contain transparency"
+  pass "$(basename "$path") matches opaque ${expected_width}x${expected_height}"
+}
+
+if [[ -d "$ASSETS_DIR/Creative" ]]; then
+  check_opaque_creative "$ASSETS_DIR/Creative/header-3840x1646.png" 3840 1646
+  check_opaque_creative "$ASSETS_DIR/Creative/search-3840x2560.png" 3840 2560
+fi
+
 human_keywords="$(awk '
   /^## Keywords$/ { in_keywords = 1; next }
   in_keywords && /^```text$/ { getline; print; exit }
